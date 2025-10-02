@@ -65,7 +65,9 @@ local function SetCellRef(target: Instance, cell: BasePart?)
 		end
 		ref.Value = cell
 	else
-		if ref then ref:Destroy() end
+		if ref then 
+			ref:Destroy() 
+		end
 	end
 end
 
@@ -83,7 +85,9 @@ local function SetOriginalParentRef(target: Instance, parentInst: Instance?)
 		end
 		ref.Value = parentInst
 	else
-		if ref then ref:Destroy() end
+		if ref then 
+			ref:Destroy() 
+		end
 	end
 end
 
@@ -100,12 +104,14 @@ end
 local function ClearCellsFolder(target: Instance)
 	local f = target:FindFirstChild(CELL_REFS_FOLDER_NAME)
 	if f then
-		for _, ch in ipairs(f:GetChildren()) do ch:Destroy() end
+		for _, ch in ipairs(f:GetChildren()) do 
+			ch:Destroy() 
+		end
 	end
 end
 
 -- Find station for target
-local function FindNearestStation(target: Instance, radius: number): Model?
+local function FindNearestStation(target: Instance, _: number): Model?
 	local root = PlacementSnap.GetRootPart(target)
 	if not root then return nil end
 
@@ -255,7 +261,7 @@ function PlacementSnap.SnapToCells(
 	end
 
 	-- Cart part guard
-	if target:GetAttribute("PartType") then return end
+	if target:GetAttribute("PartType") == "Wheel" then return end
 	local root = PlacementSnap.GetRootPart(target)
 	if not root then return end
 
@@ -280,16 +286,24 @@ function PlacementSnap.SnapToCells(
 
 	-- Disable aligns
 	local ap = root:FindFirstChildOfClass("AlignPosition")
-	if ap then ap.Enabled = false ap.Attachment0 = nil end
+	if ap then 
+		ap.Enabled = false
+		ap.Attachment0 = nil
+	end
 	local ao = root:FindFirstChildOfClass("AlignOrientation")
-	if ao then ao.Enabled = false ao.Attachment0 = nil end
+	if ao then 
+		ao.Enabled = false 
+		ao.Attachment0 = nil 
+	end
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
 	root.Anchored = false
 
 	-- Compute center
 	local sum = Vector3.zero
-	for _, c in ipairs(cells) do sum += c.Position end
+	for _, c in ipairs(cells) do 
+		sum += c.Position 
+	end
 	local centerPos = sum / #cells
 
 	-- Orientation
@@ -335,7 +349,7 @@ function PlacementSnap.SnapToCells(
 	-- Height offset
 	local itemHeight = 0
 	if target:IsA("Model") then
-		local cf, size = target:GetBoundingBox()
+		local _, size = target:GetBoundingBox()
 		itemHeight = size.Y
 	elseif target:IsA("BasePart") then
 		itemHeight = target.Size.Y
@@ -374,7 +388,9 @@ function PlacementSnap.SnapToCells(
 	end
 
 	ObjectStateManager.SetState(target, "SnappedToGrid")
-	if Player then target:SetAttribute("Owner", Player.UserId or Player:GetAttribute("Id")) end
+	if Player then 
+		target:SetAttribute("Owner", Player.UserId or Player:GetAttribute("Id")) 
+	end
 	if not CollectionService:HasTag(target, CFG.DRAG_TAG) then
 		CollectionService:AddTag(target, CFG.DRAG_TAG)
 	end
@@ -384,14 +400,16 @@ function PlacementSnap.SnapToCells(
 		if root.Parent then
 			root.AssemblyLinearVelocity = Vector3.zero
 			root.AssemblyAngularVelocity = Vector3.zero
-			pcall(function() root:SetNetworkOwnershipAuto() end)
+			pcall(function() 
+				root:SetNetworkOwnershipAuto() 
+			end)
 		end
 	end)
 end
 
 -- Back-compat wrapper
 function PlacementSnap.SnapToPlacementCell(
-	target: Instance, 
+	_: Instance, 
 	cell: BasePart, 
 	alignOrientation: boolean?, 
 	Player: Player?, 
@@ -443,7 +461,9 @@ function PlacementSnap.BindAutoUnsnapHooks(target: Instance): (() -> ())
 	end))
 
 	return function()
-		for _, c in ipairs(conns) do c:Disconnect() end
+		for _, c in ipairs(conns) do 
+			c:Disconnect() 
+		end
 	end
 end
 

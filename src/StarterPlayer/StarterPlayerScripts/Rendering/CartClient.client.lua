@@ -17,19 +17,18 @@ local detachCartEvent = CartEvents:WaitForChild("DetachCart")
 local updateCartEvent = CartEvents:WaitForChild("UpdateCart")
 local updateWheelHeightEvent = CartEvents:WaitForChild("UpdateWheelHeight")
 
--- Net/LOD
 local SERVER_UPDATE_INTERVAL = 0.1
 local MAX_RENDER_DISTANCE = 500
 local HIGH_DETAIL_DISTANCE = 100
 local MEDIUM_DETAIL_DISTANCE = 250
 
--- Per-player cart state
 type CartData = {
 	ServerCart: Model?,
 	VisualCart: Model?,
 	UpdateConnection: RBXScriptConnection?,
 	ServerUpdateConnection: RBXScriptConnection?,
 	ClientUpdateConnection: RBXScriptConnection?,
+	OrientationConnection: RBXScriptConnection?,
 	LastTiltAngle: number,
 	CartLength: number?,
 	LastServerUpdate: number?,
@@ -40,19 +39,19 @@ type CartData = {
 	WagonMotor: Motor6D?,
 	Config: {[string]: any}?,
 	DistanceToLocalPlayer: number?,
-	DetailLevel: string?
+	DetailLevel: string?,
+	AlignOrientation: AlignOrientation?,
+	Attachment: Attachment?
 }
 local ClientCartData: {[Player]: CartData} | {} = {}
 
--- Camera state
 local originalMouseSensitivity: number?
 local originalShiftLockAttribute: boolean?
 local originalWalkSpeed: number?
+local originalAutoRotate: boolean?
 
--- Variables
 local LastWheelDiameter: number = 0
 
--- Utils
 local function GetDistanceToPlayer(position: Vector3): number
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
@@ -99,7 +98,6 @@ local function GetAverageWheelDiameter(cart: Model): number
 	return sum / #diameters
 end
 
--- Visual clone, no interactivity
 local function CloneVisualCart(serverCart: Model): Model?
 	if not serverCart or not serverCart.Parent then
 		warn("Server cart not found or not in workspace")
@@ -140,12 +138,12 @@ local function CloneVisualCart(serverCart: Model): Model?
 			end
 			local ocq = d:GetAttribute("OriginalCanQuery")
 			if ocq ~= nil then 
-				d.CanQuery   = ocq
+				d.CanQuery = ocq
 				d:SetAttribute("OriginalCanQuery", nil)
 			end
 			local oci = d:GetAttribute("OriginalCanTouch")
 			if oci ~= nil then 
-				d.CanTouch   = oci
+				d.CanTouch = oci
 				d:SetAttribute("OriginalCanTouch", nil)
 			end
 		end
@@ -168,7 +166,6 @@ local function CloneVisualCart(serverCart: Model): Model?
 	return visualCart
 end
 
--- Physics
 local function UpdateCartPhysics(targetPlayer: Player, data: CartData, isOwner: boolean)
 	if not data.VisualCart or not data.Config then return end
 	local character: Model? = targetPlayer.Character
@@ -260,7 +257,6 @@ local function UpdateCartPhysics(targetPlayer: Player, data: CartData, isOwner: 
 	end
 end
 
--- LOD for non-owner visuals
 local function UpdateCartDetailLevels()
 	for targetPlayer, data in pairs(ClientCartData) do
 		if data.VisualCart and not data.IsOwner then
@@ -295,7 +291,33 @@ local function UpdateCartDetailLevels()
 	end
 end
 
--- Camera tuning for owner
+local function UpdateAlignOrientation(data: CartData)
+	if not data.AlignOrientation or not data.Attachment then return end
+	
+	local character = player.Character
+	if not character then return end
+	
+	local humanoid = character:FindFirstChild("Humanoid") :: Humanoid
+	local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart
+	if not humanoid or not rootPart then return end
+	
+	local isMoving = humanoid.MoveDirection.Magnitude > 0.1
+	local camera = workspace.CurrentCamera
+	local isFirstPerson = camera and (camera.CFrame.Position - rootPart.Position).Magnitude < 2
+	
+	if isMoving or isFirstPerson then
+		local targetCFrame: CFrame
+		if isFirstPerson then
+			targetCFrame = camera.CFrame
+		else
+			targetCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + humanoid.MoveDirection)
+		end
+		data.AlignOrientation.CFrame = targetCFrame
+	else
+		data.AlignOrientation.CFrame = data.Attachment.WorldCFrame
+	end
+end
+
 local function ApplyCartCameraSettings(config: {[string]: any})
 	local character = player.Character
 	local humanoid = character and character:FindFirstChild("Humanoid") :: Humanoid
@@ -309,8 +331,13 @@ local function ApplyCartCameraSettings(config: {[string]: any})
 			originalShiftLockAttribute = true 
 		end
 	end
-	if humanoid and not originalWalkSpeed then 
-		originalWalkSpeed = humanoid.WalkSpeed 
+	if humanoid then
+		if not originalWalkSpeed then 
+			originalWalkSpeed = humanoid.WalkSpeed 
+		end
+		if originalAutoRotate == nil then
+			originalAutoRotate = humanoid.AutoRotate
+		end
 	end
 
 	UserInputService.MouseDeltaSensitivity = config.CAMERA_SENSITIVITY
@@ -320,6 +347,7 @@ local function ApplyCartCameraSettings(config: {[string]: any})
 	end
 	if humanoid then
 		humanoid.WalkSpeed = math.max(0, humanoid.WalkSpeed - config.WALKSPEED_REDUCTION)
+		humanoid.AutoRotate = false
 	end
 end
 
@@ -333,16 +361,21 @@ local function RestoreNormalCameraSettings()
 	if originalShiftLockAttribute ~= nil then 
 		player:SetAttribute("ShiftLockEnabled", originalShiftLockAttribute)
 	end
-	if humanoid and originalWalkSpeed then 
-		humanoid.WalkSpeed = originalWalkSpeed 
+	if humanoid then
+		if originalWalkSpeed then 
+			humanoid.WalkSpeed = originalWalkSpeed 
+		end
+		if originalAutoRotate ~= nil then
+			humanoid.AutoRotate = originalAutoRotate
+		end
 	end
 
 	originalMouseSensitivity = nil
 	originalShiftLockAttribute = nil
 	originalWalkSpeed = nil
+	originalAutoRotate = nil
 end
 
--- Detach cleanup
 local function DetachCartClient(targetPlayer: Player)
 	local data = ClientCartData[targetPlayer]
 	if not data then 
@@ -362,6 +395,19 @@ local function DetachCartClient(targetPlayer: Player)
 		data.ClientUpdateConnection:Disconnect()
 		data.ClientUpdateConnection = nil 
 	end
+	if data.OrientationConnection then
+		data.OrientationConnection:Disconnect()
+		data.OrientationConnection = nil
+	end
+
+	if data.AlignOrientation then
+		data.AlignOrientation:Destroy()
+		data.AlignOrientation = nil
+	end
+	if data.Attachment then
+		data.Attachment:Destroy()
+		data.Attachment = nil
+	end
 
 	if data.VisualCart then 
 		data.VisualCart:Destroy()
@@ -375,10 +421,9 @@ local function DetachCartClient(targetPlayer: Player)
 	ClientCartData[targetPlayer] = nil
 end
 
--- Owner attach (visual + loops)
 local function AttachCartClient(serverCart: Model)
 	local character = player.Character
-	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart
 	local Humanoid = character and character:FindFirstChild("Humanoid") :: Humanoid
 	if not rootPart or not Humanoid then return end
 
@@ -405,6 +450,29 @@ local function AttachCartClient(serverCart: Model)
 
 	ApplyCartCameraSettings(config)
 
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "CartOrientationAttachment"
+	attachment.Parent = rootPart
+
+	local alignOrientation = Instance.new("AlignOrientation")
+	alignOrientation.Name = "CartAlignOrientation"
+	alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	alignOrientation.Attachment0 = attachment
+	alignOrientation.ReactionTorqueEnabled = true
+	alignOrientation.PrimaryAxisOnly = false
+	alignOrientation.RigidityEnabled = false
+	alignOrientation.MaxAngularVelocity = 15
+	alignOrientation.MaxTorque = 5000
+	alignOrientation.Responsiveness = 25
+	alignOrientation.Parent = rootPart
+
+	data.Attachment = attachment
+	data.AlignOrientation = alignOrientation
+
+	data.OrientationConnection = RunService.RenderStepped:Connect(function()
+		UpdateAlignOrientation(data)
+	end)
+
 	local wagon = visualCart:FindFirstChild("Wagon")
 	local wagonRoot = wagon and wagon:FindFirstChild("WagonRoot")
 	data.WheelMotor = wagonRoot and wagonRoot:FindFirstChild("WheelMotor")
@@ -429,7 +497,6 @@ local function AttachCartClient(serverCart: Model)
 	end)
 end
 
--- Spectator attach
 local function AttachCartReplicated(targetPlayer: Player, serverCart: Model)
 	local config = CartConfigurations.GetConfig(serverCart)
 	local visualCart = CloneVisualCart(serverCart)
@@ -455,18 +522,15 @@ local function AttachCartReplicated(targetPlayer: Player, serverCart: Model)
 	data.WagonMotor = visualCart.PrimaryPart and visualCart.PrimaryPart:FindFirstChild("WagonRoot")
 end
 
--- Distance-based update loop
 RunService.Heartbeat:Connect(function()
 	UpdateCartDetailLevels()
 end)
 
--- Handshake
 attachCartEvent.OnClientEvent:Connect(function(a, b, c)
 	if typeof(a) == "Instance" and a:IsA("Model") then
 		local serverCart = a :: Model
 		local ownerId = serverCart:GetAttribute("Owner")
 
-		-- Only request ownership if this is MY cart
 		if ownerId == player.UserId then
 			attachCartEvent:FireServer("REQUEST", serverCart)
 		end
@@ -490,11 +554,8 @@ attachCartEvent.OnClientEvent:Connect(function(a, b, c)
 	end
 end)
 
--- Detach events
 detachCartEvent.OnClientEvent:Connect(function(targetPlayer, cart)
-	-- Handle nil player (server might send cart only)
 	if not targetPlayer then
-		-- Search for who owns this cart
 		for p, data in pairs(ClientCartData) do
 			if data.ServerCart == cart then
 				targetPlayer = p
@@ -518,25 +579,21 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
 	DetachCartClient(leavingPlayer)
 end)
 
--- Cleanup orphaned visual carts (safety net)
 task.spawn(function()
 	while true do
 		task.wait(5)
 
 		for checkPlayer, data in pairs(ClientCartData) do
-			-- If player left but we still have their data
 			if not checkPlayer.Parent then
 				warn("[CartClient] Cleaning up orphaned data for disconnected player")
 				DetachCartClient(checkPlayer)
 			end
 
-			-- If server cart is missing but we still have visual
 			if data.ServerCart and not data.ServerCart.Parent then
 				warn("[CartClient] Server cart missing, cleaning up visual for:", checkPlayer.Name)
 				DetachCartClient(checkPlayer)
 			end
 
-			-- If visual cart exists but has no parent
 			if data.VisualCart and not data.VisualCart.Parent then
 				warn("[CartClient] Orphaned visual cart detected for:", checkPlayer.Name)
 				DetachCartClient(checkPlayer)

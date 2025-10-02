@@ -42,8 +42,8 @@ local function CreateCellIndicator(cell: BasePart): SurfaceGui
 
 	local insetScale = SURFACE_INSET
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-	frame.Size = UDim2.new(1 - insetScale, 0, 1 - insetScale, 0)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromScale(1 - insetScale, 1 - insetScale)
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0.1, 0)
