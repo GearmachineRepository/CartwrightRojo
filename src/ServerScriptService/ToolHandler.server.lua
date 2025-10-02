@@ -19,10 +19,6 @@ type PlayerData = {[Player]: {
 	Tools: ToolData,
 }}
 
--- Constants
-local DRAG_TAG: string = "Drag"
-local INTERACTION_TAG: string = "Interactable"
-
 -- Player Data Storage
 local PlayerData: PlayerData = {}
 
@@ -52,7 +48,7 @@ local function CleanupTool(Player: Player, Child: Tool): ()
 
 	-- Disconnect connections first
 	if ToolData[Child] then
-		for Index, Connection: RBXScriptConnection in pairs(ToolData[Child].Connections) do
+		for _, Connection: RBXScriptConnection in pairs(ToolData[Child].Connections) do
 			if Connection then
 				Connection:Disconnect()
 			end

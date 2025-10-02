@@ -188,8 +188,12 @@ function ToolInstancer.Pickup(Player: Player, Object: Instance, Config: any): ()
 		end
 	end
 	
-	PhysicsGroups.SetProperty(Tool, "Anchored", false)
 	Tool.Parent = Player.Backpack
+	PhysicsGroups.SetProperty(Tool, "Anchored", false)
+	PhysicsGroups.SetProperty(Tool, "CanCollide", false)
+
+	-- Notify inventory system that item was picked up
+	InventoryManager.OnItemPickedUp(Player)
 
 	if Object:IsDescendantOf(workspace) then
 		Object:Destroy()

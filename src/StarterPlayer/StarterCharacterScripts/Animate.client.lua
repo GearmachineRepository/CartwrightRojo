@@ -485,11 +485,14 @@ function move(time)
 		playAnimation("sit", 0.5, Humanoid)
 		return
 	elseif (pose == "Running") then
+		local Player = game:GetService("Players").LocalPlayer
+		local BaseSpeed = Player:GetAttribute("BaseWalkSpeed") or 16
+		
 		if Figure:GetAttribute("Sprinting") then
 			playAnimation("run", 0.1, Humanoid)
-			Humanoid.WalkSpeed = 16 * 1.5
+			Humanoid.WalkSpeed = BaseSpeed * 1.5
 		else
-			Humanoid.WalkSpeed = 16
+			Humanoid.WalkSpeed = BaseSpeed
 			playAnimation("walk", 0.1, Humanoid)
 		end
 		
