@@ -1,0 +1,282 @@
+--!strict
+local ObjectValidator = {}
+
+local Players = game:GetService("Players")
+
+export type ValidationResult = {
+	IsValid: boolean,
+	Reason: string?,
+	OwnerName: string?
+}
+
+-- Find the owner of an instance by walking up the ancestry tree
+local function GetOwningUserId(inst: Instance): number?
+	local node: Instance? = inst
+	while node and node ~= workspace do
+		local owner = node:GetAttribute("Owner")
+		if typeof(owner) == "number" then
+			return owner
+		end
+		node = node.Parent
+	end
+	return nil
+end
+
+-- Get owner player name for UI display
+local function GetOwnerName(inst: Instance): string?
+	local ownerId = GetOwningUserId(inst)
+	if not ownerId then return nil end
+
+	local ownerPlayer = Players:GetPlayerByUserId(ownerId)
+	if ownerPlayer then
+		return ownerPlayer.Name
+	end
+
+	return "Player " .. tostring(ownerId)
+end
+
+-- Check if object is in a valid state for interaction
+local function IsInValidState(target: Instance, action: string): (boolean, string?)
+	-- Objects being dragged by others
+	if target:GetAttribute("BeingDragged") then
+		local draggedBy = target:GetAttribute("DraggedBy")
+		return false, "Being dragged by " .. tostring(draggedBy)
+	end
+
+	-- Objects currently interacting (brewing, crafting, etc.)
+	if target:GetAttribute("Interacting") then
+		return false, "Currently in use"
+	end
+
+	-- Brewing stations with active player
+	if target:GetAttribute("BrewingPlayer") then
+		local brewingPlayer = target:GetAttribute("BrewingPlayer")
+		return false, "Being used by " .. tostring(brewingPlayer)
+	end
+
+	-- Snapped to grid (for drag actions only)
+	if action == "drag" and target:GetAttribute("SnappedToGrid") then
+		-- Allow if we're going to unsnap it
+		return true
+	end
+
+	-- Carts in use
+	if action == "drag" and target:GetAttribute("InUse") then
+		local attachedTo = target:GetAttribute("AttachedTo")
+		return false, "Cart in use by " .. tostring(attachedTo)
+	end
+
+	return true
+end
+
+-- Check if player can interact with this object
+function ObjectValidator.CanInteract(player: Player, target: Instance): ValidationResult
+	-- Check state first
+	local stateValid, stateReason = IsInValidState(target, "interact")
+	if not stateValid then
+		return {
+			IsValid = false,
+			Reason = stateReason
+		}
+	end
+
+	-- Objects without owners are fair game
+	local ownerId = GetOwningUserId(target)
+	if not ownerId then
+		return {IsValid = true}
+	end
+
+	-- Player must match owner
+	if ownerId ~= player.UserId then
+		return {
+			IsValid = false,
+			Reason = "Owned by another player",
+			OwnerName = GetOwnerName(target)
+		}
+	end
+
+	return {IsValid = true}
+end
+
+-- Check if player can drag this object
+function ObjectValidator.CanDrag(player: Player, target: Instance): ValidationResult
+	-- Cannot drag while pulling a cart
+	if player:GetAttribute("Carting") then
+		return {
+			IsValid = false,
+			Reason = "Cannot drag while pulling a cart"
+		}
+	end
+
+	-- Check state
+	local stateValid, stateReason = IsInValidState(target, "drag")
+	if not stateValid then
+		return {
+			IsValid = false,
+			Reason = stateReason
+		}
+	end
+
+	-- Check ownership
+	return ObjectValidator.CanInteract(player, target)
+end
+
+-- Check if player can highlight/select (visual feedback only)
+function ObjectValidator.CanHighlight(player: Player, target: Instance): ValidationResult
+	-- Players can ALWAYS highlight to see ownership
+	-- This allows non-owners to see "who owns this"
+	return {
+		IsValid = true,
+		OwnerName = GetOwnerName(target)
+	}
+end
+
+-- Check if player can snap to this placement cell/station
+function ObjectValidator.CanSnapToStation(player: Player, cell: BasePart): ValidationResult
+	-- Walk up to find the station/cart that owns this cell
+	local station: Model? = nil
+	local node = cell.Parent
+
+	while node and node ~= workspace do
+		if node:IsA("Model") and (node:GetAttribute("Type") == "Cart" or node:HasTag("Cart")) then
+			station = node
+			break
+		end
+		node = node.Parent
+	end
+
+	if not station then
+		return {IsValid = true}
+	end
+
+	return ObjectValidator.CanInteract(player, station)
+end
+
+-- Check if player can attach wheel to this cart
+function ObjectValidator.CanAttachWheel(player: Player, cart: Model, wheel: Model): ValidationResult
+	-- Cart must be owned by player
+	local cartValidation = ObjectValidator.CanInteract(player, cart)
+	if not cartValidation.IsValid then
+		return cartValidation
+	end
+
+	-- Wheel must be owned by player or unowned
+	local wheelOwnerId = GetOwningUserId(wheel)
+	if wheelOwnerId and wheelOwnerId ~= player.UserId then
+		return {
+			IsValid = false,
+			Reason = "Wheel owned by another player",
+			OwnerName = GetOwnerName(wheel)
+		}
+	end
+
+	-- Cart must have minimum wheels to be functional
+	local wheelCount = 0
+	for _, descendant in ipairs(cart:GetDescendants()) do
+		if descendant:IsA("Model") and descendant:GetAttribute("PartType") == "Wheel" then
+			wheelCount += 1
+		end
+	end
+
+	-- Carts need at least 2 wheels to be pulled
+	if wheelCount < 2 then
+		return {
+			IsValid = true -- Allow attaching to reach minimum
+		}
+	end
+
+	return {IsValid = true}
+end
+
+-- Check if object meets prerequisites for an action
+function ObjectValidator.MeetsPrerequisites(target: Instance, action: string): ValidationResult
+	-- Cart pulling requires minimum wheels
+	if action == "pull_cart" then
+		if not target:IsA("Model") then
+			return {IsValid = false, Reason = "Not a valid cart"}
+		end
+
+		local wheelCount = 0
+		for _, descendant in ipairs(target:GetDescendants()) do
+			if descendant:IsA("Model") and descendant:GetAttribute("PartType") == "Wheel" then
+				wheelCount += 1
+			end
+		end
+
+		if wheelCount < 2 then
+			return {
+				IsValid = false,
+				Reason = "Cart needs at least 2 wheels"
+			}
+		end
+	end
+
+	-- Brewing requires ingredients
+	if action == "brew" then
+		-- This would check recipe prerequisites
+		-- Placeholder for now
+		return {IsValid = true}
+	end
+
+	return {IsValid = true}
+end
+
+-- Check if object should show interaction prompt
+function ObjectValidator.ShouldShowPrompt(player: Player, target: Instance): ValidationResult
+	-- Always show prompts for owned objects
+	local validation = ObjectValidator.CanInteract(player, target)
+	if validation.IsValid then
+		return {IsValid = true}
+	end
+
+	-- Show "owned by X" prompt for non-owned objects
+	local ownerName = GetOwnerName(target)
+	if ownerName then
+		return {
+			IsValid = false,
+			Reason = "Owned",
+			OwnerName = ownerName
+		}
+	end
+
+	-- Show state-based messages
+	if target:GetAttribute("BeingDragged") then
+		return {
+			IsValid = false,
+			Reason = "Being dragged"
+		}
+	end
+
+	if target:GetAttribute("InUse") then
+		return {
+			IsValid = false,
+			Reason = "In use"
+		}
+	end
+
+	return validation
+end
+
+-- Get detailed validation info for UI
+function ObjectValidator.GetValidationInfo(player: Player, target: Instance, action: string): ValidationResult
+	local validation: ValidationResult
+
+	if action == "drag" then
+		validation = ObjectValidator.CanDrag(player, target)
+	elseif action == "interact" then
+		validation = ObjectValidator.CanInteract(player, target)
+	elseif action == "highlight" then
+		validation = ObjectValidator.CanHighlight(player, target)
+	else
+		validation = {IsValid = false, Reason = "Unknown action"}
+	end
+
+	-- Add owner info if available
+	if not validation.OwnerName then
+		validation.OwnerName = GetOwnerName(target)
+	end
+
+	return validation
+end
+
+return ObjectValidator
