@@ -14,6 +14,7 @@ local UIDManager = require(Modules:WaitForChild("UIDManager"))
 local GlobalNumbers = require(Modules:WaitForChild("GlobalNumbers"))
 local OwnershipValidator = require(Modules:WaitForChild("ObjectValidator"))
 local ObjectStateManager = require(Modules:WaitForChild("ObjectStateManager"))
+local OwnershipManager = require(Modules:WaitForChild("OwnershipManager"))
 
 -- Constants
 local DRAG_TAG: string = "Drag"
@@ -37,7 +38,8 @@ local PlayerData: {[Player]: {
 }} = {}
 
 local function CleanupDragState(Player: Player, Target: Instance)
-	local Data = PlayerData[Player] if not Data then return end
+	local Data = PlayerData[Player] 
+	if not Data then return end
 
 	local PhysicsPart: BasePart? = Target:IsA("Model") and (Target :: Model).PrimaryPart or (Target :: BasePart)
 	if not PhysicsPart then return end
@@ -50,16 +52,26 @@ local function CleanupDragState(Player: Player, Target: Instance)
 
 	-- Use ObjectStateManager to clear state
 	ObjectStateManager.ForceIdle(Target)
+	OwnershipManager.UpdateInteractionTime(Target)
+	PhysicsModule.SetToGroup(Target, "Static")
 
 	local dragAtt = PhysicsPart:FindFirstChild("DragAttachment")
-	if dragAtt then dragAtt:Destroy() end
+	if dragAtt then 
+		dragAtt:Destroy() 
+	end
 
 	local ap = PhysicsPart:FindFirstChildOfClass("AlignPosition")
-	if ap then ap.Enabled = false ap.Attachment0 = nil end
+	if ap then 
+		ap.Enabled = false 
+		ap.Attachment0 = nil 
+	end
 	local ao = PhysicsPart:FindFirstChildOfClass("AlignOrientation")
-	if ao then ao.Enabled = false ao.Attachment0 = nil end
+	if ao then 
+		ao.Enabled = false 
+		ao.Attachment0 = nil 
+	end
 
-	-- IMPROVED: Ensure object is truly stationary before releasing ownership
+	-- Ensure object is truly stationary before releasing ownership
 	if PhysicsPart:IsDescendantOf(workspace) then
 		PhysicsPart.AssemblyLinearVelocity = Vector3.zero
 		PhysicsPart.AssemblyAngularVelocity = Vector3.zero
@@ -69,9 +81,10 @@ local function CleanupDragState(Player: Player, Target: Instance)
 		if PhysicsPart:IsDescendantOf(workspace) then
 			PhysicsPart.AssemblyLinearVelocity = Vector3.zero
 			PhysicsPart.AssemblyAngularVelocity = Vector3.zero
+			PhysicsModule.SetProperty(Target, "CanCollide", true)
 		end
 	end
-
+		
 	-- Delayed ownership release with safety check
 	task.delay(DRAG_NETWORK_DELAY, function()
 		local currentState = ObjectStateManager.GetState(Target)
@@ -79,40 +92,11 @@ local function CleanupDragState(Player: Player, Target: Instance)
 		if PhysicsPart:IsDescendantOf(workspace) 
 			and not PhysicsPart.Anchored
 			and currentState == "Idle" then
-			pcall(function() PhysicsPart:SetNetworkOwnershipAuto() end)
+			pcall(function() 
+				PhysicsPart:SetNetworkOwnershipAuto() 
+			end)
 		end
 	end)
-end
-
-local function GetOwningUserId(inst: Instance): number?
-	local node: Instance? = inst
-	while node and node ~= workspace do
-		local owner = node:GetAttribute("Owner")
-		if typeof(owner) == "number" then
-			return owner
-		end
-		node = node.Parent
-	end
-	return nil
-end
-
-local function GetAncestorCart(inst: Instance): Model?
-	local node = inst :: any
-	while node and node ~= workspace do
-		if node:IsA("Model") and (node:GetAttribute("Type") == "Cart") then
-			return node
-		end
-		-- structural fallback: must have both Root (BasePart) and Wagon (Model) as children
-		if node:IsA("Model") then
-			local root = node:FindFirstChild("Root")
-			local wagon = node:FindFirstChild("Wagon")
-			if root and root:IsA("BasePart") and wagon and wagon:IsA("Model") then
-				return node
-			end
-		end
-		node = node.Parent
-	end
-	return nil
 end
 
 local function FindNearestOwnedCart(player: Player, nearPos: Vector3, maxDist: number): Model?
@@ -135,8 +119,10 @@ local function TryInstallWheelAtAnchor(player: Player, model: Model): boolean
 	-- cooldown
 	local t0 = model:GetAttribute("LastDetachTime")
 	if typeof(t0) == "number" and (tick() - t0) < REINSTALL_COOLDOWN then return false end
-	local root = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart") if not root then return false end
-	local cart = FindNearestOwnedCart(player, root.Position, 20) if not cart then return false end
+	local root = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart") 
+	if not root then return false end
+	local cart = FindNearestOwnedCart(player, root.Position, 20) 
+	if not cart then return false end
 
 	local lastCartUID = model:GetAttribute("LastDetachCartUID")
 	if typeof(lastCartUID) == "string" and lastCartUID ~= "" then
@@ -210,9 +196,10 @@ end
 
 -- Setup Drag Components for Parts with Drag Tag
 local function SetupDragComponents(Target: Instance): ()
+	PhysicsModule.SetToGroup(Target, "Static")
+
 	if Target:IsA("BasePart") then
 		local Part: BasePart = Target :: BasePart
-		PhysicsModule.SetToGroup(Part, "Dragging")
 
 		if not Part:FindFirstChildOfClass("AlignPosition") then
 			local AlignPos: AlignPosition = Instance.new("AlignPosition")
@@ -236,7 +223,6 @@ local function SetupDragComponents(Target: Instance): ()
 		end
 	elseif Target:IsA("Model") then
 		local Model: Model = Target :: Model
-		PhysicsModule.SetToGroup(Model, "Dragging")
 
 		-- Ensure model has a PrimaryPart
 		if not Model.PrimaryPart then
@@ -304,6 +290,9 @@ local function StartDragging(Player: Player, Target: Instance): ()
 	Target:SetAttribute("LastDetachTime", tick())
 	ObjectStateManager.SetState(Target, "BeingDragged", {DraggedBy = Player.Name})
 
+	Target:SetAttribute("Owner", Player.UserId)
+	OwnershipManager.TrackOwnership(Target, Player.UserId)
+
 	local PhysicsPart: BasePart?
 	if Target:IsA("Model") then
 		PhysicsPart = (Target :: Model).PrimaryPart
@@ -314,6 +303,7 @@ local function StartDragging(Player: Player, Target: Instance): ()
 	if not PhysicsPart then return end
 
 	PhysicsModule.SetProperty(Target, "Anchored", false)
+	PhysicsModule.SetToGroup(Target, "Dragging")
 	PhysicsPart:SetNetworkOwner(Player)
 
 	local DragAttachment: Attachment = Instance.new("Attachment")
@@ -368,7 +358,9 @@ function StopDragging(Player: Player, Target: Instance): ()
 		-- release network ownership only
 		task.delay(DRAG_NETWORK_DELAY, function()
 			if root:IsDescendantOf(workspace) and not root.Anchored then
-				pcall(function() root:SetNetworkOwnershipAuto() end)
+				pcall(function() 
+					root:SetNetworkOwnershipAuto() 
+				end)
 			end
 		end)
 		return
@@ -381,6 +373,7 @@ function StopDragging(Player: Player, Target: Instance): ()
 	end
 
 	CleanupDragState(Player, Target)
+	OwnershipManager.UpdateInteractionTime(Target)
 
 	-- CRITICAL FIX: Check if object was snapped before trying placement logic
 	local finalState = ObjectStateManager.GetState(Target)
@@ -389,7 +382,7 @@ function StopDragging(Player: Player, Target: Instance): ()
 		return
 	end
 
-	local root = PlacementSnap.GetRootPart(Target)
+	root = PlacementSnap.GetRootPart(Target)
 	if root then
 		local snapSuccess = PlacementSnap.TrySnapNearestFootprint(Target, PlacementSnap.SNAP_RADIUS, Player)
 

@@ -1,15 +1,11 @@
 --!strict
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CollectionService = game:GetService("CollectionService")
 
 -- Modules
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local ToolInstancer = require(Modules:WaitForChild("ToolInstancer"))
-
--- Assets
-local Assets = ReplicatedStorage:WaitForChild("Assets")
-local Items = Assets:WaitForChild("Items")
+local OwnershipManager = require(Modules:WaitForChild("OwnershipManager"))
 
 -- Remote Events
 local Events: Folder = ReplicatedStorage:WaitForChild("Events") :: Folder
@@ -92,6 +88,13 @@ local function DropRequest(Player: Player)
 			end
 			
 			ToolInstancer.Create(Tool, CFrame.new(dropPosition))
+
+			local DroppedItem = ToolInstancer.Create(Tool, CFrame.new(dropPosition))
+			if DroppedItem then
+				DroppedItem:SetAttribute("Owner", Player.UserId)
+				OwnershipManager.TrackOwnership(DroppedItem, Player.UserId)
+			end
+
 			Tool:Destroy()
 		end
 	end

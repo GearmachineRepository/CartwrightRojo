@@ -7,14 +7,14 @@ local Debris = game:GetService("Debris")
 
 local DialogSoundsFolder = ReplicatedStorage:FindFirstChild("DialogLetters")
 
-local MAX_MESSAGES = 3          -- max lines shown at once
-local ROW_HEIGHT = 28           -- px per message row
-local HOLD_TIME = 3.0           -- seconds a finished line stays before fade
-local TYPE_SPEED_DEFAULT = 0.05 -- seconds per character
-local MAX_DISTANCE = 75         -- bubble MaxDistance
-local SCROLL_ANIM = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local FadeTI = TweenInfo.new(0.5, Enum.EasingStyle.Linear)
-local FadeOutGoal = {TextTransparency = 1, TextStrokeTransparency = 1}
+local MAX_MESSAGES = 3
+local ROW_HEIGHT = 28
+local HOLD_TIME = 3.0
+local TYPE_SPEED_DEFAULT = 0.05
+local MAX_DISTANCE = 75
+local YELLING_THRESHOLD = 0.7
+local FADE_TI = TweenInfo.new(0.5, Enum.EasingStyle.Linear)
+local FADE_OUT_GOAL = {TextTransparency = 1, TextStrokeTransparency = 1}
 
 local Equalizer = Instance.new("EqualizerSoundEffect")
 Equalizer.HighGain = -24
@@ -33,170 +33,181 @@ local Effects: {[number]: Instance} = {
 	[2] = Equalizer
 }
 
-local function getLetterSound(letter: string): Sound?
+local function GetLetterSound(Letter: string): Sound?
 	if not DialogSoundsFolder then return nil end
-	local child = DialogSoundsFolder:FindFirstChild(letter:upper())
-	if child and child:IsA("Sound") then
-		return child:Clone()
+	local Child = DialogSoundsFolder:FindFirstChild(Letter:upper())
+	if Child and Child:IsA("Sound") then
+		return Child:Clone()
 	end
 	return nil
 end
 
--- Create or fetch a reusable bubble with a bottom-anchored ScrollingFrame
-local function getOrCreateBubble(head: BasePart)
-	local bubble = head:FindFirstChild("DialogBubble") :: BillboardGui?
-	local scroller: ScrollingFrame? = nil
-	local layout: UIListLayout? = nil
+local function IsYelling(Message: string): boolean
+	local UpperCount = 0
+	local LetterCount = 0
+	
+	for I = 1, #Message do
+		local Char = Message:sub(I, I)
+		if Char:match("%a") then
+			LetterCount += 1
+			if Char:match("%u") then
+				UpperCount += 1
+			end
+		end
+	end
+	
+	if LetterCount == 0 then return false end
+	
+	local UpperRatio = UpperCount / LetterCount
+	return UpperRatio >= YELLING_THRESHOLD
+end
 
-	if bubble and bubble:IsA("BillboardGui") then
-		scroller = bubble:FindFirstChild("Messages") :: ScrollingFrame?
-		layout = scroller and scroller:FindFirstChildOfClass("UIListLayout")
-		if scroller and layout then
-			return bubble, scroller, layout
+local function GetOrCreateBubble(Head: BasePart)
+	local Bubble = Head:FindFirstChild("DialogBubble") :: BillboardGui?
+	local Container: Frame? = nil
+	local Layout: UIListLayout? = nil
+
+	if Bubble and Bubble:IsA("BillboardGui") then
+		Container = Bubble:FindFirstChild("Container") :: Frame?
+		Layout = Container and Container:FindFirstChildOfClass("UIListLayout")
+		if Container and Layout then
+			return Bubble, Container, Layout
 		end
 	end
 
-	bubble = Instance.new("BillboardGui")
-	bubble.Name = "DialogBubble"
-	bubble.Size = UDim2.new(0, 260, 0, (ROW_HEIGHT * MAX_MESSAGES) + 8)
-	bubble.StudsOffset = Vector3.new(0, 3.2, 0)
-	bubble.MaxDistance = MAX_DISTANCE
-	bubble.AlwaysOnTop = true
-	bubble.Parent = head
-	bubble:SetAttribute("Seq", 0)
+	Bubble = Instance.new("BillboardGui")
+	Bubble.Name = "DialogBubble"
+	Bubble.Size = UDim2.fromOffset(260, (ROW_HEIGHT * MAX_MESSAGES) + 16)
+	Bubble.StudsOffset = Vector3.new(0, 5, 0)
+	Bubble.MaxDistance = MAX_DISTANCE
+	Bubble.AlwaysOnTop = true
+	Bubble.Parent = Head
+	Bubble:SetAttribute("MessageCount", 0)
 
-	local bg = Instance.new("Frame")
-	bg.Name = "BG"
-	bg.BackgroundTransparency = 1
-	bg.BorderSizePixel = 0
-	bg.Size = UDim2.fromScale(1, 1)
-	bg.Parent = bubble
+	Container = Instance.new("Frame")
+	Container.Name = "Container"
+	Container.Size = UDim2.fromScale(1, 1)
+	Container.BackgroundTransparency = 1
+	Container.BorderSizePixel = 0
+	Container.ClipsDescendants = false
+	Container.Parent = Bubble
 
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 8)
-	pad.PaddingRight = UDim.new(0, 8)
-	pad.PaddingTop = UDim.new(0, 4)
-	pad.PaddingBottom = UDim.new(0, 4)
-	pad.Parent = bg
+	local Pad = Instance.new("UIPadding")
+	Pad.PaddingLeft = UDim.new(0, 8)
+	Pad.PaddingRight = UDim.new(0, 8)
+	Pad.PaddingTop = UDim.new(0, 4)
+	Pad.PaddingBottom = UDim.new(0, 4)
+	Pad.Parent = Container
 
-	-- ScrollingFrame acts like a viewport; we pin to the bottom by scrolling to the end
-	scroller = Instance.new("ScrollingFrame")
-	scroller.Name = "Messages"
-	scroller.BackgroundTransparency = 1
-	scroller.BorderSizePixel = 0
-	scroller.Size = UDim2.fromScale(1, 1)
-	scroller.ClipsDescendants = true
-	scroller.ScrollingEnabled = false -- we drive CanvasPosition ourselves
-	scroller.ScrollBarThickness = 0
-	scroller.CanvasSize = UDim2.fromOffset(0, 0)
-	scroller.Parent = bg
+	Layout = Instance.new("UIListLayout")
+	Layout.FillDirection = Enum.FillDirection.Vertical
+	Layout.SortOrder = Enum.SortOrder.LayoutOrder
+	Layout.Padding = UDim.new(0, 4)
+	Layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	Layout.Parent = Container
 
-	layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 2)
-	layout.Parent = scroller
-
-	return bubble, scroller, layout
+	return Bubble, Container, Layout
 end
 
-local function createRow(scroller: ScrollingFrame, bubble: BillboardGui): TextLabel
-	local seq = (bubble:GetAttribute("Seq") :: number) or 0
-	seq += 1
-	bubble:SetAttribute("Seq", seq)
+local function CreateMessage(Container: Frame, Bubble: BillboardGui, IsYellingMessage: boolean): TextLabel
+	local MessageCount = (Bubble:GetAttribute("MessageCount") :: number) or 0
+	MessageCount += 1
+	Bubble:SetAttribute("MessageCount", MessageCount)
 
-	local label = Instance.new("TextLabel")
-	label.Name = ("Line_%d"):format(seq)
-	label.LayoutOrder = seq
-	label.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.5
-	label.TextScaled = true
-	label.Font = Enum.Font.Gotham
-	label.Text = ""
-	label.Parent = scroller
-
-	return label
-end
-
-local function updateCanvas(scroller: ScrollingFrame, layout: UIListLayout, animate: boolean)
-	-- Resize canvas to fit content
-	scroller.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y)
-	-- Keep view pinned to bottom (so new lines push older ones upward)
-	local targetY = math.max(0, layout.AbsoluteContentSize.Y - scroller.AbsoluteSize.Y)
-	if animate then
-		TweenService:Create(scroller, SCROLL_ANIM, {CanvasPosition = Vector2.new(0, targetY)}):Play()
-	else
-		scroller.CanvasPosition = Vector2.new(0, targetY)
+	local Label = Instance.new("TextLabel")
+	Label.Name = "Message"
+	Label.LayoutOrder = MessageCount
+	Label.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+	Label.BackgroundTransparency = 1
+	Label.TextColor3 = Color3.new(1, 1, 1)
+	Label.TextStrokeTransparency = 0.5
+	Label.TextScaled = true
+	Label.Font = Enum.Font.Gotham
+	Label.Text = ""
+	Label.Parent = Container
+	
+	if IsYellingMessage then
+		Label.Font = Enum.Font.GothamBold
+		Label.TextColor3 = Color3.fromRGB(255, 100, 100)
+		Label.TextStrokeTransparency = 0.3
 	end
+
+	return Label
 end
 
-local function enforceMax(scroller: ScrollingFrame, layout: UIListLayout)
-	local labels = {}
-	for _, child in ipairs(scroller:GetChildren()) do
-		if child:IsA("TextLabel") then
-			table.insert(labels, child)
+local function RemoveOldestMessage(Container: Frame)
+	local Messages = {}
+	for _, Child in ipairs(Container:GetChildren()) do
+		if Child:IsA("TextLabel") and Child.Name == "Message" then
+			table.insert(Messages, Child)
 		end
 	end
-	if #labels <= MAX_MESSAGES then return end
-	table.sort(labels, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
-	while #labels > MAX_MESSAGES do
-		labels[1]:Destroy()
-		table.remove(labels, 1)
-	end
-	updateCanvas(scroller, layout, false)
+	
+	if #Messages <= MAX_MESSAGES then return end
+	
+	table.sort(Messages, function(A, B) 
+		return A.LayoutOrder < B.LayoutOrder 
+	end)
+	
+	Messages[1]:Destroy()
 end
 
-function DialogTypewriter:PlayDialog(character: Model, message: string, typingSpeed: number?)
-	typingSpeed = typingSpeed or TYPE_SPEED_DEFAULT
-	if type(message) ~= "string" or #message == 0 then return end
+function DialogTypewriter:PlayDialog(Character: Model, Message: string, TypingSpeed: number?)
+	TypingSpeed = TypingSpeed or TYPE_SPEED_DEFAULT
+	if type(Message) ~= "string" or #Message == 0 then return end
 
-	local head = character:FindFirstChild("Head")
-	if not head or not head:IsA("BasePart") then return end
+	local Head = Character:FindFirstChild("Head")
+	if not Head or not Head:IsA("BasePart") then return end
 
-	local bubble, scroller, layout = getOrCreateBubble(head)
-	local label = createRow(scroller, bubble)
-	-- After row is added, update canvas and scroll to bottom (animate = true)
-	updateCanvas(scroller, layout, true)
+	local Bubble, Container = GetOrCreateBubble(Head)
+	
+	RemoveOldestMessage(Container)
+	
+	local IsYellingMessage = IsYelling(Message)
+	local Label = CreateMessage(Container, Bubble, IsYellingMessage)
+	
+	local TypeSpeed = TypingSpeed
+	if IsYellingMessage then
+		TypeSpeed = TypingSpeed * 0.7
+	end
 
-	-- Typewriter effect
-	for i = 1, #message do
-		label.Text = message:sub(1, i)
+	for I = 1, #Message do
+		Label.Text = Message:sub(1, I)
 
-		local s = getLetterSound(message:sub(i, i))
-		if s then
-			s.Parent = head
+		local S = GetLetterSound(Message:sub(I, I))
+		if S then
+			S.Parent = Head
+			
+			if IsYellingMessage then
+				S.Volume = S.Volume * 1.5
+				S.PlaybackSpeed = S.PlaybackSpeed * 1.2
+			end
+			
 			if #Effects > 0 then
-				for _, effect in ipairs(Effects) do
-					if effect:IsA("Instance") then effect:Clone().Parent = s end
+				for _, Effect in ipairs(Effects) do
+					if Effect:IsA("Instance") then 
+						Effect:Clone().Parent = S 
+					end
 				end
 			end
-			s:Play()
-			Debris:AddItem(s, 2)
+			S:Play()
+			Debris:AddItem(S, 2)
 		end
 
-		task.wait(typingSpeed)
-		if not head.Parent then return end
+		task.wait(TypeSpeed)
+		if not Head.Parent then return end
 	end
 
-	-- Fade out this line after a hold, then prune & re-pin to bottom
 	task.delay(HOLD_TIME, function()
-		if label and label.Parent then
-			local t = TweenService:Create(label, FadeTI, FadeOutGoal)
-			t:Play()
-			t.Completed:Wait()
-			if label and label.Parent then
-				label:Destroy()
-				if scroller and layout then
-					updateCanvas(scroller, layout, false)
-				end
+		if Label and Label.Parent then
+			local Tween = TweenService:Create(Label, FADE_TI, FADE_OUT_GOAL)
+			Tween:Play()
+			Tween.Completed:Wait()
+			if Label and Label.Parent then
+				Label:Destroy()
 			end
 		end
 	end)
-
-	-- Ensure we don't exceed MAX_MESSAGES
-	enforceMax(scroller, layout)
 end
 
 return DialogTypewriter

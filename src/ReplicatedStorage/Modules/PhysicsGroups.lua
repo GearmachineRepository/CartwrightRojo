@@ -11,16 +11,22 @@ type Rule = {[number]: string | boolean}
 -- Physics Groups Configuration
 local PhysicsGroups: {[number]: string} = {
 	[1] = "Dragging", 
-	[2] = "Characters"
+	[2] = "Characters",
+	[3] = "Static"
 }
 
 -- Collision Rules: {Group1, Group2, CanCollide}
 local CollisionRules: CollisionRules = {
-	{"Dragging", "Characters", false}
+	{"Dragging", "Characters", false},
+	{"Dragging", "Dragging", false},
+	{"Characters", "Characters", false},
+	{"Characters", "Static", true},
+	{"Static", "Static", true},
+	{"Dragging", "Static", false},
 }
 
 -- Initialize Physics Groups
-for Index: number, GroupName: string in pairs(PhysicsGroups) do
+for _: number, GroupName: string in pairs(PhysicsGroups) do
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup(GroupName)
 	end)
@@ -60,6 +66,10 @@ function PhysicsGroupModule.SetProperty(InstanceToSet: Instance, Property: strin
 	if InstanceToSet:IsA("BasePart") then
 		pcall(function()
 			local Part: BasePart = InstanceToSet :: BasePart
+			if Property == "CanCollide" and Part.Transparency >= 1 then
+				Part.CanCollide = false
+				return
+			end
 			(Part :: any)[Property] = Value
 		end)
 		return
@@ -70,6 +80,10 @@ function PhysicsGroupModule.SetProperty(InstanceToSet: Instance, Property: strin
 		if Descendant:IsA("BasePart") then
 			pcall(function()
 				local Part: BasePart = Descendant :: BasePart
+				if Property == "CanCollide" and Part.Transparency >= 1 then
+					Part.CanCollide = false
+					return
+				end
 				(Part :: any)[Property] = Value
 			end)
 		end

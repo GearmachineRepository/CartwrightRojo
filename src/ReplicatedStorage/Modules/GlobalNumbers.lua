@@ -1,3 +1,3 @@
 return {
-	SNAP_DISTANCE = 8
+	SNAP_DISTANCE = 5
 }

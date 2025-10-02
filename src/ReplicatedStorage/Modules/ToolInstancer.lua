@@ -5,10 +5,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
 -- Modules
-local SoundPlayer = require(script.Parent:WaitForChild("SoundPlayer"))
-local PlacementSnap = require(script.Parent:WaitForChild("PlacementSnap"))
-local ObjectDatabase = require(script.Parent:WaitForChild("ObjectDatabase"))
-local CartAssembly = require(script.Parent:WaitForChild("CartAssembly"))
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local PlacementSnap = require(Modules:WaitForChild("PlacementSnap"))
+local ObjectDatabase = require(Modules:WaitForChild("ObjectDatabase"))
+local CartAssembly = require(Modules:WaitForChild("CartAssembly"))
+local InventoryManager = require(Modules:WaitForChild("InventoryManager"))
+local PhysicsGroups = require(Modules:WaitForChild("PhysicsGroups"))
 
 -- Constants
 local DRAG_TAG: string = "Drag"
@@ -63,7 +65,6 @@ function ToolInstancer.Create(object: Instance | string, Location: CFrame?): Mod
 	model.Name = sourceObject.Name
 
 	local handle: BasePart? = sourceObject:FindFirstChild("Handle") :: BasePart?
-
 	
 	local toolCFrame: CFrame = handle and handle.CFrame or CFrame.new()
 	if Location then
@@ -84,8 +85,8 @@ function ToolInstancer.Create(object: Instance | string, Location: CFrame?): Mod
 		if child == handle then
 			child.Name = "Handle" 
 			if child:IsA("BasePart") then
-				child.CanCollide = true
-				child.Anchored = false
+				PhysicsGroups.SetProperty(child, "Anchored", false)
+				PhysicsGroups.SetProperty(child, "CanCollide", true)
 			end
 		end
 	end
@@ -98,7 +99,7 @@ function ToolInstancer.Create(object: Instance | string, Location: CFrame?): Mod
 	end
 
 	-- Set collision properties for all parts
-	for _, part in pairs(model:GetChildren()) do
+	for _, part in pairs(model:GetDescendants()) do
 		if part:IsA("BasePart") then
 			part.CanCollide = true
 			part.Anchored = false
@@ -130,62 +131,68 @@ function ToolInstancer.Create(object: Instance | string, Location: CFrame?): Mod
 	return model
 end
 
-function ToolInstancer.Pickup(player: Player, object: Instance, config: any): ()
-	local tool: Tool
-	local objectName = object.Name
+function ToolInstancer.Pickup(Player: Player, Object: Instance, Config: any): ()
+	local Tool: Tool
+	local ObjectName = Object.Name
 	
-	if #object:GetDescendants() <= 1 or not object:IsDescendantOf(workspace) then return end
+	if #Object:GetDescendants() <= 1 or not Object:IsDescendantOf(workspace) then return end
 	
-	local existingTool = Items:FindFirstChild(objectName)
-	if existingTool and existingTool:IsA("Tool") then
-		tool = existingTool:Clone()
+	-- CHECK INVENTORY LIMIT
+	local CanPickup, Reason = InventoryManager.CanPickupItem(Player, ObjectName)
+	if not CanPickup then
+		warn("[ToolInstancer] Cannot pickup:", Reason)
+		-- TODO: Show feedback to player using FeedbackUI
+		return
+	end
+	
+	local ExistingTool = Items:FindFirstChild(ObjectName)
+	if ExistingTool and ExistingTool:IsA("Tool") then
+		Tool = ExistingTool:Clone()
 	else
-		tool = Instance.new("Tool")
-		tool.Name = objectName
-		tool.RequiresHandle = true
+		Tool = Instance.new("Tool")
+		Tool.Name = ObjectName
+		Tool.RequiresHandle = true
 
-		if object:IsA("Model") then
-			local primaryPart = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
-			if primaryPart then
-
-				PlacementSnap.UnsnapFromPlacementCell(object)
-				CartAssembly.detachWheelAttachment(object.Parent.Parent.Parent, object)
+		if Object:IsA("Model") then
+			local PrimaryPart = Object.PrimaryPart or Object:FindFirstChildWhichIsA("BasePart")
+			if PrimaryPart then
+				PlacementSnap.UnsnapFromPlacementCell(Object)
+				CartAssembly.detachWheelAttachment(Object.Parent.Parent.Parent, Object)
 				
-				for _, child in pairs(object:GetChildren()) do
-					child.Parent = tool
+				for _, Child in pairs(Object:GetChildren()) do
+					Child.Parent = Tool
 				end
 				
-				local handle = tool:FindFirstChild(primaryPart.Name)
-				if handle and handle:IsA("BasePart") then
-					handle.Name = "Handle"
-					handle.CanCollide = false
-					handle.Anchored = false
+				local Handle = Tool:FindFirstChild(PrimaryPart.Name)
+				if Handle and Handle:IsA("BasePart") then
+					Handle.Name = "Handle"
+					Handle.CanCollide = false
+					Handle.Anchored = false
 				end
 			end
-		elseif object:IsA("BasePart") then
-			-- Clone the part as the handle
-			local handle = object:Clone()
-			handle.Name = "Handle"
-			handle.CanCollide = false
-			handle.Anchored = false
-			handle.Parent = tool
+		elseif Object:IsA("BasePart") then
+			local Handle = Object:Clone()
+			Handle.Name = "Handle"
+			Handle.CanCollide = false
+			Handle.Anchored = false
+			Handle.Parent = Tool
 		end
 
-		-- Set tool properties based on config or defaults
-		if config then
-			tool.ToolTip = config.ToolTip or objectName
-			if config.TextureId then
-				tool.TextureId = config.TextureId
+		if Config then
+			Tool.ToolTip = Config.ToolTip or ObjectName
+			if Config.TextureId then
+				Tool.TextureId = Config.TextureId
 			end
 		else
-			tool.ToolTip = objectName
+			Tool.ToolTip = ObjectName
 		end
 	end
 	
-	tool.Parent = player.Backpack
+	PhysicsGroups.SetProperty(Tool, "Anchored", false)
+	Tool.Parent = Player.Backpack
 
-	if object:IsDescendantOf(workspace) then
-		object:Destroy()
+	if Object:IsDescendantOf(workspace) then
+		Object:Destroy()
 	end
 end
 

@@ -10,9 +10,6 @@ local player = Players.LocalPlayer
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local CartConfigurations = require(Modules:WaitForChild("CartConfigurations"))
 
-local Assets = ReplicatedStorage:WaitForChild("Assets")
-local Carts = Assets:WaitForChild("Carts")
-
 local Events = ReplicatedStorage:WaitForChild("Events")
 local CartEvents = Events:WaitForChild("CartEvents")
 local attachCartEvent = CartEvents:WaitForChild("AttachCart")
@@ -131,15 +128,34 @@ local function CloneVisualCart(serverCart: Model): Model?
 		end
 
 		if d:IsA("BasePart") then
-			local ot = d:GetAttribute("OriginalTransparency"); if ot ~= nil then d.Transparency = ot; d:SetAttribute("OriginalTransparency", nil) end
-			local occ = d:GetAttribute("OriginalCanCollide"); if occ ~= nil then d.CanCollide = occ; d:SetAttribute("OriginalCanCollide", nil) end
-			local ocq = d:GetAttribute("OriginalCanQuery");   if ocq ~= nil then d.CanQuery   = ocq; d:SetAttribute("OriginalCanQuery", nil) end
-			local oci = d:GetAttribute("OriginalCanTouch");   if oci ~= nil then d.CanTouch   = oci; d:SetAttribute("OriginalCanTouch", nil) end
+			local ot = d:GetAttribute("OriginalTransparency")
+			if ot ~= nil then 
+				d.Transparency = ot
+				d:SetAttribute("OriginalTransparency", nil)
+			end
+			local occ = d:GetAttribute("OriginalCanCollide")
+			if occ ~= nil then 
+				d.CanCollide = occ
+				d:SetAttribute("OriginalCanCollide", nil)
+			end
+			local ocq = d:GetAttribute("OriginalCanQuery")
+			if ocq ~= nil then 
+				d.CanQuery   = ocq
+				d:SetAttribute("OriginalCanQuery", nil)
+			end
+			local oci = d:GetAttribute("OriginalCanTouch")
+			if oci ~= nil then 
+				d.CanTouch   = oci
+				d:SetAttribute("OriginalCanTouch", nil)
+			end
 		end
 
 		if d:IsA("Decal") or d:IsA("Texture") then
 			local ot = d:GetAttribute("OriginalTransparency")
-			if ot ~= nil then d.Transparency = ot; d:SetAttribute("OriginalTransparency", nil) end
+			if ot ~= nil then
+				d.Transparency = ot
+				d:SetAttribute("OriginalTransparency", nil)
+			end
 		end
 	end
 
@@ -234,8 +250,6 @@ local function UpdateCartPhysics(targetPlayer: Player, data: CartData, isOwner: 
 		data.WheelMotor.C1 = CFrame.Angles(0, 0, -data.WheelRotation)
 
 		if isOwner then
-			local wagon = data.VisualCart:FindFirstChild("Wagon")
-			local wagonRoot = wagon and wagon:FindFirstChild("WagonRoot")
 			local MoveSound = cartPart and cartPart:FindFirstChild("MoveSound") :: Sound
 			local Humanoid = character:FindFirstChild("Humanoid") :: Humanoid
 			if MoveSound and Humanoid then
@@ -286,12 +300,18 @@ local function ApplyCartCameraSettings(config: {[string]: any})
 	local character = player.Character
 	local humanoid = character and character:FindFirstChild("Humanoid") :: Humanoid
 
-	if not originalMouseSensitivity then originalMouseSensitivity = UserInputService.MouseDeltaSensitivity end
+	if not originalMouseSensitivity then 
+		originalMouseSensitivity = UserInputService.MouseDeltaSensitivity 
+	end
 	if originalShiftLockAttribute == nil then
 		originalShiftLockAttribute = player:GetAttribute("ShiftLockEnabled")
-		if originalShiftLockAttribute == nil then originalShiftLockAttribute = true end
+		if originalShiftLockAttribute == nil then 
+			originalShiftLockAttribute = true 
+		end
 	end
-	if humanoid and not originalWalkSpeed then originalWalkSpeed = humanoid.WalkSpeed end
+	if humanoid and not originalWalkSpeed then 
+		originalWalkSpeed = humanoid.WalkSpeed 
+	end
 
 	UserInputService.MouseDeltaSensitivity = config.CAMERA_SENSITIVITY
 	player:SetAttribute("ShiftLockEnabled", false)
@@ -307,9 +327,15 @@ local function RestoreNormalCameraSettings()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChild("Humanoid") :: Humanoid
 
-	if originalMouseSensitivity then UserInputService.MouseDeltaSensitivity = originalMouseSensitivity end
-	if originalShiftLockAttribute ~= nil then player:SetAttribute("ShiftLockEnabled", originalShiftLockAttribute) end
-	if humanoid and originalWalkSpeed then humanoid.WalkSpeed = originalWalkSpeed end
+	if originalMouseSensitivity then 
+		UserInputService.MouseDeltaSensitivity = originalMouseSensitivity
+	end
+	if originalShiftLockAttribute ~= nil then 
+		player:SetAttribute("ShiftLockEnabled", originalShiftLockAttribute)
+	end
+	if humanoid and originalWalkSpeed then 
+		humanoid.WalkSpeed = originalWalkSpeed 
+	end
 
 	originalMouseSensitivity = nil
 	originalShiftLockAttribute = nil
@@ -324,9 +350,18 @@ local function DetachCartClient(targetPlayer: Player)
 		return 
 	end
 
-	if data.UpdateConnection then data.UpdateConnection:Disconnect(); data.UpdateConnection = nil end
-	if data.ServerUpdateConnection then data.ServerUpdateConnection:Disconnect(); data.ServerUpdateConnection = nil end
-	if data.ClientUpdateConnection then data.ClientUpdateConnection:Disconnect(); data.ClientUpdateConnection = nil end
+	if data.UpdateConnection then 
+		data.UpdateConnection:Disconnect()
+		data.UpdateConnection = nil 
+	end
+	if data.ServerUpdateConnection then 
+		data.ServerUpdateConnection:Disconnect()
+		data.ServerUpdateConnection = nil 
+	end
+	if data.ClientUpdateConnection then 
+		data.ClientUpdateConnection:Disconnect()
+		data.ClientUpdateConnection = nil 
+	end
 
 	if data.VisualCart then 
 		data.VisualCart:Destroy()

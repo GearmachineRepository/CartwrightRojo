@@ -1,11 +1,8 @@
--- StarterPlayerScripts/DialogBubbles.client.lua
--- Renders typewriter bubbles for ALL chat messages (client-side per player)
-
+--!strict
 local Players = game:GetService("Players")
 local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Optional: hide default bubbles on this client
 if TextChatService.BubbleChatConfiguration then
 	TextChatService.BubbleChatConfiguration.Enabled = false
 end
@@ -13,41 +10,38 @@ end
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local DialogTypewriter = require(Modules:WaitForChild("DialogTypewriter"))
 
--- De-dupe guard (handles rare double-calls)
-local seen = {}
+local ProcessedMessages = {}
 
-TextChatService.OnIncomingMessage = function(message: TextChatMessage)
-	local props = Instance.new("TextChatMessageProperties")
-	-- If you want to hide the chat line entirely, uncomment:
-	-- props.Text = ""
-
-	local src = message.TextSource
-	if not src then return props end
-
-	-- Avoid double-render if callback fires twice
-	if message.MessageId and seen[message.MessageId] then
-		return props
+TextChatService.OnIncomingMessage = function(Message: TextChatMessage)
+	local Props = Instance.new("TextChatMessageProperties")
+	
+	if not Message.TextSource then return Props end
+	
+	local MessageId = Message.MessageId
+	if ProcessedMessages[MessageId] then
+		return Props
 	end
-	seen[message.MessageId] = true
-	task.delay(10, function() seen[message.MessageId] = nil end)
-
-	local speaker = Players:GetPlayerByUserId(src.UserId)
-	if not speaker then return props end
-
-	local function show(char: Model)
-		DialogTypewriter:PlayDialog(char, message.Text)
-	end
-
-	local char = speaker.Character
-	if char then
-		task.defer(show, char)
-	else
-		-- If the character isn’t spawned yet, try once when it appears
-		local conn; conn = speaker.CharacterAdded:Connect(function(c)
-			conn:Disconnect()
-			show(c)
-		end)
-	end
-
-	return props
+	ProcessedMessages[MessageId] = true
+	task.delay(5, function()
+		ProcessedMessages[MessageId] = nil
+	end)
+	
+	local Speaker = Players:GetPlayerByUserId(Message.TextSource.UserId)
+	if not Speaker then return Props end
+	
+	task.defer(function()
+		local Character = Speaker.Character
+		if not Character then return end
+		
+		local FilteredText = Props.Text
+		if FilteredText == "" then
+			FilteredText = Message.Text
+		end
+		
+		DialogTypewriter:PlayDialog(Character, FilteredText)
+	end)
+	
+	return Props
 end
+
+print("[ChatHook] Client initialized - Bubble chat ready!")
