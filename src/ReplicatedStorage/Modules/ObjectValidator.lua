@@ -2,12 +2,35 @@
 local ObjectValidator = {}
 
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 
 export type ValidationResult = {
 	IsValid: boolean,
 	Reason: string?,
 	OwnerName: string?
 }
+
+local function IsPositionInTheftZone(position: Vector3): boolean
+	for _, part in ipairs(CollectionService:GetTagged("TheftZone")) do
+		if part:IsA("BasePart") and part.Parent then
+			local isActive = part:GetAttribute("ZoneActive")
+			if isActive == nil or isActive == true then
+				local partPos = part.Position
+				local partSize = part.Size
+				
+				local min = partPos - (partSize / 2)
+				local max = partPos + (partSize / 2)
+				
+				if position.X >= min.X and position.X <= max.X and
+				   position.Y >= min.Y and position.Y <= max.Y and
+				   position.Z >= min.Z and position.Z <= max.Z then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
 
 -- Find the owner of an instance by walking up the ancestry tree
 local function GetOwningUserId(inst: Instance): number?
@@ -100,7 +123,6 @@ end
 
 -- Check if player can drag this object
 function ObjectValidator.CanDrag(player: Player, target: Instance): ValidationResult
-	-- Cannot drag while pulling a cart
 	if player:GetAttribute("Carting") then
 		return {
 			IsValid = false,
@@ -108,7 +130,6 @@ function ObjectValidator.CanDrag(player: Player, target: Instance): ValidationRe
 		}
 	end
 
-	-- Check state
 	local stateValid, stateReason = IsInValidState(target, "drag")
 	if not stateValid then
 		return {
@@ -117,12 +138,52 @@ function ObjectValidator.CanDrag(player: Player, target: Instance): ValidationRe
 		}
 	end
 
-	-- Check ownership
-	return ObjectValidator.CanInteract(player, target)
+	local ownershipCheck = ObjectValidator.CanInteract(player, target)
+	
+	if not ownershipCheck.IsValid then
+		local isInTheftZone = false
+		
+		if target:IsA("Model") then
+			local primaryPart = target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart")
+			if primaryPart then
+				isInTheftZone = IsPositionInTheftZone(primaryPart.Position)
+			end
+		elseif target:IsA("BasePart") then
+			isInTheftZone = IsPositionInTheftZone(target.Position)
+		end
+		
+		local parentCart = nil
+		local node = target.Parent
+		while node and node ~= workspace do
+			if node:IsA("Model") and (node:GetAttribute("Type") == "Cart" or node:HasTag("Cart")) then
+				parentCart = node
+				break
+			end
+			node = node.Parent
+		end
+		
+		if isInTheftZone then
+			if not parentCart or not parentCart:GetAttribute("InUse") then
+				return {
+					IsValid = true,
+					Reason = "Theft allowed in this zone"
+				}
+			else
+				return {
+					IsValid = false,
+					Reason = "Cannot steal from cart being towed"
+				}
+			end
+		end
+		
+		return ownershipCheck
+	end
+	
+	return ownershipCheck
 end
 
 -- Check if player can highlight/select (visual feedback only)
-function ObjectValidator.CanHighlight(player: Player, target: Instance): ValidationResult
+function ObjectValidator.CanHighlight(_: Player, target: Instance): ValidationResult
 	-- Players can ALWAYS highlight to see ownership
 	-- This allows non-owners to see "who owns this"
 	return {

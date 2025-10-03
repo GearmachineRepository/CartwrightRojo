@@ -11,8 +11,6 @@ local STUCK_STATE_ATTRIBUTES = {
 }
 
 local function RecoverStuckStates()
-	print("[StateRecovery] Scanning for stuck objects...")
-
 	local recoveredCount = 0
 
 	for _, object in ipairs(workspace:GetDescendants()) do

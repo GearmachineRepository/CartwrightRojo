@@ -1,6 +1,5 @@
 --!nonstrict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Terrain = workspace.Terrain
 
 -- CONFIGURATION --
 local FoliageModels = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("FoliageModels")
@@ -101,7 +100,7 @@ end
 
 -- Initialize the pool
 local function initializePool(size)
-	for i = 1, size do
+	for _ = 1, size do
 		local grassInstance = createGrassInstance()
 		-- Start invisible
 		for _, part in ipairs(grassInstance.parts) do
@@ -122,7 +121,7 @@ local function getFromPool()
 	end
 
 	-- If none available, grow the pool
-	for i = 1, POOL_GROWTH_SIZE do
+	for _ = 1, POOL_GROWTH_SIZE do
 		local grassInstance = createGrassInstance()
 		for _, part in ipairs(grassInstance.parts) do
 			part.Transparency = 1

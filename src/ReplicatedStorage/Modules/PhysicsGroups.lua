@@ -3,6 +3,7 @@
 local PhysicsGroupModule = {}
 
 local PhysicsService = game:GetService("PhysicsService")
+local RunService = game:GetService("RunService")
 
 -- Types
 type CollisionRules = {[number]: {[number]: string | boolean}}
@@ -25,16 +26,18 @@ local CollisionRules: CollisionRules = {
 	{"Dragging", "Static", false},
 }
 
--- Initialize Physics Groups
-for _: number, GroupName: string in pairs(PhysicsGroups) do
-	pcall(function()
-		PhysicsService:RegisterCollisionGroup(GroupName)
-	end)
-end
+if RunService:IsServer() then
+	-- Initialize Physics Groups
+	for _: number, GroupName: string in pairs(PhysicsGroups) do
+		pcall(function()
+			PhysicsService:RegisterCollisionGroup(GroupName)
+		end)
+	end
 
--- Apply collision rules
-for _, Rule: Rule in pairs(CollisionRules) do
-	PhysicsService:CollisionGroupSetCollidable(Rule[1], Rule[2], Rule[3])
+	-- Apply collision rules
+	for _, Rule: Rule in pairs(CollisionRules) do
+		PhysicsService:CollisionGroupSetCollidable(Rule[1], Rule[2], Rule[3])
+	end
 end
 
 -- Set all BaseParts in an instance to a specific collision group

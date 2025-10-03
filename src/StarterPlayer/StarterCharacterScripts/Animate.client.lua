@@ -1,4 +1,6 @@
 -- humanoidAnimatePlayEmote.lua
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local Figure = script.Parent
 local Torso = Figure:WaitForChild("Torso")
@@ -214,6 +216,7 @@ end
 function setAnimationSpeed(speed)
 	if speed ~= currentAnimSpeed then
 		currentAnimSpeed = speed
+		if not currentAnimSpeed then currentAnimSpeed = 1.0 end
 		currentAnimTrack:AdjustSpeed(currentAnimSpeed)
 	end
 end
@@ -353,14 +356,14 @@ function onRunning(speed)
 	speed /= getRigScale()
 	
 	if speed > 0.01 then
-		if Figure:GetAttribute("Sprinting") then
+		if LocalPlayer:GetAttribute("Sprinting") then
 			playAnimation("run", 0.1, Humanoid)
 		else
-			
 			playAnimation("walk", 0.1, Humanoid)
 		end
 		
-		if currentAnimInstance and currentAnimInstance.AnimationId == "http://www.roblox.com/asset/?id=180426354" then
+		-- Scale animation speed based on actual movement speed
+		if currentAnimInstance then
 			setAnimationSpeed(speed / 14.5)
 		end
 		pose = "Running"
@@ -465,6 +468,9 @@ function moveSit()
 end
 
 local lastTick = 0
+local SprintMultiplier = 1.5
+local DefaultWalkSpeed = 16
+local FadeTime = 0.25
 
 function move(time)
 	local amplitude = 1
@@ -474,7 +480,7 @@ function move(time)
 
 	local climbFudge = 0
 	local setAngles = false
-
+	
   	if (jumpAnimTime > 0) then
   		jumpAnimTime = jumpAnimTime - deltaTime
   	end
@@ -485,17 +491,30 @@ function move(time)
 		playAnimation("sit", 0.5, Humanoid)
 		return
 	elseif (pose == "Running") then
-		local Player = game:GetService("Players").LocalPlayer
-		local BaseSpeed = Player:GetAttribute("BaseWalkSpeed") or 16
-		
-		if Figure:GetAttribute("Sprinting") then
-			playAnimation("run", 0.1, Humanoid)
-			Humanoid.WalkSpeed = BaseSpeed * 1.5
-		else
-			Humanoid.WalkSpeed = BaseSpeed
-			playAnimation("walk", 0.1, Humanoid)
+		local BaseSpeed = LocalPlayer:GetAttribute("BaseWalkSpeed") or DefaultWalkSpeed
+		local MoveInput = LocalPlayer:GetAttribute("MoveVector") or 1
+
+		MoveInput = math.clamp(MoveInput, 0, 1)
+
+		if typeof(MoveInput) ~= "number" then
+			MoveInput = MoveInput.Unit.Magnitude
 		end
 		
+		if LocalPlayer:GetAttribute("Sprinting") then
+			playAnimation("run", FadeTime, Humanoid)
+			Humanoid.WalkSpeed = BaseSpeed * SprintMultiplier
+			
+			if currentAnimInstance then
+				setAnimationSpeed((BaseSpeed * SprintMultiplier) / (DefaultWalkSpeed * SprintMultiplier))
+			end
+		else
+			Humanoid.WalkSpeed = BaseSpeed
+			playAnimation("walk", FadeTime, Humanoid)
+			
+			if currentAnimInstance then
+				setAnimationSpeed((MoveInput * BaseSpeed) / DefaultWalkSpeed)
+			end
+		end
 	elseif (pose == "Dead" or pose == "GettingUp" or pose == "FallingDown" or pose == "Seated" or pose == "PlatformStanding") then
 --		print("Wha " .. pose)
 		stopAllAnimations()
@@ -595,5 +614,3 @@ while Figure.Parent ~= nil do
 	local _, time = wait(0.1)
 	move(time)
 end
-
-

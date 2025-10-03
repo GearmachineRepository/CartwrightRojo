@@ -9,6 +9,7 @@ local player = Players.LocalPlayer
 
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local CartConfigurations = require(Modules:WaitForChild("CartConfigurations"))
+local PhysicsGroups = require(Modules:WaitForChild("PhysicsGroups"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local CartEvents = Events:WaitForChild("CartEvents")
@@ -434,6 +435,9 @@ local function AttachCartClient(serverCart: Model)
 	local config = CartConfigurations.GetConfig(serverCart)
 	local visualCart = CloneVisualCart(serverCart)
 	if not visualCart then return end
+
+	PhysicsGroups.SetProperty(visualCart, "CanQuery", false)
+	PhysicsGroups.SetProperty(visualCart, "CanCollide", false)
 
 	local data = ClientCartData[player] or {}
 	ClientCartData[player] = data
