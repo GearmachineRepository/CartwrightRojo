@@ -16,6 +16,7 @@ type InventoryData = {
 	EquippedTool: Tool?,
 	InventoryWeight: number,
 	CartWeight: number,
+	
 	ItemCount: number,
 	AttachedCart: Model?
 }
@@ -55,7 +56,7 @@ local function UpdatePlayerSpeed(Player: Player)
 	if not Data then return end
 	
 	local InventorySpeedReduction = Data.InventoryWeight / INVENTORY_WEIGHT_PER_SPEED
-	local CartSpeedReduction = Data.CartWeight / CART_WEIGHT_PER_SPEED
+	local CartSpeedReduction = Data.CartWeight / (CART_WEIGHT_PER_SPEED * 2)
 	
 	local TotalReduction = InventorySpeedReduction + CartSpeedReduction
 	local NewSpeed = math.max(4, BASE_WALKSPEED - TotalReduction)

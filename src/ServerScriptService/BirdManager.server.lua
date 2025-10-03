@@ -1,9 +1,6 @@
--- Bird Perch System (Enhanced)
--- Place this script in ServerScriptService
-
+--!strict
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 -- Configuration
 local PERCH_TAG = "BirdPerch"
@@ -27,13 +24,6 @@ local BIRD_MODELS = {
 	{ Model = Birds:WaitForChild("Crow"), Weight = 10 }, -- common
 	{ Model = Birds:WaitForChild("BlueJay"), Weight = 2 },
 }
-
--- Only spawn birds at perches within this radius of any player
-local SPAWN_NEAR_PLAYER_RADIUS = 100  
--- Chance (0–1) that a perch will get a bird each spawn check
-local PERCH_SPAWN_CHANCE = 0.3  
--- How often to try spawning birds (seconds)
-local SPAWN_CHECK_INTERVAL = 10  
 
 -- Bird manager
 local activeBirds = {}   -- { [perch] = birdData }
@@ -313,21 +303,20 @@ end
 
 task.spawn(function()
 	while true do
-		local perches = findAllPerches()
+		local Perches = findAllPerches()
 
-		local shuffled = table.clone(perches)
-		-- Fisher-Yates shuffle for true random order
-		for i = #shuffled, 2, -1 do
-			local j = math.random(1, i)
-			shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+		local ShuffledPerches = table.clone(Perches)
+		for CurrentIndex = #ShuffledPerches, 2, -1 do
+			local RandomIndex = math.random(1, CurrentIndex)
+			ShuffledPerches[CurrentIndex], ShuffledPerches[RandomIndex] = ShuffledPerches[RandomIndex], ShuffledPerches[CurrentIndex]
 		end
 
-		for _, perch in ipairs(shuffled) do
-			spawnBirdOnPerch(perch)
-			break -- Only spawn one per loop
+		for _, Perch in ipairs(ShuffledPerches) do
+			spawnBirdOnPerch(Perch)
+			break
 		end
 
-		task.wait(3 + math.random(0, 3)) -- vary spawn rate
+		task.wait(3 + math.random(0, 3))
 	end
 end)
 

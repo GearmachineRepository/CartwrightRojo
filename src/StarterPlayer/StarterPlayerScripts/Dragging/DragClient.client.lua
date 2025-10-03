@@ -9,7 +9,6 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local GridVisualization = require(Modules:WaitForChild("GridVisualization"))
 local DragVisuals = require(Modules:WaitForChild("DragVisuals"))
 local DragController = require(Modules:WaitForChild("DragController"))
-local FeedbackUI = require(Modules:WaitForChild("FeedbackUI"))
 
 -- Constants
 local DRAG_DISTANCE: number = 10
@@ -17,6 +16,8 @@ local MIN_DRAG_DISTANCE: number = 5
 local MAX_DRAG_DISTANCE: number = 20
 local DISTANCE_INCREMENT: number = 1
 local UPDATE_FREQUENCY: number = 1/60
+local LastWheelIndicatorUpdate = 0
+local WHEEL_INDICATOR_UPDATE_RATE = 0.1
 
 -- Services and Objects
 local Player: Player = Players.LocalPlayer
@@ -92,24 +93,27 @@ local function UpdateCameraPosition(): ()
 		TargetPosition = HeadPosition + (MouseDirection * CurrentDragDistance)
 	end
 
-	-- Handle wheel indicator
-	local currentDragged = DragController.GetDraggedObject()
-	if currentDragged and currentDragged:IsA("Model") and currentDragged:GetAttribute("PartType") == "Wheel" then
-		local wheelRoot = currentDragged.PrimaryPart or currentDragged:FindFirstChildWhichIsA("BasePart")
-		if wheelRoot then
-			local nearestAnchor = DragController.FindNearestWheelAnchor(wheelRoot.Position)
-			if nearestAnchor then
-				if not DragVisuals.GetCurrentWheelIndicator() then
-					DragVisuals.CreateWheelIndicator(wheelRoot, nearestAnchor)
+	local CurrentDragged = DragController.GetDraggedObject()
+	if CurrentTime - LastWheelIndicatorUpdate >= WHEEL_INDICATOR_UPDATE_RATE then
+		LastWheelIndicatorUpdate = CurrentTime
+		
+		if CurrentDragged and CurrentDragged:IsA("Model") and CurrentDragged:GetAttribute("PartType") == "Wheel" then
+			local WheelRoot = CurrentDragged.PrimaryPart or CurrentDragged:FindFirstChildWhichIsA("BasePart")
+			if WheelRoot then
+				local NearestAnchor = DragController.FindNearestWheelAnchor(WheelRoot.Position)
+				if NearestAnchor then
+					if not DragVisuals.GetCurrentWheelIndicator() then
+						DragVisuals.CreateWheelIndicator(WheelRoot, NearestAnchor)
+					else
+						DragVisuals.UpdateWheelIndicator(NearestAnchor)
+					end
 				else
-					DragVisuals.UpdateWheelIndicator(nearestAnchor)
+					DragVisuals.RemoveWheelIndicator()
 				end
-			else
-				DragVisuals.RemoveWheelIndicator()
 			end
+		else
+			DragVisuals.RemoveWheelIndicator()
 		end
-	else
-		DragVisuals.RemoveWheelIndicator()
 	end
 
 	local TargetCFrame: CFrame = CFrame.lookAt(TargetPosition, TargetPosition + Camera.CFrame.LookVector)
@@ -137,9 +141,7 @@ local function OnDragStart(): ()
 	DragVisuals.CreateHighlight(Target)
 	DragObjectRemote:FireServer(Target, true)
 
-	-- Start grid visualization
-	local HasType = Target:GetAttribute("PartType") or Target:GetAttribute("Type")
-	if (not HasType or (HasType and HasType ~= "Wheel")) and not Target:HasTag("Cart") then
+	if not Target:HasTag("Cart") then
 		GridVisualization.StartVisualization(Target, Player.UserId, Player.Character)
 	end
 
@@ -196,7 +198,7 @@ DragStopEvent.Event:Connect(OnDragStop)
 AdjustDistanceEvent.Event:Connect(OnDistanceAdjust)
 
 -- Start camera updates when player spawns
-Player.CharacterAdded:Connect(function(Character: Model)
+Player.CharacterAdded:Connect(function(_: Model)
 	CleanupHighlights()
 	GridVisualization.CleanupVisualization()
 	StartCameraUpdate()

@@ -104,7 +104,7 @@ end
 
 -- Watch for sprinting attribute
 local function OnSprintingChanged()
-	local isSprinting = Player:GetAttribute("Sprinting")
+	--local isSprinting = Player:GetAttribute("Sprinting")
     -- You could add visual feedback for sprinting state here if desired
 end
 

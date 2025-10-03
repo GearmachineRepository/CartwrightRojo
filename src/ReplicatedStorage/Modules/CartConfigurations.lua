@@ -21,6 +21,7 @@ local CART_CONFIGS = {
 		MAX_TILT_ANGLE = math.rad(55),
 		LERP_ALPHA = 0.2,
 		WHEEL_ROTATION_RADIUS = 2.75,
+		BaseMaxWeight = 80,
 	},
 
 	["Large Cart"] = {

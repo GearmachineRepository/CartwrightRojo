@@ -115,6 +115,47 @@ local function FindNearestOwnedCart(player: Player, nearPos: Vector3, maxDist: n
 	return best
 end
 
+local function GetNearestGridDistance(Target: Instance): number?
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return nil end
+	
+	local NearestCell = PlacementSnap.FindNearestFreeCellOnSameStation(Target, SNAP_RADIUS)
+	if NearestCell then
+		return (Root.Position - NearestCell.Position).Magnitude
+	end
+	
+	return nil
+end
+
+local function GetNearestAnchor(Player: Player, Target: Instance): (Instance?, number?)
+	if not Target:IsA("Model") then return nil, nil end
+	if not Target:GetAttribute("PartType") then return nil, nil end
+	
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return nil, nil end
+	
+	-- Find nearest owned cart
+	local NearestCart = FindNearestOwnedCart(Player, Root.Position, 30)
+	if not NearestCart then return nil, nil end
+	
+	-- Find nearest anchor on that cart
+	local NearestAnchor, AxleNumber = CartAssembly.findNearestWheelAnchor(
+		NearestCart, 
+		Root.Position, 
+		SNAP_RADIUS
+	)
+	
+	if NearestAnchor then
+		local AnchorPosition = NearestAnchor:IsA("Attachment") 
+			and NearestAnchor.WorldPosition 
+			or NearestAnchor.Position
+		local Distance = (Root.Position - AnchorPosition).Magnitude
+		return NearestAnchor, Distance
+	end
+	
+	return nil, nil
+end
+
 local function TryInstallWheelAtAnchor(player: Player, model: Model): boolean
 	-- cooldown
 	local t0 = model:GetAttribute("LastDetachTime")
@@ -171,27 +212,6 @@ local function InitializePlayerData(Player: Player): ()
 			Player:Kick("Took too long to load.")
 		end
 	end)
-end
-
--- Cleanup Player Data
-local function CleanupPlayerData(Player: Player): ()
-	local Data = PlayerData[Player]
-	if not Data then return end
-
-	-- Stop all drag updates and clear dragged parts
-	for PhysicsObject: Instance, Connection: RBXScriptConnection? in pairs(Data.DraggedParts) do
-		if Connection then
-			Connection:Disconnect()
-		end
-		StopDragging(Player, PhysicsObject)
-	end
-
-	-- Clean up CFrameValue
-	if Data.CFrameValue then
-		Data.CFrameValue:Destroy()
-	end
-
-	PlayerData[Player] = nil
 end
 
 -- Setup Drag Components for Parts with Drag Tag
@@ -336,74 +356,117 @@ local function StartDragging(Player: Player, Target: Instance): ()
 			end
 		end)
 
+		local ProximityUpdateConnection do
+			ProximityUpdateConnection = RunService.Heartbeat:Connect(function()
+				if not Target.Parent or ObjectStateManager.GetState(Target) ~= "BeingDragged" then
+					ProximityUpdateConnection:Disconnect()
+					return
+				end
+				
+				local _, AnchorDistance = GetNearestAnchor(Player, Target)
+				local GridDistance = GetNearestGridDistance(Target)
+				
+				-- Set attribute for client visual feedback
+				if AnchorDistance and GridDistance then
+					if AnchorDistance < GridDistance then
+						Target:SetAttribute("ClosestSnapType", "Anchor")
+					else
+						Target:SetAttribute("ClosestSnapType", "Grid")
+					end
+				elseif AnchorDistance then
+					Target:SetAttribute("ClosestSnapType", "Anchor")
+				elseif GridDistance then
+					Target:SetAttribute("ClosestSnapType", "Grid")
+				else
+					Target:SetAttribute("ClosestSnapType", nil)
+				end
+			end)
+		end 
+
 		Data.DraggedParts[Target] = UpdateConnection
 	end
 end
 
--- Stop Dragging Function
-function StopDragging(Player: Player, Target: Instance): ()
+local function StopDragging(Player: Player, Target: Instance): ()
 	local Data = PlayerData[Player]
 	if not Data then return end
 
-	local root = PlacementSnap.GetRootPart(Target)
-	if not root then return end
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return end
 
-	-- Verify this player is actually dragging this part
-	local currentState = ObjectStateManager.GetState(Target)
-	if currentState == "BeingDragged" and Target:GetAttribute("DraggedBy") ~= Player.Name then
+	local CurrentState = ObjectStateManager.GetState(Target)
+	if CurrentState == "BeingDragged" and Target:GetAttribute("DraggedBy") ~= Player.Name then
 		return
 	end
 
 	if Player:GetAttribute("Carting") then
-		-- release network ownership only
 		task.delay(DRAG_NETWORK_DELAY, function()
-			if root:IsDescendantOf(workspace) and not root.Anchored then
+			if Root:IsDescendantOf(workspace) and not Root.Anchored then
 				pcall(function() 
-					root:SetNetworkOwnershipAuto() 
+					Root:SetNetworkOwnershipAuto() 
 				end)
 			end
 		end)
 		return
 	end
 
-	if Target:IsA("Model") and Target:GetAttribute("PartType") == "Wheel" then
-		CleanupDragState(Player, Target)
-		if TryInstallWheelAtAnchor(Player, Target) then return end
-		return
-	end
-
 	CleanupDragState(Player, Target)
 	OwnershipManager.UpdateInteractionTime(Target)
 
-	-- CRITICAL FIX: Check if object was snapped before trying placement logic
-	local finalState = ObjectStateManager.GetState(Target)
-	if finalState == "SnappedToGrid" then
-		-- Object successfully snapped, we're done
+	-- Check if already snapped (from real-time snapping during drag)
+	local FinalState = ObjectStateManager.GetState(Target)
+	if FinalState == "SnappedToGrid" then
 		return
 	end
 
-	root = PlacementSnap.GetRootPart(Target)
-	if root then
-		local snapSuccess = PlacementSnap.TrySnapNearestFootprint(Target, PlacementSnap.SNAP_RADIUS, Player)
+	-- DISTANCE-BASED PRIORITY: Check both anchor and grid distances
+	local NearestAnchor, AnchorDistance = GetNearestAnchor(Player, Target)
+	local GridDistance = GetNearestGridDistance(Target)
+	
+	local SnapSuccess = false
+	
+	-- Try closest option first
+	if AnchorDistance and GridDistance then
+		if AnchorDistance < GridDistance then
+			-- Anchor is closer
+			SnapSuccess = TryInstallWheelAtAnchor(Player, Target)
+			if not SnapSuccess then
+				-- Fallback to grid
+				SnapSuccess = PlacementSnap.TrySnapNearestFootprint(Target, SNAP_RADIUS, Player)
+			end
+		else
+			-- Grid is closer
+			SnapSuccess = PlacementSnap.TrySnapNearestFootprint(Target, SNAP_RADIUS, Player)
+			if not SnapSuccess then
+				-- Fallback to anchor
+				SnapSuccess = TryInstallWheelAtAnchor(Player, Target)
+			end
+		end
+	elseif AnchorDistance then
+		-- Only anchor available
+		SnapSuccess = TryInstallWheelAtAnchor(Player, Target)
+	elseif GridDistance then
+		-- Only grid available
+		SnapSuccess = PlacementSnap.TrySnapNearestFootprint(Target, SNAP_RADIUS, Player)
+	end
 
-		if not snapSuccess and root:IsDescendantOf(workspace) and Player.Character then
-			task.wait(0.1)
+	-- Handle ground drop if nothing snapped
+	if not SnapSuccess and Root:IsDescendantOf(workspace) and Player.Character then
+		task.wait(0.1)
 
-			local rayParams = RaycastParams.new()
-			rayParams.FilterDescendantsInstances = {Target, Player.Character}
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+		local RayParams = RaycastParams.new()
+		RayParams.FilterDescendantsInstances = {Target, Player.Character}
+		RayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-			local rayOrigin = root.Position
-			local rayResult = workspace:Raycast(rayOrigin, Vector3.new(0, -50, 0), rayParams)
+		local RayOrigin = Root.Position
+		local RayResult = workspace:Raycast(RayOrigin, Vector3.new(0, -50, 0), RayParams)
 
-			if rayResult and (rayOrigin.Y - rayResult.Position.Y) > 5 then
-				-- Object is floating, drop it to ground
-				if Target:IsA("Model") then
-					local cf = Target:GetPivot()
-					Target:PivotTo(cf - Vector3.new(0, rayOrigin.Y - rayResult.Position.Y - 0.5, 0))
-				else
-					root.Position = rayResult.Position + Vector3.new(0, 0.5, 0)
-				end
+		if RayResult and (RayOrigin.Y - RayResult.Position.Y) > 5 then
+			if Target:IsA("Model") then
+				local CF = Target:GetPivot()
+				Target:PivotTo(CF - Vector3.new(0, RayOrigin.Y - RayResult.Position.Y - 0.5, 0))
+			else
+				Root.Position = RayResult.Position + Vector3.new(0, 0.5, 0)
 			end
 		end
 	end
@@ -424,6 +487,27 @@ local function StopAllDragging(Player: Player): ()
 	for _, Part: Instance in pairs(PartsToStop) do
 		StopDragging(Player, Part)
 	end
+end
+
+-- Cleanup Player Data
+local function CleanupPlayerData(Player: Player): ()
+	local Data = PlayerData[Player]
+	if not Data then return end
+
+	-- Stop all drag updates and clear dragged parts
+	for PhysicsObject: Instance, Connection: RBXScriptConnection? in pairs(Data.DraggedParts) do
+		if Connection then
+			Connection:Disconnect()
+		end
+		StopDragging(Player, PhysicsObject)
+	end
+
+	-- Clean up CFrameValue
+	if Data.CFrameValue then
+		Data.CFrameValue:Destroy()
+	end
+
+	PlayerData[Player] = nil
 end
 
 -- Remote Event Handlers

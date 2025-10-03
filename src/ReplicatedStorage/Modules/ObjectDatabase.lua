@@ -52,7 +52,8 @@ ObjectDatabase.Objects = {
 	["Wheel"] = {
 		Type = "Wheel",
 		GridFootprint = Vector2.new(1, 2),
-		Weight = 8,
+		Weight = 0,
+		LoadCapacity = 10,
 		InteractionSound = "rbxassetid://9118598470",
 		StateA = {
 			Text = "Pickup - {INTERACT}",
@@ -67,6 +68,20 @@ ObjectDatabase.Objects = {
 		Type = "Item",
 		GridFootprint = Vector2.new(3, 3),
 		Weight = 25,
+		InteractionSound = "rbxassetid://9118598470",
+		StateA = {
+			Text = "Pickup - {INTERACT}",
+			Function = "StateAFunction"
+		},
+		StateB = {
+			Text = "Pickup - {INTERACT}",
+			Function = "StateBFunction"
+		},
+	},
+	["Huge Wooden Box"] = {
+		Type = "Item",
+		GridFootprint = Vector2.new(3, 5),
+		Weight = 90,
 		InteractionSound = "rbxassetid://9118598470",
 		StateA = {
 			Text = "Pickup - {INTERACT}",

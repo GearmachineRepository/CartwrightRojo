@@ -11,12 +11,10 @@ local ObjectStateManager = require(Modules:WaitForChild("ObjectStateManager"))
 function Wheel.StateAFunction(player: Player, wheel: Instance, config: any)
 	if not wheel:IsA("Model") then return end
 
-	-- Check if can be equipped
 	if not ObjectStateManager.CanTransition(wheel, "Equipped") then
 		return
 	end
 
-	-- Set equipped state
 	ObjectStateManager.SetState(wheel, "Equipped")
 
 	if config and config.InteractionSound then
@@ -26,13 +24,10 @@ function Wheel.StateAFunction(player: Player, wheel: Instance, config: any)
 		})
 	end
 
-	-- Convert to tool
 	ToolInstancer.Pickup(player, wheel, config)
 end
 
 function Wheel.StateBFunction(player: Player, wheel: Instance, config: any)
-	-- Same as StateA
 	Wheel.StateAFunction(player, wheel, config)
 end
-
 return Wheel

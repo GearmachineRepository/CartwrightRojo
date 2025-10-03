@@ -243,7 +243,6 @@ function PlacementSnap.SnapToCells(
 	Player: Player?, 
 	manualRotationDegrees: number?
 )
-	-- Accept single cell or list
 	if typeof(cells) == "Instance" and cells:IsA("BasePart") then
 		cells = { cells }
 	elseif typeof(cells) ~= "table" then
@@ -252,7 +251,6 @@ function PlacementSnap.SnapToCells(
 	end
 	if #cells == 0 then return end
 
-	-- Verify all cells available
 	for _, c in ipairs(cells) do
 		if not PlacementGrid.IsCellAvailable(c) then
 			warn("[PlacementSnap] Cannot snap - one or more cells already occupied")
@@ -260,8 +258,13 @@ function PlacementSnap.SnapToCells(
 		end
 	end
 
-	-- Cart part guard
-	if target:GetAttribute("PartType") == "Wheel" then return end
+	-- if target:GetAttribute("PartType") == "Wheel" then
+	-- 	local WheelState = target:GetAttribute("WheelState")
+	-- 	if WheelState ~= "Cargo" then
+	-- 		return
+	-- 	end
+	-- end
+	
 	local root = PlacementSnap.GetRootPart(target)
 	if not root then return end
 
@@ -475,9 +478,9 @@ function PlacementSnap.TrySnapNearestFootprint(
 	manualRotationDegrees: number?
 ): boolean
 	-- Skip wheels
-	if target:IsA("Model") and target:GetAttribute("PartType") == "Wheel" then
-		return false
-	end
+	-- if target:IsA("Model") and target:GetAttribute("PartType") == "Wheel" then
+	-- 	return false
+	-- end
 
 	local fp = PlacementFootprint.GetFootprint(target)
 

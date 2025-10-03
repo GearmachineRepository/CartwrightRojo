@@ -46,8 +46,8 @@ local function IsYelling(Message: string): boolean
 	local UpperCount = 0
 	local LetterCount = 0
 	
-	for I = 1, #Message do
-		local Char = Message:sub(I, I)
+	for CharIndex = 1, #Message do
+		local Char = Message:sub(CharIndex, CharIndex)
 		if Char:match("%a") then
 			LetterCount += 1
 			if Char:match("%u") then
