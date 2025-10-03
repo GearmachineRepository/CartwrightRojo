@@ -275,9 +275,9 @@ local function StartVisualization(draggedObject: Instance, playerUserId: number?
 	end
 
 	-- Don't show grid for wheels
-	if draggedObject:IsA("Model") and draggedObject:GetAttribute("PartType") == "Wheel" then
-		return
-	end
+	-- if draggedObject:IsA("Model") and draggedObject:GetAttribute("PartType") == "Wheel" then
+	-- 	return
+	-- end
 
 	ActiveVisualization = true
 	LastStationSearch = 0
