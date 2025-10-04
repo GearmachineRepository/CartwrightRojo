@@ -1,9 +1,6 @@
 --!strict
 local PlacementGrid = {}
 
-local Workspace = game:GetService("Workspace")
-local PlacementFootprint = require(script.Parent:WaitForChild("PlacementFootprint"))
-
 export type CellMeta = {
 	cell: BasePart,
 	x: number,
@@ -20,154 +17,155 @@ local CFG = {
 	PLACEMENT_GRID_NAME = "PlacementGrid",
 }
 
--- Read cell metadata from attributes
-local function ReadCellMeta(cell: BasePart): CellMeta?
-	local x = cell:GetAttribute("GridX")
-	local y = cell:GetAttribute("GridY")
-	local a = cell:GetAttribute("AreaUID")
-	if typeof(x) ~= "number" or typeof(y) ~= "number" or typeof(a) ~= "string" then
+local function ReadCellMeta(Cell: BasePart): CellMeta?
+	local GridX = Cell:GetAttribute("GridX")
+	local GridY = Cell:GetAttribute("GridY")
+	local AreaUID = Cell:GetAttribute("AreaUID")
+
+	if typeof(GridX) ~= "number" or typeof(GridY) ~= "number" or typeof(AreaUID) ~= "string" then
 		return nil
 	end
-	return { cell = cell, x = x, y = y, area = a }
+
+	return { cell = Cell, x = GridX, y = GridY, area = AreaUID }
 end
 
--- Build searchable index of all grid cells in a station
-function PlacementGrid.BuildIndex(station: Model): GridIndex?
-	local gridFolder = station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
-	if not gridFolder then return nil end
+function PlacementGrid.BuildIndex(Station: Model): GridIndex?
+	local GridFolder = Station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
+	if not GridFolder then
+		return nil
+	end
 
-	local byArea: {[string]: {[string]: BasePart}} = {}
-	local list: {CellMeta} = {}
+	local ByArea: {[string]: {[string]: BasePart}} = {}
+	local CellList: {CellMeta} = {}
 
-	for _, c in ipairs(gridFolder:GetDescendants()) do
-		if c:IsA("BasePart") then
-			local meta = ReadCellMeta(c)
-			if meta then
-				table.insert(list, meta)
-				local areaTable = byArea[meta.area]
-				if not areaTable then
-					areaTable = {}
-					byArea[meta.area] = areaTable
+	for _, Child in ipairs(GridFolder:GetDescendants()) do
+		if Child:IsA("BasePart") then
+			local Meta = ReadCellMeta(Child)
+			if Meta then
+				table.insert(CellList, Meta)
+
+				local AreaTable = ByArea[Meta.area]
+				if not AreaTable then
+					AreaTable = {}
+					ByArea[Meta.area] = AreaTable
 				end
-				areaTable[("%d,%d"):format(meta.x, meta.y)] = c
+				AreaTable[("%d,%d"):format(Meta.x, Meta.y)] = Child
 			end
 		end
 	end
 
-	return { all = list, byArea = byArea }
+	return { all = CellList, byArea = ByArea }
 end
 
--- Get cell occupancy count
-function PlacementGrid.GetOccupancyCount(cell: BasePart): number
-	local n = cell:GetAttribute("OccCount")
-	return (typeof(n) == "number") and n or 0
+function PlacementGrid.GetOccupancyCount(Cell: BasePart): number
+	local Count = Cell:GetAttribute("OccCount")
+	return (typeof(Count) == "number") and Count or 0
 end
 
--- Set cell occupancy count
-function PlacementGrid.SetOccupancyCount(cell: BasePart, count: number): ()
-	count = math.max(0, count)
-	cell:SetAttribute("OccCount", count)
-	-- Keep legacy boolean in sync
-	if count > 0 then 
-		cell:SetAttribute("Occupied", true) 
-	else 
-		cell:SetAttribute("Occupied", nil) 
-	end
-end
+function PlacementGrid.SetOccupancyCount(Cell: BasePart, Count: number): ()
+	Count = math.max(0, Count)
+	Cell:SetAttribute("OccCount", Count)
 
--- Check if cell is available (not occupied)
-function PlacementGrid.IsCellAvailable(cell: BasePart): boolean
-	return PlacementGrid.GetOccupancyCount(cell) == 0
-end
-
--- Mark cell as occupied or free
-function PlacementGrid.MarkCell(cell: BasePart, occupied: boolean): ()
-	if occupied then
-		PlacementGrid.SetOccupancyCount(cell, PlacementGrid.GetOccupancyCount(cell) + 1)
+	if Count > 0 then
+		Cell:SetAttribute("Occupied", true)
 	else
-		PlacementGrid.SetOccupancyCount(cell, PlacementGrid.GetOccupancyCount(cell) - 1)
+		Cell:SetAttribute("Occupied", nil)
 	end
 end
 
--- Mark multiple cells
-function PlacementGrid.MarkCells(cells: {BasePart}, occupied: boolean): ()
-	for _, c in ipairs(cells) do
-		PlacementGrid.MarkCell(c, occupied)
+function PlacementGrid.IsCellAvailable(Cell: BasePart): boolean
+	return PlacementGrid.GetOccupancyCount(Cell) == 0
+end
+
+function PlacementGrid.MarkCell(Cell: BasePart, Occupied: boolean): ()
+	if Occupied then
+		PlacementGrid.SetOccupancyCount(Cell, PlacementGrid.GetOccupancyCount(Cell) + 1)
+	else
+		PlacementGrid.SetOccupancyCount(Cell, PlacementGrid.GetOccupancyCount(Cell) - 1)
 	end
 end
 
--- Find rectangular footprint of cells starting from origin
+function PlacementGrid.MarkCells(Cells: {BasePart}, Occupied: boolean): ()
+	for _, Cell in ipairs(Cells) do
+		PlacementGrid.MarkCell(Cell, Occupied)
+	end
+end
+
 function PlacementGrid.FindFootprintCells(
-	index: GridIndex, 
-	area: string, 
-	originX: number, 
-	originY: number, 
-	footprint: any
+	Index: GridIndex,
+	Area: string,
+	OriginX: number,
+	OriginY: number,
+	Footprint: any
 ): {BasePart}?
-	local cells: {BasePart} = {}
-	local seen: {[BasePart]: boolean} = {}
-	local need = footprint.X * footprint.Y
+	local ResultCells: {BasePart} = {}
+	local SeenCells: {[BasePart]: boolean} = {}
+	local NeededCount = Footprint.X * Footprint.Y
 
-	for dy = 0, footprint.Y - 1 do
-		for dx = 0, footprint.X - 1 do
-			local key = ("%d,%d"):format(originX + dx, originY + dy)
-			local c = (index.byArea[area] and index.byArea[area][key]) or nil
+	for DeltaY = 0, Footprint.Y - 1 do
+		for DeltaX = 0, Footprint.X - 1 do
+			local Key = ("%d,%d"):format(OriginX + DeltaX, OriginY + DeltaY)
+			local Cell = (Index.byArea[Area] and Index.byArea[Area][Key]) or nil
 
-			-- Check if cell exists, not duplicate, AND is available
-			if not c or seen[c] or not PlacementGrid.IsCellAvailable(c) then
+			if not Cell or SeenCells[Cell] or not PlacementGrid.IsCellAvailable(Cell) then
 				return nil
 			end
 
-			seen[c] = true
-			table.insert(cells, c)
+			SeenCells[Cell] = true
+			table.insert(ResultCells, Cell)
 		end
 	end
 
-	-- Must be exact size
-	if #cells ~= need then return nil end
-	return cells
+	if #ResultCells ~= NeededCount then
+		return nil
+	end
+
+	return ResultCells
 end
 
--- Get station model from a cell
-function PlacementGrid.GetStationFromCell(cell: BasePart): Model?
-	local grid = cell.Parent
-	local station = grid and grid.Parent and grid.Parent.Parent and grid.Parent.Parent.Parent
-	return (station and station:IsA("Model")) and station or nil
+function PlacementGrid.GetStationFromCell(Cell: BasePart): Model?
+	local Grid = Cell.Parent
+	local Station = Grid and Grid.Parent and Grid.Parent.Parent and Grid.Parent.Parent.Parent
+	return (Station and Station:IsA("Model")) and Station or nil
 end
 
--- Find nearest available cell within radius
-function PlacementGrid.FindNearestAvailableCell(station: Model, position: Vector3, radius: number): BasePart?
-	local grid = station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
-	if not grid or not grid:IsA("Folder") then return nil end
+function PlacementGrid.FindNearestAvailableCell(Station: Model, Position: Vector3, Radius: number): BasePart?
+	local Grid = Station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
+	if not Grid or not Grid:IsA("Folder") then
+		return nil
+	end
 
-	local nearest: BasePart? = nil
-	local best = math.huge
+	local NearestCell: BasePart? = nil
+	local BestDistance = math.huge
 
-	for _, cell in ipairs(grid:GetDescendants()) do
-		if cell:IsA("BasePart") and PlacementGrid.IsCellAvailable(cell) then
-			local d = (cell.Position - position).Magnitude
-			if d <= radius and d < best then
-				best = d
-				nearest = cell
+	for _, Cell in ipairs(Grid:GetDescendants()) do
+		if Cell:IsA("BasePart") and PlacementGrid.IsCellAvailable(Cell) then
+			local Distance = (Cell.Position - Position).Magnitude
+			if Distance <= Radius and Distance < BestDistance then
+				BestDistance = Distance
+				NearestCell = Cell
 			end
 		end
 	end
 
-	return nearest
+	return NearestCell
 end
 
--- Check if a station has enough free space for a footprint
-function PlacementGrid.HasAvailableSpace(station: Model, requiredFootprint: any): boolean
-	if not station then return false end
+function PlacementGrid.HasAvailableSpace(Station: Model, RequiredFootprint: any): boolean
+	if not Station then
+		return false
+	end
 
-	local index = PlacementGrid.BuildIndex(station)
-	if not index then return false end
+	local Index = PlacementGrid.BuildIndex(Station)
+	if not Index then
+		return false
+	end
 
-	local need = requiredFootprint.X * requiredFootprint.Y
+	local NeededCount = RequiredFootprint.X * RequiredFootprint.Y
 
-	for _, meta in ipairs(index.all) do
-		local patch = PlacementGrid.FindFootprintCells(index, meta.area, meta.x, meta.y, requiredFootprint)
-		if patch and #patch == need then
+	for _, Meta in ipairs(Index.all) do
+		local Patch = PlacementGrid.FindFootprintCells(Index, Meta.area, Meta.x, Meta.y, RequiredFootprint)
+		if Patch and #Patch == NeededCount then
 			return true
 		end
 	end
@@ -175,38 +173,44 @@ function PlacementGrid.HasAvailableSpace(station: Model, requiredFootprint: any)
 	return false
 end
 
--- Get total free cell count
-function PlacementGrid.GetFreeCellCount(station: Model): number
-	if not station then return 0 end
+function PlacementGrid.GetFreeCellCount(Station: Model): number
+	if not Station then
+		return 0
+	end
 
-	local gridFolder = station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
-	if not gridFolder or not gridFolder:IsA("Folder") then return 0 end
+	local GridFolder = Station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
+	if not GridFolder or not GridFolder:IsA("Folder") then
+		return 0
+	end
 
-	local freeCount = 0
-	for _, cell in ipairs(gridFolder:GetDescendants()) do
-		if cell:IsA("BasePart") and PlacementGrid.IsCellAvailable(cell) then
-			freeCount += 1
+	local FreeCount = 0
+	for _, Cell in ipairs(GridFolder:GetDescendants()) do
+		if Cell:IsA("BasePart") and PlacementGrid.IsCellAvailable(Cell) then
+			FreeCount += 1
 		end
 	end
 
-	return freeCount
+	return FreeCount
 end
 
--- Get total cell count
-function PlacementGrid.GetTotalCellCount(station: Model): number
-	if not station then return 0 end
+function PlacementGrid.GetTotalCellCount(Station: Model): number
+	if not Station then
+		return 0
+	end
 
-	local gridFolder = station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
-	if not gridFolder or not gridFolder:IsA("Folder") then return 0 end
+	local GridFolder = Station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
+	if not GridFolder or not GridFolder:IsA("Folder") then
+		return 0
+	end
 
-	local totalCount = 0
-	for _, cell in ipairs(gridFolder:GetDescendants()) do
-		if cell:IsA("BasePart") then
-			totalCount += 1
+	local TotalCount = 0
+	for _, Cell in ipairs(GridFolder:GetDescendants()) do
+		if Cell:IsA("BasePart") then
+			TotalCount += 1
 		end
 	end
 
-	return totalCount
+	return TotalCount
 end
 
 return PlacementGrid

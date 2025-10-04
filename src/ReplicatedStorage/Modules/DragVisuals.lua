@@ -39,27 +39,31 @@ local GhostUpdateConnection: RBXScriptConnection? = nil
 
 function DragVisuals.CreateHighlight(Target: Instance): ()
 	DragVisuals.RemoveHighlight(false)
-	local hl = Instance.new("Highlight")
-	hl.Name = "DragHighlight"
-	hl.FillColor = HIGHLIGHT_COLOR
-	hl.OutlineColor = HIGHLIGHT_COLOR
-	hl.FillTransparency = HIGHLIGHT_FILL_TRANSPARENCY
-	hl.OutlineTransparency = HIGHLIGHT_OUTLINE_TRANSPARENCY
-	hl.Adornee = Target
-	hl.Parent = Target
-	CurrentHighlight = hl
+
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "DragHighlight"
+	Highlight.FillColor = HIGHLIGHT_COLOR
+	Highlight.OutlineColor = HIGHLIGHT_COLOR
+	Highlight.FillTransparency = HIGHLIGHT_FILL_TRANSPARENCY
+	Highlight.OutlineTransparency = HIGHLIGHT_OUTLINE_TRANSPARENCY
+	Highlight.Adornee = Target
+	Highlight.Parent = Target
+	CurrentHighlight = Highlight
 end
 
 function DragVisuals.RemoveHighlight(FadeOut: boolean): ()
-	if not CurrentHighlight then return end
+	if not CurrentHighlight then
+		return
+	end
+
 	if FadeOut then
-		local t = TweenService:Create(
+		local Tween = TweenService:Create(
 			CurrentHighlight,
 			TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{ FillTransparency = 1, OutlineTransparency = 1 }
 		)
-		t:Play()
-		t.Completed:Connect(function()
+		Tween:Play()
+		Tween.Completed:Connect(function()
 			if CurrentHighlight then
 				CurrentHighlight:Destroy()
 				CurrentHighlight = nil
@@ -73,26 +77,29 @@ end
 
 function DragVisuals.CreateWheelIndicator(WheelPart: BasePart, AnchorPart: BasePart): ()
 	DragVisuals.RemoveWheelIndicator()
+
 	WheelIndicatorAttachment0 = Instance.new("Attachment")
 	WheelIndicatorAttachment0.Name = "WheelIndicatorStart"
 	WheelIndicatorAttachment0.Parent = WheelPart
+
 	WheelIndicatorAttachment1 = Instance.new("Attachment")
 	WheelIndicatorAttachment1.Name = "WheelIndicatorEnd"
 	WheelIndicatorAttachment1.Parent = AnchorPart
-	local beam = Instance.new("Beam")
-	beam.Name = "WheelAttachmentBeam"
-	beam.Attachment0 = WheelIndicatorAttachment0
-	beam.Attachment1 = WheelIndicatorAttachment1
-	beam.Color = ColorSequence.new(WHEEL_INDICATOR_COLOR)
-	beam.Width0 = WHEEL_INDICATOR_WIDTH
-	beam.Width1 = WHEEL_INDICATOR_WIDTH
-	beam.LightEmission = 1
-	beam.TextureSpeed = 2.5
-	beam.Texture = "rbxassetid://17377173654"
-	beam.FaceCamera = true
-	beam.Transparency = NumberSequence.new(0.3)
-	beam.Parent = WheelPart
-	CurrentWheelIndicator = beam
+
+	local Beam = Instance.new("Beam")
+	Beam.Name = "WheelAttachmentBeam"
+	Beam.Attachment0 = WheelIndicatorAttachment0
+	Beam.Attachment1 = WheelIndicatorAttachment1
+	Beam.Color = ColorSequence.new(WHEEL_INDICATOR_COLOR)
+	Beam.Width0 = WHEEL_INDICATOR_WIDTH
+	Beam.Width1 = WHEEL_INDICATOR_WIDTH
+	Beam.LightEmission = 1
+	Beam.TextureSpeed = 2.5
+	Beam.Texture = "rbxassetid://17377173654"
+	Beam.FaceCamera = true
+	Beam.Transparency = NumberSequence.new(0.3)
+	Beam.Parent = WheelPart
+	CurrentWheelIndicator = Beam
 end
 
 function DragVisuals.UpdateWheelIndicator(NewAnchor: BasePart): ()
@@ -116,213 +123,253 @@ function DragVisuals.RemoveWheelIndicator(): ()
 	end
 end
 
-local function AnchorCF(anchor: Instance): CFrame
-	local cf: CFrame
-	if anchor:IsA("Attachment") then
-		local parent = anchor.Parent
-		if parent and parent:IsA("BasePart") then
-			cf = (parent :: BasePart).CFrame * anchor.CFrame
+local function AnchorCF(Anchor: Instance): CFrame
+	local ResultCFrame: CFrame
+
+	if Anchor:IsA("Attachment") then
+		local Parent = Anchor.Parent
+		if Parent and Parent:IsA("BasePart") then
+			ResultCFrame = (Parent :: BasePart).CFrame * Anchor.CFrame
 		else
-			cf = CFrame.new()
+			ResultCFrame = CFrame.new()
 		end
-	elseif anchor:IsA("BasePart") then
-		cf = (anchor :: BasePart).CFrame
+	elseif Anchor:IsA("BasePart") then
+		ResultCFrame = (Anchor :: BasePart).CFrame
 	else
-		cf = CFrame.new()
+		ResultCFrame = CFrame.new()
 	end
-	local offset = anchor:GetAttribute("LocalOffset")
-	if typeof(offset) == "Vector3" then
-		cf = cf * CFrame.new(offset)
+
+	local Offset = Anchor:GetAttribute("LocalOffset")
+	if typeof(Offset) == "Vector3" then
+		ResultCFrame = ResultCFrame * CFrame.new(Offset)
 	end
-	return cf
+
+	return ResultCFrame
 end
 
-local function StripForGhost(inst: Instance)
-	if inst:IsA("AlignPosition")
-		or inst:IsA("AlignOrientation")
-		or inst:IsA("Constraint")
-		or inst:IsA("Attachment")
-		or inst:IsA("Sound")
-		or inst:IsA("ProximityPrompt")
-		or inst:IsA("ClickDetector")
-		or inst:IsA("Motor6D")
+local function StripForGhost(Instance: Instance)
+	if Instance:IsA("AlignPosition")
+		or Instance:IsA("AlignOrientation")
+		or Instance:IsA("Constraint")
+		or Instance:IsA("Attachment")
+		or Instance:IsA("Sound")
+		or Instance:IsA("ProximityPrompt")
+		or Instance:IsA("ClickDetector")
+		or Instance:IsA("Motor6D")
 	then
-		inst:Destroy()
+		Instance:Destroy()
 		return
 	end
-	if inst:IsA("SurfaceGui") or inst:IsA("BillboardGui") then
-		inst:Destroy()
+
+	if Instance:IsA("SurfaceGui") or Instance:IsA("BillboardGui") then
+		Instance:Destroy()
 		return
 	end
-	if inst:IsA("Decal") or inst:IsA("Texture") then
-		(inst :: Decal).Transparency = GHOST_TRANSPARENCY
+
+	if Instance:IsA("Decal") or Instance:IsA("Texture") then
+		(Instance :: Decal).Transparency = GHOST_TRANSPARENCY
 	end
-	if inst:IsA("BasePart") then
-		local p = inst :: BasePart
-		p.Anchored = true
-		p.Massless = true
-		p.CanCollide = false
-		p.CanQuery = false
-		p.CanTouch = false
-		p.CastShadow = false
-		p.Material = Enum.Material.ForceField
-		p.Transparency = GHOST_TRANSPARENCY
-		p.Color = GHOST_COLOR
+
+	if Instance:IsA("BasePart") then
+		local Part = Instance :: BasePart
+		Part.Anchored = true
+		Part.Massless = true
+		Part.CanCollide = false
+		Part.CanQuery = false
+		Part.CanTouch = false
+		Part.CastShadow = false
+		Part.Material = Enum.Material.ForceField
+		Part.Transparency = GHOST_TRANSPARENCY
+		Part.Color = GHOST_COLOR
 	end
 end
 
-local function BuildGhostTemplate(fromWheel: Model): Model
-	local template = fromWheel:Clone()
-	template.Name = "WheelGhostTemplate"
-	for _, d in ipairs(template:GetDescendants()) do
-		StripForGhost(d)
+local function BuildGhostTemplate(FromWheel: Model): Model
+	local Template = FromWheel:Clone()
+	Template.Name = "WheelGhostTemplate"
+
+	for _, Descendant in ipairs(Template:GetDescendants()) do
+		StripForGhost(Descendant)
 	end
-	for _, d in ipairs(template:GetDescendants()) do
-		if d:IsA("BasePart") then
-			local p = d :: BasePart
-			p.Anchored = true
-			p.Massless = true
-			p.CanCollide = false
-			p.CanQuery = false
-			p.CanTouch = false
+
+	for _, Descendant in ipairs(Template:GetDescendants()) do
+		if Descendant:IsA("BasePart") then
+			local Part = Descendant :: BasePart
+			Part.Anchored = true
+			Part.Massless = true
+			Part.CanCollide = false
+			Part.CanQuery = false
+			Part.CanTouch = false
 		end
 	end
-	template.Parent = nil
-	return template
+
+	Template.Parent = nil
+	return Template
 end
 
-local function EnsurePool(fromWheel: Model)
+local function EnsurePool(FromWheel: Model)
 	if not GhostTemplate then
-		GhostTemplate = BuildGhostTemplate(fromWheel)
+		GhostTemplate = BuildGhostTemplate(FromWheel)
 	end
+
 	while #GhostPool < MAX_GHOSTS do
-		local g = GhostTemplate:Clone()
-		g.Name = "WheelGhost"
-		for _, d in ipairs(g:GetDescendants()) do
-			if d:IsA("BasePart") then
-				local p = d :: BasePart
-				p.Anchored = true
-				p.Massless = true
-				p.CanCollide = false
-				p.CanQuery = false
-				p.CanTouch = false
-				p.CastShadow = false
+		local Ghost = GhostTemplate:Clone()
+		Ghost.Name = "WheelGhost"
+
+		for _, Descendant in ipairs(Ghost:GetDescendants()) do
+			if Descendant:IsA("BasePart") then
+				local Part = Descendant :: BasePart
+				Part.Anchored = true
+				Part.Massless = true
+				Part.CanCollide = false
+				Part.CanQuery = false
+				Part.CanTouch = false
+				Part.CastShadow = false
 			end
 		end
-		g.Parent = nil
-		table.insert(GhostPool, g)
+
+		Ghost.Parent = nil
+		table.insert(GhostPool, Ghost)
 	end
 end
 
 local function HideAllGhosts()
-	for _, g in ipairs(GhostPool) do
-		if g.Parent then 
-			g.Parent = nil 
+	for _, Ghost in ipairs(GhostPool) do
+		if Ghost.Parent then
+			Ghost.Parent = nil
 		end
 	end
 end
 
 local function GetOwnedCarts(): {Model}
-	local results = {}
-	for _, m in ipairs(workspace:GetDescendants()) do
-		if m:IsA("Model") and (m:GetAttribute("Owner") == Player.UserId) then
-			if m:HasTag("Cart") or m:GetAttribute("Type") == "Cart" then
-				table.insert(results, m)
+	local Results = {}
+	for _, ModelInstance in ipairs(workspace:GetDescendants()) do
+		if ModelInstance:IsA("Model") and (ModelInstance:GetAttribute("Owner") == Player.UserId) then
+			if ModelInstance:HasTag("Cart") or ModelInstance:GetAttribute("Type") == "Cart" then
+				table.insert(Results, ModelInstance)
 			end
 		end
 	end
-	return results
+	return Results
 end
 
-local function GetFreeWheelAnchors(cart: Model): {Instance}
-	local anchors: {Instance} = {}
-	local wagon = CartAssembly.getWagon(cart)
-	if not wagon then return anchors end
-	local folder = wagon:FindFirstChild("Anchors")
-	if not folder or not folder:IsA("Folder") then return anchors end
-	for _, a in ipairs(folder:GetChildren()) do
-		if (a:IsA("Attachment") or a:IsA("BasePart")) and a.Name:match("^Wheel") then
-			local occ = a:GetAttribute("OccupantUID")
-			if not occ or occ == "" then
-				table.insert(anchors, a)
+local function GetFreeWheelAnchors(Cart: Model): {Instance}
+	local Anchors: {Instance} = {}
+	local Wagon = CartAssembly.getWagon(Cart)
+	if not Wagon then
+		return Anchors
+	end
+
+	local Folder = Wagon:FindFirstChild("Anchors")
+	if not Folder or not Folder:IsA("Folder") then
+		return Anchors
+	end
+
+	for _, AnchorInstance in ipairs(Folder:GetChildren()) do
+		if (AnchorInstance:IsA("Attachment") or AnchorInstance:IsA("BasePart")) and AnchorInstance.Name:match("^Wheel") then
+			local OccupantUID = AnchorInstance:GetAttribute("OccupantUID")
+			if not OccupantUID or OccupantUID == "" then
+				table.insert(Anchors, AnchorInstance)
 			end
 		end
 	end
-	return anchors
+
+	return Anchors
 end
 
 local function UpdateGhosts()
-	local t = tick()
-	if t - LastGhostUpdate < GHOST_UPDATE_INTERVAL then return end
-	LastGhostUpdate = t
+	local CurrentTime = tick()
+	if CurrentTime - LastGhostUpdate < GHOST_UPDATE_INTERVAL then
+		return
+	end
+
+	LastGhostUpdate = CurrentTime
+
 	if not CurrentDraggedWheel or not CurrentDraggedWheel.Parent then
 		HideAllGhosts()
 		return
 	end
+
 	EnsurePool(CurrentDraggedWheel)
-	local anchors: {Instance} = {}
-	for _, cart in ipairs(GetOwnedCarts()) do
-		local free = GetFreeWheelAnchors(cart)
-		for _, a in ipairs(free) do 
-			table.insert(anchors, a) 
+
+	local AllAnchors: {Instance} = {}
+	for _, Cart in ipairs(GetOwnedCarts()) do
+		local FreeAnchors = GetFreeWheelAnchors(Cart)
+		for _, Anchor in ipairs(FreeAnchors) do
+			table.insert(AllAnchors, Anchor)
 		end
 	end
-	if #anchors == 0 then
+
+	if #AllAnchors == 0 then
 		HideAllGhosts()
 		return
 	end
-	local wheelRoot = CurrentDraggedWheel.PrimaryPart or CurrentDraggedWheel:FindFirstChildWhichIsA("BasePart")
-	if not wheelRoot then
+
+	local WheelRoot = CurrentDraggedWheel.PrimaryPart or CurrentDraggedWheel:FindFirstChildWhichIsA("BasePart")
+	if not WheelRoot then
 		HideAllGhosts()
 		return
 	end
-	table.sort(anchors, function(a, b)
-		local pa = AnchorCF(a).Position
-		local pb = AnchorCF(b).Position
-		return (pa - wheelRoot.Position).Magnitude < (pb - wheelRoot.Position).Magnitude
+
+	table.sort(AllAnchors, function(AnchorA, AnchorB)
+		local PositionA = AnchorCF(AnchorA).Position
+		local PositionB = AnchorCF(AnchorB).Position
+		return (PositionA - WheelRoot.Position).Magnitude < (PositionB - WheelRoot.Position).Magnitude
 	end)
-	local needed = math.min(MAX_GHOSTS, #anchors)
-	for i = 1, needed do
-		local g = GhostPool[i]
-		local cf = AnchorCF(anchors[i])
-		if g and cf then
-			if not g.PrimaryPart then
-				local any = g:FindFirstChildWhichIsA("BasePart")
-				if any then 
-					g.PrimaryPart = any 
+
+	local NeededGhosts = math.min(MAX_GHOSTS, #AllAnchors)
+
+	for Index = 1, NeededGhosts do
+		local Ghost = GhostPool[Index]
+		local GhostCFrame = AnchorCF(AllAnchors[Index])
+
+		if Ghost and GhostCFrame then
+			if not Ghost.PrimaryPart then
+				local AnyPart = Ghost:FindFirstChildWhichIsA("BasePart")
+				if AnyPart then
+					Ghost.PrimaryPart = AnyPart
 				end
 			end
-			if g.PrimaryPart then
-				g:PivotTo(cf)
+
+			if Ghost.PrimaryPart then
+				Ghost:PivotTo(GhostCFrame)
 			end
-			if g.Parent ~= workspace then
-				g.Parent = workspace
+
+			if Ghost.Parent ~= workspace then
+				Ghost.Parent = workspace
 			end
 		end
 	end
-	for i = needed + 1, #GhostPool do
-		local g = GhostPool[i]
-		if g.Parent then 
-			g.Parent = nil 
+
+	for Index = NeededGhosts + 1, #GhostPool do
+		local Ghost = GhostPool[Index]
+		if Ghost.Parent then
+			Ghost.Parent = nil
 		end
 	end
 end
 
 function DragVisuals.StartGhostWheels(WheelModel: Model)
-	if not WheelModel or not WheelModel:IsA("Model") then return end
+	if not WheelModel or not WheelModel:IsA("Model") then
+		return
+	end
+
 	CurrentDraggedWheel = WheelModel
 	LastGhostUpdate = 0
 	EnsurePool(WheelModel)
 	HideAllGhosts()
+
 	if GhostUpdateConnection then
 		GhostUpdateConnection:Disconnect()
 	end
+
 	GhostUpdateConnection = RunService.Heartbeat:Connect(UpdateGhosts)
 end
 
 function DragVisuals.StopGhostWheels()
 	HideAllGhosts()
 	CurrentDraggedWheel = nil
+
 	if GhostUpdateConnection then
 		GhostUpdateConnection:Disconnect()
 		GhostUpdateConnection = nil
@@ -341,9 +388,10 @@ function DragVisuals.CleanupAll(): ()
 	DragVisuals.RemoveHighlight(false)
 	DragVisuals.RemoveWheelIndicator()
 	DragVisuals.StopGhostWheels()
-	for _, d in ipairs(workspace:GetDescendants()) do
-		if d:IsA("Highlight") and d.Name == "DragHighlight" then
-			d:Destroy()
+
+	for _, Descendant in ipairs(workspace:GetDescendants()) do
+		if Descendant:IsA("Highlight") and Descendant.Name == "DragHighlight" then
+			Descendant:Destroy()
 		end
 	end
 end

@@ -12,120 +12,122 @@ local PhysicsGroups = require(Modules:WaitForChild("PhysicsGroups"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local CartEvents = Events:WaitForChild("CartEvents")
-local attachCartEvent = CartEvents:WaitForChild("AttachCart")
-local detachCartEvent = CartEvents:WaitForChild("DetachCart")
-local updateCartEvent = CartEvents:WaitForChild("UpdateCart")
-local updateWheelHeightEvent = CartEvents:WaitForChild("UpdateWheelHeight")
+local AttachCartEvent = CartEvents:WaitForChild("AttachCart")
+local DetachCartEvent = CartEvents:WaitForChild("DetachCart")
+local UpdateCartEvent = CartEvents:WaitForChild("UpdateCart")
+local UpdateWheelHeightEvent = CartEvents:WaitForChild("UpdateWheelHeight")
 
 local CART_TAG = "Cart"
 local UPDATE_RATE = 0.1
 
--- Remote Event: Client requests to attach cart
-attachCartEvent.OnServerEvent:Connect(function(player: Player, actionOrCart, maybeCart: Model?)
-	local action: string?, cart: Model?
-	if typeof(actionOrCart) == "string" then
-		action = actionOrCart
-		cart = maybeCart
+AttachCartEvent.OnServerEvent:Connect(function(Player: Player, ActionOrCart, MaybeCart: Model?)
+	local Action: string?
+	local Cart: Model?
+
+	if typeof(ActionOrCart) == "string" then
+		Action = ActionOrCart
+		Cart = MaybeCart
 	else
 		return
 	end
 
-	if action ~= "REQUEST" then return end
-	if not cart then return end
+	if Action ~= "REQUEST" then
+		return
+	end
 
-	-- Attempt to attach using CartStateManager
-	local success = CartStateManager.AttachCart(player, cart)
+	if not Cart then
+		return
+	end
 
-	if success then
-		-- Owner builds visual
-		attachCartEvent:FireClient(player, "CONFIRM_OWNER", cart)
+	local Success = CartStateManager.AttachCart(Player, Cart)
 
-		-- Spectators replicate
-		for _, other in ipairs(Players:GetPlayers()) do
-			if other ~= player then
-				attachCartEvent:FireClient(other, "REPLICATE_OTHERS", player, cart)
+	if Success then
+		AttachCartEvent:FireClient(Player, "CONFIRM_OWNER", Cart)
+
+		for _, Other in ipairs(Players:GetPlayers()) do
+			if Other ~= Player then
+				AttachCartEvent:FireClient(Other, "REPLICATE_OTHERS", Player, Cart)
 			end
 		end
 	end
 end)
 
--- Remote Event: Client requests to detach cart
-detachCartEvent.OnServerEvent:Connect(function(player: Player)
-	local success, cart = CartStateManager.DetachCart(player)
+DetachCartEvent.OnServerEvent:Connect(function(Player: Player)
+	local Success, Cart = CartStateManager.DetachCart(Player)
 
-	if success and cart then
-		print("[CartServer] Detaching cart for:", player.Name, "Cart:", cart.Name)
-		-- Inform all clients with both player AND cart
-		detachCartEvent:FireAllClients(player, cart)
+	if Success and Cart then
+		print("[CartServer] Detaching cart for:", Player.Name, "Cart:", Cart.Name)
+		DetachCartEvent:FireAllClients(Player, Cart)
 	end
 end)
 
--- Remote Event: Owner sends position updates
-updateCartEvent.OnServerEvent:Connect(function(player: Player, cartCFrame: CFrame, _: number?)
-	local data = CartStateManager.GetPlayerData(player)
-	if not data or not data.IsOwner then return end
+UpdateCartEvent.OnServerEvent:Connect(function(Player: Player, CartCFrame: CFrame, _: number?)
+	local Data = CartStateManager.GetPlayerData(Player)
+	if not Data or not Data.IsOwner then
+		return
+	end
 
-	local now = tick()
-	if now - (data.LastUpdateTime or 0) < UPDATE_RATE then return end
-	data.LastUpdateTime = now
+	local Now = tick()
+	if Now - (Data.LastUpdateTime or 0) < UPDATE_RATE then
+		return
+	end
 
-	CartStateManager.UpdateCartPosition(player, cartCFrame)
+	Data.LastUpdateTime = Now
+
+	CartStateManager.UpdateCartPosition(Player, CartCFrame)
 end)
 
--- Remote Event: Wheel diameter updates from client
-updateWheelHeightEvent.OnServerEvent:Connect(function(player: Player, cart: Model, wheelDiameter: number)
-	CartStateManager.UpdateWheelDiameter(player, cart, wheelDiameter)
+UpdateWheelHeightEvent.OnServerEvent:Connect(function(Player: Player, Cart: Model, WheelDiameter: number)
+	CartStateManager.UpdateWheelDiameter(Player, Cart, WheelDiameter)
 end)
 
--- Player cleanup
-Players.PlayerRemoving:Connect(function(player)
-	CartStateManager.CleanupPlayer(player)
+Players.PlayerRemoving:Connect(function(Player)
+	CartStateManager.CleanupPlayer(Player)
 end)
 
--- Late join replication
-Players.PlayerAdded:Connect(function(newPlayer)
+Players.PlayerAdded:Connect(function(NewPlayer)
 	task.wait(2)
 
-	local attachments = CartStateManager.GetAllAttachments()
-	for owner, cart in pairs(attachments) do
-		attachCartEvent:FireClient(newPlayer, "REPLICATE_OTHERS", owner, cart)
+	local Attachments = CartStateManager.GetAllAttachments()
+	for Owner, Cart in pairs(Attachments) do
+		AttachCartEvent:FireClient(NewPlayer, "REPLICATE_OTHERS", Owner, Cart)
 	end
 end)
 
--- Interaction Functions (for ObjectDatabase integration)
 return {
-	StateAFunction = function(player: Player, object: Instance, config: any)
-		if object:IsA("Model") and CollectionService:HasTag(object, CART_TAG) then
-			local ownerId = object:GetAttribute("Owner")
-			if ownerId and ownerId ~= player.UserId then return end
+	StateAFunction = function(Player: Player, Object: Instance, Config: any)
+		if Object:IsA("Model") and CollectionService:HasTag(Object, CART_TAG) then
+			local OwnerId = Object:GetAttribute("Owner")
+			if OwnerId and OwnerId ~= Player.UserId then
+				return
+			end
 
-			object:SetAttribute("Owner", player.UserId)
-			object:SetAttribute("Type", "Cart")
+			Object:SetAttribute("Owner", Player.UserId)
+			Object:SetAttribute("Type", "Cart")
 
-            OwnershipManager.TrackOwnership(object, player.UserId)
-            PhysicsGroups.SetToGroup(object, "Dragging")
+			OwnershipManager.TrackOwnership(Object, Player.UserId)
+			PhysicsGroups.SetToGroup(Object, "Dragging")
 
-			-- Invite owner to request attach
-			attachCartEvent:FireClient(player, object)
-			if config and config.InteractionSound then
-				SoundModule.PlaySound(config.InteractionSound, object.PrimaryPart)
+			AttachCartEvent:FireClient(Player, Object)
+
+			if Config and Config.InteractionSound then
+				SoundModule.PlaySound(Config.InteractionSound, Object.PrimaryPart)
 			end
 		end
 	end,
 
-	StateBFunction = function(player: Player, object: Instance, config: any)
-		if object:IsA("Model") then
-			if object:GetAttribute("AttachedTo") == player.Name then
-				local success, cart = CartStateManager.DetachCart(player)
+	StateBFunction = function(Player: Player, Object: Instance, Config: any)
+		if Object:IsA("Model") then
+			if Object:GetAttribute("AttachedTo") == Player.Name then
+				local Success, Cart = CartStateManager.DetachCart(Player)
 
-				if success and cart then
-					-- Inform all clients
-					detachCartEvent:FireAllClients(player, cart)
-                    OwnershipManager.UpdateInteractionTime(object)
-           			PhysicsGroups.SetToGroup(object, "Static")
+				if Success and Cart then
+					DetachCartEvent:FireAllClients(Player, Cart)
+					OwnershipManager.UpdateInteractionTime(Object)
+					PhysicsGroups.SetToGroup(Object, "Static")
 
-					if config and config.ReleaseSound then
-						SoundModule.PlaySound(config.ReleaseSound, object.PrimaryPart)
+					if Config and Config.ReleaseSound then
+						SoundModule.PlaySound(Config.ReleaseSound, Object.PrimaryPart)
 					end
 				end
 			end

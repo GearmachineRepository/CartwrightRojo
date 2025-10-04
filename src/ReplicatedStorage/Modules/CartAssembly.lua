@@ -77,8 +77,8 @@ end
 local function AnchorCF(Inst: Instance): CFrame
 	local CF = Inst:IsA("Attachment") and AttachmentCF(Inst) or (Inst :: BasePart).CFrame
 	local Offset = Inst:GetAttribute("LocalOffset")
-	if typeof(Offset)=="Vector3" then 
-		CF = CF * CFrame.new(Offset) 
+	if typeof(Offset)=="Vector3" then
+		CF = CF * CFrame.new(Offset)
 	end
 	return CF
 end
@@ -93,8 +93,8 @@ end
 
 local function ResolveAxleNumberFromAnchor(AnchorInstance: Instance): number
 	local AxleAttribute = AnchorInstance:GetAttribute("AxleNumber")
-	if typeof(AxleAttribute)=="number" and AxleAttribute>=1 then 
-		return AxleAttribute 
+	if typeof(AxleAttribute)=="number" and AxleAttribute>=1 then
+		return AxleAttribute
 	end
 	local NumberMatch = tostring(AnchorInstance.Name):match("(%d+)")
 	return NumberMatch and tonumber(NumberMatch) or 1
@@ -103,10 +103,10 @@ end
 function CartAssembly.CountWheelsOnAnchors(Cart: Model): number
 	local Wagon = CartAssembly.getWagon(Cart)
 	if not Wagon then return 0 end
-	
+
 	local AnchorsFolder = Wagon:FindFirstChild("Anchors")
 	if not AnchorsFolder or not AnchorsFolder:IsA("Folder") then return 0 end
-	
+
 	local WheelCount = 0
 	for _, Anchor in ipairs(AnchorsFolder:GetChildren()) do
 		if (Anchor:IsA("Attachment") or Anchor:IsA("BasePart")) and Anchor.Name:match("^Wheel") then
@@ -116,7 +116,7 @@ function CartAssembly.CountWheelsOnAnchors(Cart: Model): number
 			end
 		end
 	end
-	
+
 	return WheelCount
 end
 
@@ -125,11 +125,11 @@ function CartAssembly.findNearestWheelAnchor(Cart: Model, NearPos: Vector3, Radi
 	 if not Wagon then return nil, nil end
 	local AnchorsFolder = Wagon:FindFirstChild("Anchors")
 	if not AnchorsFolder or not AnchorsFolder:IsA("Folder") then return nil, nil end
-	
+
 	local BestAnchor: Instance? = nil
 	local BestDistance = math.huge
 	local BestAxle: number? = nil
-	
+
 	for _, Anchor in ipairs(AnchorsFolder:GetChildren()) do
 		if (Anchor:IsA("Attachment") or Anchor:IsA("BasePart")) and Anchor.Name:match("^Wheel") then
 			local Distance = (AnchorCF(Anchor).Position - NearPos).Magnitude
@@ -151,13 +151,13 @@ function CartAssembly.installWheelAttachmentAtAnchor(Cart: Model, WheelModel: Mo
 			return false
 		end
 	end
-	
+
 	local Spin = GetSpinByNumber(Cart, AxleNumber)
 	if not Spin then return false end
 	local Motor = GetMotorByNumber(Cart, AxleNumber)
 	if not Motor then return false end
 
-	local WheelUID = UIDManager.ensureModelUID(WheelModel)
+	local WheelUID = UIDManager.EnsureModelUID(WheelModel)
 	local Occupant = GetAnchorOccupant(Anchor)
 	if Occupant and Occupant ~= WheelUID then return false end
 
@@ -166,13 +166,13 @@ function CartAssembly.installWheelAttachmentAtAnchor(Cart: Model, WheelModel: Mo
 		if not AnyPart then return false end
 		WheelModel.PrimaryPart = AnyPart
 	end
-	
+
 	local NewWheelDiameter = GetWheelDiameter(WheelModel)
 	if not IsWheelSizeCompatible(Cart, NewWheelDiameter) then
 		warn("[CartAssembly] Wheel size incompatible with existing wheels")
 		return false
 	end
-	
+
 	local WheelsFolder = GetWheelsFolder(Cart)
 	if not WheelsFolder then return false end
 	WheelModel.Parent = WheelsFolder
@@ -194,8 +194,8 @@ function CartAssembly.installWheelAttachmentAtAnchor(Cart: Model, WheelModel: Mo
 		Weld.Parent = Spin
 	end
 
-	if Motor.Part1 ~= Spin then 
-		Motor.Part1 = Spin 
+	if Motor.Part1 ~= Spin then
+		Motor.Part1 = Spin
 	end
 	Motor.C1 = CFrame.new()
 
@@ -228,12 +228,12 @@ function CartAssembly.detachWheelAttachment(Cart: Model, WheelModel: Model): boo
 		end
 	end
 	if not Weld then return false end
-	
+
 	-- Stabilize the cart chassis while we break the constraint
 	local WagonRoot = CartAssembly.getWagonRoot(Cart)
 	local prevAnchored: boolean? = WagonRoot and WagonRoot.Anchored
-	if WagonRoot then 
-		WagonRoot.Anchored = true 
+	if WagonRoot then
+		WagonRoot.Anchored = true
 	end
 
 	Root.Anchored = true
@@ -252,7 +252,7 @@ function CartAssembly.detachWheelAttachment(Cart: Model, WheelModel: Model): boo
 	end
 
 	WheelModel.Parent = workspace
-	
+
 	task.defer(function()
 		for _, Descendant in ipairs(WheelModel:GetDescendants()) do
 			if Descendant:IsA("BasePart") then
@@ -264,7 +264,7 @@ function CartAssembly.detachWheelAttachment(Cart: Model, WheelModel: Model): boo
 			WagonRoot.Anchored = prevAnchored
 		end
 	end)
-	
+
 	return true
 end
 

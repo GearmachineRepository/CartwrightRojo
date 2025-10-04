@@ -1,10 +1,9 @@
+--!strict
 local ToolInstancer = {}
 
--- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
--- Modules
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PlacementSnap = require(Modules:WaitForChild("PlacementSnap"))
 local ObjectDatabase = require(Modules:WaitForChild("ObjectDatabase"))
@@ -12,139 +11,124 @@ local CartAssembly = require(Modules:WaitForChild("CartAssembly"))
 local InventoryManager = require(Modules:WaitForChild("InventoryManager"))
 local PhysicsGroups = require(Modules:WaitForChild("PhysicsGroups"))
 
--- Constants
 local DRAG_TAG: string = "Drag"
 local INTERACTION_TAG: string = "Interactable"
 
--- Assets
 local Assets = ReplicatedStorage:WaitForChild("Assets")
 local Items = Assets:WaitForChild("Items")
 
--- check if an item exists in the Items folder
-function ToolInstancer.ItemExists(itemName: string): boolean
-	return Items:FindFirstChild(itemName) ~= nil
+function ToolInstancer.ItemExists(ItemName: string): boolean
+	return Items:FindFirstChild(ItemName) ~= nil
 end
 
--- get all available item names
 function ToolInstancer.GetAvailableItems(): {string}
-	local itemNames = {}
-	for _, item in pairs(Items:GetChildren()) do
-		table.insert(itemNames, item.Name)
+	local ItemNames = {}
+	for _, Item in pairs(Items:GetChildren()) do
+		table.insert(ItemNames, Item.Name)
 	end
-	return itemNames
+	return ItemNames
 end
 
-function ToolInstancer.Create(object: Instance | string, Location: CFrame?): Model?
-	local sourceObject: Instance?
-	local shouldDestroyOriginal = false
+function ToolInstancer.Create(Object: Instance | string, Location: CFrame?): Model?
+	local SourceObject: Instance?
+	local ShouldDestroyOriginal = false
 
-	if type(object) == "string" then
-		local itemName = object :: string
-		local itemTemplate = Items:FindFirstChild(itemName)
+	if type(Object) == "string" then
+		local ItemName = Object :: string
+		local ItemTemplate = Items:FindFirstChild(ItemName)
 
-		if not itemTemplate then
-			warn("Item '" .. itemName .. "' not found in Items folder")
+		if not ItemTemplate then
+			warn("Item '" .. ItemName .. "' not found in Items folder")
 			return nil
 		end
 
-		-- Clone the item template
-		sourceObject = itemTemplate:Clone()
-		shouldDestroyOriginal = false -- Don't destroy the template
+		SourceObject = ItemTemplate:Clone()
+		ShouldDestroyOriginal = false
 	else
-		-- Handle Instance input
-		sourceObject = object :: Instance
-		shouldDestroyOriginal = true -- Destroy the original object
+		SourceObject = Object :: Instance
+		ShouldDestroyOriginal = true
 	end
 
-	if not sourceObject then
+	if not SourceObject then
 		warn("No valid source object provided")
 		return nil
 	end
 
-	local model = Instance.new("Model")
-	model.Name = sourceObject.Name
+	local NewModel = Instance.new("Model")
+	NewModel.Name = SourceObject.Name
 
-	local handle: BasePart? = sourceObject:FindFirstChild("Handle") :: BasePart?
-	
-	local toolCFrame: CFrame = handle and handle.CFrame or CFrame.new()
+	local Handle: BasePart? = SourceObject:FindFirstChild("Handle") :: BasePart?
+
+	local ToolCFrame: CFrame = Handle and Handle.CFrame or CFrame.new()
 	if Location then
-		toolCFrame = Location
+		ToolCFrame = Location
 	end
 
-	-- Move/copy all children from source to model
-	local childrenToMove = {}
-	for _, child in pairs(sourceObject:GetChildren()) do
-		table.insert(childrenToMove, child)
+	local ChildrenToMove = {}
+	for _, Child in pairs(SourceObject:GetChildren()) do
+		table.insert(ChildrenToMove, Child)
 	end
 
-	for _, child in pairs(childrenToMove) do
-		-- For string-based creation, we're working with a clone, so we can move directly
-		-- For instance-based creation, we're moving from the original
-		child.Parent = model
+	for _, Child in pairs(ChildrenToMove) do
+		Child.Parent = NewModel
 
-		if child == handle then
-			child.Name = "Handle" 
-			if child:IsA("BasePart") then
-				PhysicsGroups.SetProperty(child, "Anchored", false)
-				PhysicsGroups.SetProperty(child, "CanCollide", true)
+		if Child == Handle then
+			Child.Name = "Handle"
+			if Child:IsA("BasePart") then
+				PhysicsGroups.SetProperty(Child, "Anchored", false)
+				PhysicsGroups.SetProperty(Child, "CanCollide", true)
 			end
 		end
 	end
 
-	-- Set primary part
-	if handle and handle.Parent == model then
-		model.PrimaryPart = handle
+	if Handle and Handle.Parent == NewModel then
+		NewModel.PrimaryPart = Handle
 	else
-		model.PrimaryPart = model:FindFirstChildWhichIsA("BasePart")
+		NewModel.PrimaryPart = NewModel:FindFirstChildWhichIsA("BasePart")
 	end
 
-	-- Set collision properties for all parts
-	for _, part in pairs(model:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.CanCollide = true
-			part.Anchored = false
+	for _, Part in pairs(NewModel:GetDescendants()) do
+		if Part:IsA("BasePart") then
+			Part.CanCollide = true
+			Part.Anchored = false
 		end
 	end
 
-	model.Parent = workspace:FindFirstChild("Draggables") or workspace:FindFirstChild("Interactables")
+	NewModel.Parent = workspace:FindFirstChild("Draggables") or workspace:FindFirstChild("Interactables")
 
-	-- Set position
-	if model.PrimaryPart then
-		model.PrimaryPart:SetNetworkOwnershipAuto()
-		model:PivotTo(toolCFrame)
+	if NewModel.PrimaryPart then
+		NewModel.PrimaryPart:SetNetworkOwnershipAuto()
+		NewModel:PivotTo(ToolCFrame)
 	end
 
-	-- Clean up original if needed
-	if shouldDestroyOriginal then
-		sourceObject:Destroy()
+	if ShouldDestroyOriginal then
+		SourceObject:Destroy()
 	end
-	
-	-- Get data
-	local DataType = ObjectDatabase.GetObjectType(sourceObject.Name)
 
-	-- Add attributes and tags
-	model:SetAttribute("CurrentState", "StateB")
-	model:SetAttribute("PartType", if DataType then DataType else nil)
-	CollectionService:AddTag(model, DRAG_TAG)
-	CollectionService:AddTag(model, INTERACTION_TAG)
+	local DataType = ObjectDatabase.GetObjectType(SourceObject.Name)
 
-	return model
+	NewModel:SetAttribute("CurrentState", "StateB")
+	NewModel:SetAttribute("PartType", if DataType then DataType else nil)
+	CollectionService:AddTag(NewModel, DRAG_TAG)
+	CollectionService:AddTag(NewModel, INTERACTION_TAG)
+
+	return NewModel
 end
 
 function ToolInstancer.Pickup(Player: Player, Object: Instance, Config: any): ()
 	local Tool: Tool
 	local ObjectName = Object.Name
-	
-	if #Object:GetDescendants() <= 1 or not Object:IsDescendantOf(workspace) then return end
-	
-	-- CHECK INVENTORY LIMIT
+
+	if #Object:GetDescendants() <= 1 or not Object:IsDescendantOf(workspace) then
+		return
+	end
+
 	local CanPickup, Reason = InventoryManager.CanPickupItem(Player, ObjectName)
 	if not CanPickup then
 		warn("[ToolInstancer] Cannot pickup:", Reason)
-		-- TODO: Show feedback to player using FeedbackUI
 		return
 	end
-	
+
 	local ExistingTool = Items:FindFirstChild(ObjectName)
 	if ExistingTool and ExistingTool:IsA("Tool") then
 		Tool = ExistingTool:Clone()
@@ -158,24 +142,24 @@ function ToolInstancer.Pickup(Player: Player, Object: Instance, Config: any): ()
 			if PrimaryPart then
 				PlacementSnap.UnsnapFromPlacementCell(Object)
 				CartAssembly.detachWheelAttachment(Object.Parent.Parent.Parent, Object)
-				
+
 				for _, Child in pairs(Object:GetChildren()) do
 					Child.Parent = Tool
 				end
-				
-				local Handle = Tool:FindFirstChild(PrimaryPart.Name)
-				if Handle and Handle:IsA("BasePart") then
-					Handle.Name = "Handle"
-					Handle.CanCollide = false
-					Handle.Anchored = false
+
+				local NewHandle = Tool:FindFirstChild(PrimaryPart.Name)
+				if NewHandle and NewHandle:IsA("BasePart") then
+					NewHandle.Name = "Handle"
+					NewHandle.CanCollide = false
+					NewHandle.Anchored = false
 				end
 			end
 		elseif Object:IsA("BasePart") then
-			local Handle = Object:Clone()
-			Handle.Name = "Handle"
-			Handle.CanCollide = false
-			Handle.Anchored = false
-			Handle.Parent = Tool
+			local NewHandle = Object:Clone()
+			NewHandle.Name = "Handle"
+			NewHandle.CanCollide = false
+			NewHandle.Anchored = false
+			NewHandle.Parent = Tool
 		end
 
 		if Config then
@@ -187,12 +171,11 @@ function ToolInstancer.Pickup(Player: Player, Object: Instance, Config: any): ()
 			Tool.ToolTip = ObjectName
 		end
 	end
-	
+
 	Tool.Parent = Player.Backpack
 	PhysicsGroups.SetProperty(Tool, "Anchored", false)
 	PhysicsGroups.SetProperty(Tool, "CanCollide", false)
 
-	-- Notify inventory system that item was picked up
 	InventoryManager.OnItemPickedUp(Player)
 
 	if Object:IsDescendantOf(workspace) then
