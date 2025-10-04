@@ -1,54 +1,59 @@
 --!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
+
 local CartPositioning = {}
 
-local rayParams = RaycastParams.new()
-rayParams.FilterType = Enum.RaycastFilterType.Exclude
+local RayParams = RaycastParams.new()
+RayParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- Position cart at correct ground height based on wheel diameter
-function CartPositioning.PositionAtGroundLevel(cart: Model, wheelDiameter: number): ()
-	if not cart.PrimaryPart then return end
+function CartPositioning.PositionAtGroundLevel(Cart: Model, WheelDiameter: number): ()
+	if not Cart.PrimaryPart then 
+		return 
+	end
 
-	rayParams.FilterDescendantsInstances = {cart, workspace.Characters, workspace.Draggables, workspace.Interactables, workspace.NPC}
+	RayParams.FilterDescendantsInstances = {
+		Cart, 
+		workspace.Characters, 
+		workspace.Draggables, 
+		workspace.Interactables, 
+		workspace.NPC
+	}
 
-	local rayOrigin = cart.PrimaryPart.Position + Vector3.new(0, 5, 0)
-	local rayResult = workspace:Raycast(rayOrigin, Vector3.new(0, -50, 0), rayParams)
+	local RayOrigin = Cart.PrimaryPart.Position + Vector3.new(0, 5, 0)
+	local RayResult = workspace:Raycast(RayOrigin, Vector3.new(0, -50, 0), RayParams)
 
-	if rayResult then
-		local _, Size = cart:GetBoundingBox()
+	if RayResult then
+		local _, Size = Cart:GetBoundingBox()
 		
-		local wheelRadius = (wheelDiameter/2) - 0.3
-		local targetY = rayResult.Position.Y + wheelRadius + (Size.Y/2)
-		local currentY = cart.PrimaryPart.Position.Y
-		local yOffset = targetY - currentY
+		local WheelRadius = (WheelDiameter / 2) - 0.3
+		local TargetY = RayResult.Position.Y + WheelRadius + (Size.Y / 2)
+		local CurrentY = Cart.PrimaryPart.Position.Y
+		local YOffset = TargetY - CurrentY
 		
-		-- Move cart to correct height
-		cart:PivotTo(cart:GetPivot() * CFrame.new(0, yOffset, 0))
+		Cart:PivotTo(Cart:GetPivot() * CFrame.new(0, YOffset, 0))
 	end
 end
 
--- Get average wheel diameter from installed wheels
-function CartPositioning.GetAverageWheelDiameter(cart: Model): number
-	local diameters = {}
+function CartPositioning.GetAverageWheelDiameter(Cart: Model): number
+	local Diameters = {}
 
-	for _, descendant in ipairs(cart:GetDescendants()) do
-		if descendant:IsA("Model") and descendant:GetAttribute("PartType") == "Wheel" then
-			local _, size = descendant:GetBoundingBox()
-			local diameter = math.max(size.X, size.Z)
-			table.insert(diameters, diameter)
+	for _, Descendant in ipairs(Cart:GetDescendants()) do
+		if Descendant:IsA("Model") and Descendant:GetAttribute("PartType") == "Wheel" then
+			local _, Size = Descendant:GetBoundingBox()
+			local Diameter = math.max(Size.X, Size.Z)
+			table.insert(Diameters, Diameter)
 		end
 	end
 
-	-- If no wheels found, return default
-	if #diameters == 0 then
+	if #Diameters == 0 then
 		return 4
 	end
 
-	-- Calculate average
-	local sum = 0
-	for _, diameter in ipairs(diameters) do
-		sum += diameter
-	end
-	return sum / #diameters
+	return GeneralUtil.GetAverage(Diameters)
 end
 
 return CartPositioning

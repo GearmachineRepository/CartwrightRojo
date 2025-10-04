@@ -1,4 +1,5 @@
 --!strict
+
 local CartConfigurations = {}
 
 local DEFAULT_CONFIG = {
@@ -15,7 +16,7 @@ local DEFAULT_CONFIG = {
 
 local CART_CONFIGS = {
 	["Small Cart"] = {
-		WHEEL_RADIUS = 0.9, -- 0.9
+		WHEEL_RADIUS = 0.9,
 		MIN_WHEEL_CLEARANCE = 0.05,
 		CART_LIFT_HEIGHT = 0.95,
 		MAX_TILT_ANGLE = math.rad(55),
@@ -58,38 +59,37 @@ local CART_CONFIGS = {
 	},
 }
 
-function CartConfigurations.GetConfig(cartModel: Model): {[string]: any}
-	local cartName = cartModel.Name
-	local cartConfig = CART_CONFIGS[cartName] or {}
+function CartConfigurations.GetConfig(CartModel: Model): {[string]: any}
+	local CartName = CartModel.Name
+	local CartConfig = CART_CONFIGS[CartName] or {}
 
-	-- Merge with defaults (cart-specific overrides defaults)
-	local finalConfig = {}
-	for key, value in pairs(DEFAULT_CONFIG) do
-		finalConfig[key] = cartConfig[key] or value
+	local FinalConfig = {}
+	for Key, Value in pairs(DEFAULT_CONFIG) do
+		FinalConfig[Key] = CartConfig[Key] or Value
 	end
 
-	return finalConfig
+	return FinalConfig
 end
 
 function CartConfigurations.GetAllConfigs(): {[string]: {[string]: any}}
-	local allConfigs = {}
-	for cartName, _ in pairs(CART_CONFIGS) do
-		allConfigs[cartName] = CartConfigurations.GetConfig({Name = cartName} :: any)
+	local AllConfigs = {}
+	for CartName, _ in pairs(CART_CONFIGS) do
+		AllConfigs[CartName] = CartConfigurations.GetConfig({Name = CartName} :: any)
 	end
-	return allConfigs
+	return AllConfigs
 end
 
-function CartConfigurations.AddConfig(cartName: string, config: {[string]: any})
-	CART_CONFIGS[cartName] = config
+function CartConfigurations.AddConfig(CartName: string, Config: {[string]: any}): ()
+	CART_CONFIGS[CartName] = Config
 end
 
-function CartConfigurations.UpdateConfig(cartName: string, updates: {[string]: any})
-	if CART_CONFIGS[cartName] then
-		for key, value in pairs(updates) do
-			CART_CONFIGS[cartName][key] = value
+function CartConfigurations.UpdateConfig(CartName: string, Updates: {[string]: any}): ()
+	if CART_CONFIGS[CartName] then
+		for Key, Value in pairs(Updates) do
+			CART_CONFIGS[CartName][Key] = Value
 		end
 	else
-		warn("Cart configuration '" .. cartName .. "' not found")
+		warn("Cart configuration '" .. CartName .. "' not found")
 	end
 end
 

@@ -11,12 +11,12 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PlatformManager = require(Modules:WaitForChild("PlatformManager"))
 local KeybindConfig = require(Modules:WaitForChild("KeybindConfig"))
 local ObjectDatabase = require(Modules:WaitForChild("ObjectDatabase"))
-local GlobalNumbers = require(Modules:WaitForChild("GlobalNumbers"))
+local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
 local ObjectValidator = require(Modules:WaitForChild("ObjectValidator"))
 local Maid = require(Modules:WaitForChild("Maid"))
 
 local INTERACTION_TAG: string = "Interactable"
-local INTERACTION_DISTANCE: number = GlobalNumbers.SNAP_DISTANCE
+local INTERACTION_DISTANCE: number = GeneralUtil.SNAP_DISTANCE
 local LOOP_RATE = 1/30
 
 local Player: Player = Players.LocalPlayer

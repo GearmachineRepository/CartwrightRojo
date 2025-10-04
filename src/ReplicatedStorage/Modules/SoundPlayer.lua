@@ -1,81 +1,74 @@
 --!strict
+
 local SoundService = game:GetService("SoundService")
 
 local SoundPlayer = {}
 
--- Active sounds tracking
 local ActiveSounds: {[Sound]: boolean} = {}
 
--- Play a sound with optional config
-function SoundPlayer.PlaySound(soundId: string, parent: Instance?, config: {
+function SoundPlayer.PlaySound(SoundId: string, Parent: Instance?, Config: {
 	Volume: number?,
 	SoundGroup: string?,
 	PlaybackSpeed: number?,
 	RollOffMaxDistance: number?,
 	RollOffMinDistance: number?,
 	RollOffMode: Enum.RollOffMode?
-	}?): Sound?
-	if not soundId or soundId == "" then
+}?): Sound?
+	if not SoundId or SoundId == "" then
 		return nil
 	end
 
-	local sound = Instance.new("Sound")
-	sound.RollOffMode = (config and config.RollOffMode) or Enum.RollOffMode.Linear
-	sound.RollOffMaxDistance = (config and config.RollOffMaxDistance) or 75
-	sound.RollOffMinDistance = (config and config.RollOffMinDistance) or 5
-	sound.SoundId = soundId
-	sound.Volume = (config and config.Volume) or 0.5
-	sound.PlaybackSpeed = (config and config.PlaybackSpeed) or 1
-	sound.Parent = parent or SoundService
+	local NewSound = Instance.new("Sound")
+	NewSound.RollOffMode = (Config and Config.RollOffMode) or Enum.RollOffMode.Linear
+	NewSound.RollOffMaxDistance = (Config and Config.RollOffMaxDistance) or 75
+	NewSound.RollOffMinDistance = (Config and Config.RollOffMinDistance) or 5
+	NewSound.SoundId = SoundId
+	NewSound.Volume = (Config and Config.Volume) or 0.5
+	NewSound.PlaybackSpeed = (Config and Config.PlaybackSpeed) or 1
+	NewSound.Parent = Parent or SoundService
 
-	-- Set sound group
-	if config and config.SoundGroup then
-		local soundGroup = SoundService:FindFirstChild(config.SoundGroup)
-		if soundGroup and soundGroup:IsA("SoundGroup") then
-			sound.SoundGroup = soundGroup
+	if Config and Config.SoundGroup then
+		local SoundGroup = SoundService:FindFirstChild(Config.SoundGroup)
+		if SoundGroup and SoundGroup:IsA("SoundGroup") then
+			NewSound.SoundGroup = SoundGroup
 		end
 	else
-		-- Default sound group
-		local defaultGroup = SoundService:FindFirstChild("Sound Effects")
-		if defaultGroup and defaultGroup:IsA("SoundGroup") then
-			sound.SoundGroup = defaultGroup
+		local DefaultGroup = SoundService:FindFirstChild("Sound Effects")
+		if DefaultGroup and DefaultGroup:IsA("SoundGroup") then
+			NewSound.SoundGroup = DefaultGroup
 		end
 	end
 
-	-- Track active sound
-	ActiveSounds[sound] = true
+	ActiveSounds[NewSound] = true
 
-	sound:Play()
+	NewSound:Play()
 
-	-- Auto-cleanup when finished
-	sound.Ended:Connect(function()
-		ActiveSounds[sound] = nil
-		sound:Destroy()
+	NewSound.Ended:Connect(function()
+		ActiveSounds[NewSound] = nil
+		NewSound:Destroy()
 	end)
 
-	return sound
+	return NewSound
 end
 
--- Stop a specific sound
-function SoundPlayer.StopSound(sound: Sound): ()
-	if not sound or not sound.Parent then
+function SoundPlayer.StopSound(Sound: Sound): ()
+	if not Sound or not Sound.Parent then
 		return
 	end
 
-	ActiveSounds[sound] = nil
-	sound:Stop()
-	sound:Destroy()
+	ActiveSounds[Sound] = nil
+	Sound:Stop()
+	Sound:Destroy()
 end
 
--- Stop all active sounds
 function SoundPlayer.StopAllSounds(): ()
-	local soundsToStop = {}
-	for sound, _ in pairs(ActiveSounds) do
-		table.insert(soundsToStop, sound)
+	local SoundsToStop = {}
+	for Sound, _ in pairs(ActiveSounds) do
+		table.insert(SoundsToStop, Sound)
 	end
 
-	for _, sound in pairs(soundsToStop) do
-		SoundPlayer.StopSound(sound)
+	for _, Sound in pairs(SoundsToStop) do
+		SoundPlayer.StopSound(Sound)
 	end
 end
 

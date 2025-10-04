@@ -1,7 +1,7 @@
 --!strict
+
 local KeybindConfig = {}
 
--- Platform-specific keybinds
 KeybindConfig.Keybinds = {
 	PC = {
 		Interact = Enum.KeyCode.E,
@@ -24,43 +24,38 @@ KeybindConfig.Keybinds = {
 	}
 }
 
--- Get keybind for current platform
-function KeybindConfig.GetKeybind(platform: string, action: string)
-	local platformKeybinds = KeybindConfig.Keybinds[platform]
-	if platformKeybinds then
-		return platformKeybinds[action]
+function KeybindConfig.GetKeybind(Platform: string, Action: string)
+	local PlatformKeybinds = KeybindConfig.Keybinds[Platform]
+	if PlatformKeybinds then
+		return PlatformKeybinds[Action]
 	end
 	return nil
 end
 
--- Get display text for keybind
-function KeybindConfig.GetDisplayText(platform: string, action: string): string
-	local keybind = KeybindConfig.GetKeybind(platform, action)
-	if not keybind then return action end
+function KeybindConfig.GetDisplayText(Platform: string, Action: string): string
+	local Keybind = KeybindConfig.GetKeybind(Platform, Action)
+	if not Keybind then 
+		return Action 
+	end
 
-	-- Handle string keybinds (Mobile)
-	if type(keybind) == "string" then
-		local mobileDisplays = {
+	if type(Keybind) == "string" then
+		local MobileDisplays = {
 			["TouchTap"] = "Tap",
 			["TouchHold"] = "Hold", 
 			["TouchDoubleTap"] = "Double Tap"
 		}
-		return mobileDisplays[keybind] or keybind
+		return MobileDisplays[Keybind] or Keybind
 	end
 
-	local enumName = keybind.Name
+	local EnumName = Keybind.Name
 
-	-- Custom overrides for better display names
-	local customDisplays = {
-		-- PC
+	local CustomDisplays = {
 		["MouseButton1"] = "Left Click",
 		["MouseButton2"] = "Right Click",
 		["MouseButton3"] = "Middle Click",
 		["Return"] = "Enter",
 		["LeftShift"] = "Shift",
 		["RightShift"] = "Shift",
-
-		-- Controller  
 		["ButtonX"] = "X",
 		["ButtonY"] = "Y",
 		["ButtonA"] = "A",
@@ -71,7 +66,7 @@ function KeybindConfig.GetDisplayText(platform: string, action: string): string
 		["ButtonL2"] = "LT"
 	}
 
-	return customDisplays[enumName] or enumName
+	return CustomDisplays[EnumName] or EnumName
 end
 
 return KeybindConfig

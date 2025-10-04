@@ -1,26 +1,26 @@
 --!strict
 
 local HttpService = game:GetService("HttpService")
+
 local UIDManager = {}
 
--- Returns the UID string, creating one if missing
-function UIDManager.ensureModelUID(inst: Instance): string
-	local uid = inst:GetAttribute("UID")
-	if typeof(uid) ~= "string" or #uid == 0 then
-		uid = HttpService:GenerateGUID(false)
-		inst:SetAttribute("UID", uid)
+function UIDManager.EnsureModelUID(Instance: Instance): string
+	local UID = Instance:GetAttribute("UID")
+	if typeof(UID) ~= "string" or #UID == 0 then
+		UID = HttpService:GenerateGUID(false)
+		Instance:SetAttribute("UID", UID)
 	end
-	return uid
+	return UID
 end
 
-function UIDManager.clearModelUID(inst: Instance)
-	if inst:GetAttribute("UID") then
-		inst:SetAttribute("UID", nil)
+function UIDManager.ClearModelUID(Instance: Instance): ()
+	if Instance:GetAttribute("UID") then
+		Instance:SetAttribute("UID", nil)
 	end
 end
 
-function UIDManager.matches(inst: Instance, otherUID: string): boolean
-	return inst:GetAttribute("UID") == otherUID
+function UIDManager.Matches(Instance: Instance, OtherUID: string): boolean
+	return Instance:GetAttribute("UID") == OtherUID
 end
 
 return UIDManager

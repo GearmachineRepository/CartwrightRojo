@@ -7,13 +7,13 @@ local CollectionService = game:GetService("CollectionService")
 -- Modules
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
-local GlobalNumbers = require(Modules:WaitForChild("GlobalNumbers"))
+local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
 local ObjectValidator = require(Modules:WaitForChild("ObjectValidator"))
 
 -- Constants
 local DRAG_TAG: string = "Drag"
 local DRAG_DETECTION_DISTANCE = 32.5
-local SNAP_DISTANCE = GlobalNumbers.SNAP_DISTANCE
+local SNAP_DISTANCE = GeneralUtil.SNAP_DISTANCE
 
 local Player: Player = Players.LocalPlayer
 local Mouse: Mouse = Player:GetMouse()

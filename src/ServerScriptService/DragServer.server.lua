@@ -10,7 +10,7 @@ local PhysicsModule = require(Modules:WaitForChild("PhysicsGroups"))
 local PlacementSnap = require(Modules:WaitForChild("PlacementSnap"))
 local CartAssembly = require(Modules:WaitForChild("CartAssembly"))
 local UIDManager = require(Modules:WaitForChild("UIDManager"))
-local GlobalNumbers = require(Modules:WaitForChild("GlobalNumbers"))
+local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
 local OwnershipValidator = require(Modules:WaitForChild("ObjectValidator"))
 local ObjectStateManager = require(Modules:WaitForChild("ObjectStateManager"))
 local OwnershipManager = require(Modules:WaitForChild("OwnershipManager"))
@@ -22,7 +22,7 @@ local DRAG_NETWORK_DELAY: number = 0.35
 local DEFAULT_DRAG_RESPONSIVENESS: number = 25 
 local MASS_DIVISOR: number = 10
 local REINSTALL_COOLDOWN = 0.6
-local SNAP_RADIUS = GlobalNumbers.SNAP_DISTANCE  
+local SNAP_RADIUS = GeneralUtil.SNAP_DISTANCE
 
 local Events: Folder = ReplicatedStorage:WaitForChild("Events")
 local DragEvents: Folder = Events:WaitForChild("DragEvents") :: Folder
