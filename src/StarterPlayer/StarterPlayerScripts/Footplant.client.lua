@@ -1,86 +1,71 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local Maid = require(Modules:WaitForChild("Maid"))
+
 local Events = ReplicatedStorage:WaitForChild("Events")
 local FootplantRemotes = Events:WaitForChild("FootplantEvents")
 local OnFootPlanted = FootplantRemotes:WaitForChild("OnFootPlanted")
 
 local LocalPlayer = Players.LocalPlayer
 
-local connections = {}
+type MaidType = typeof(Maid.new())
 
-local function onKeyframeReached(animationTrack, character)
+local CharacterMaid: MaidType = Maid.new()
+
+local function OnKeyframeReached(_: AnimationTrack, _: Model) -- AnimationTrack, Character
 	OnFootPlanted:FireServer(true)
-	task.wait(.1)
+	task.wait(0.1)
 	OnFootPlanted:FireServer(false)
 end
 
-local function connectToAnimationTrack(track: AnimationTrack, character)
-	-- Connect to the KeyframeReached event for this track
-	local connection = track:GetMarkerReachedSignal("Footplant"):Connect(function()
-		onKeyframeReached(track, character)
-	end)
+local function ConnectToAnimationTrack(Track: AnimationTrack, Character: Model)
+	local TrackMaid = Maid.new()
+	
+	TrackMaid:GiveTask(Track:GetMarkerReachedSignal("Footplant"):Connect(function()
+		OnKeyframeReached(Track, Character)
+	end))
 
-	-- Store the connection for cleanup
-	table.insert(connections, connection)
-
-	-- Clean up when the track stops
-	track.Stopped:Connect(function()
-		connection:Disconnect()
-		-- Remove from connections table
-		for i, conn in ipairs(connections) do
-			if conn == connection then
-				table.remove(connections, i)
-				break
-			end
-		end
-	end)
+	TrackMaid:GiveTask(Track.Stopped:Connect(function()
+		TrackMaid:Destroy()
+	end))
+	
+	CharacterMaid:GiveTask(TrackMaid)
 end
 
-local function onAnimationPlayed(animationTrack)
-	local character = LocalPlayer.Character
-	if character then
-		connectToAnimationTrack(animationTrack, character)
+local function OnAnimationPlayed(AnimationTrack: AnimationTrack)
+	local Character = LocalPlayer.Character
+	if Character then
+		ConnectToAnimationTrack(AnimationTrack, Character)
 	end
 end
 
-local function setupCharacter(character)
-	-- Clear existing connections
-	for _, connection in ipairs(connections) do
-		connection:Disconnect()
-	end
-	connections = {}
+local function SetupCharacter(Character: Model)
+	CharacterMaid:DoCleaning()
 
-	-- Wait for humanoid and animator
-	local humanoid = character:WaitForChild("Humanoid")
-	local animator = humanoid:WaitForChild("Animator")
+	local Humanoid = Character:WaitForChild("Humanoid") :: Humanoid
+	local Animator = Humanoid:WaitForChild("Animator") :: Animator
 
-	-- Connect to animation played event
-	animator.AnimationPlayed:Connect(onAnimationPlayed)
+	CharacterMaid:GiveTask(Animator.AnimationPlayed:Connect(OnAnimationPlayed))
 
-	-- Also check for any currently playing animations
-	local playingTracks = animator:GetPlayingAnimationTracks()
-	for _, track in ipairs(playingTracks) do
-		connectToAnimationTrack(track, character)
+	local PlayingTracks = Animator:GetPlayingAnimationTracks()
+	for _, Track in ipairs(PlayingTracks) do
+		ConnectToAnimationTrack(Track, Character)
 	end
 end
 
-local function onCharacterAdded(character)
-	setupCharacter(character)
+local function OnCharacterAdded(Character: Model)
+	SetupCharacter(Character)
 end
 
-local function onCharacterRemoving()
-	-- Clean up connections when character is removed
-	for _, connection in ipairs(connections) do
-		connection:Disconnect()
-	end
-	connections = {}
+local function OnCharacterRemoving()
+	CharacterMaid:DoCleaning()
 end
 
--- Connect to player events
 if LocalPlayer.Character then
-	setupCharacter(LocalPlayer.Character)
+	SetupCharacter(LocalPlayer.Character)
 end
 
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-LocalPlayer.CharacterRemoving:Connect(onCharacterRemoving)
+LocalPlayer.CharacterAdded:Connect(OnCharacterAdded)
+LocalPlayer.CharacterRemoving:Connect(OnCharacterRemoving)

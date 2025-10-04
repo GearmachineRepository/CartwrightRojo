@@ -1,9 +1,6 @@
 --!strict
 local InteractionFunctions = {}
 
--- Services
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 -- Interaction Modules
 local InteractionModules = script.Parent:WaitForChild("InteractionModules")
 

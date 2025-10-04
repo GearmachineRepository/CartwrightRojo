@@ -110,8 +110,6 @@ function AtomicBinding:bindRoot(root)
 	local rootInstToRootNode = self._rootInstToRootNode
 	local rootInstToManifest = self._rootInstToManifest
 	local manifestSizeTarget = self._manifestSizeTarget
-	
-	assert(rootInstToManifest[root] == nil)
 
 	local resolvedManifest = {}
 	rootInstToManifest[root] = resolvedManifest
@@ -158,7 +156,7 @@ function AtomicBinding:bindRoot(root)
 	-- Recursively descend into the tree, resolving each node.
 	-- Nodes start out as empty and instance-less; the resolving process discovers instances to map to nodes.
 	local function processNode(node)
-		local instance = assert(node.instance)
+		local instance = node.instance
 
 		local children = node.children
 		local alias = node.alias
@@ -204,7 +202,7 @@ function AtomicBinding:bindRoot(root)
 				self:_stopBoundFn(root) -- Happens before the tree is unbound so the manifest is still valid in the destructor.
 				unbindNodeDescend(childNode, resolvedManifest) -- Unbind the tree
 
-				assert(childNode.instance == nil) -- If this triggers, unbindNodeDescend failed
+				assert(childNode.instance == nil, "unbindNodeDescend failed: childNode.instance is not nil after unbinding") -- If this triggers, unbindNodeDescend failed
 
 				-- Search for a replacement
 				local replacementChild = instance:FindFirstChild(childName)
@@ -241,7 +239,7 @@ function AtomicBinding:unbindRoot(root)
 
 	local rootNode = rootInstToRootNode[root]
 	if rootNode then
-		local resolvedManifest = assert(rootInstToManifest[root])
+		local resolvedManifest = assert(rootInstToManifest[root], "No resolved manifest found for the given root instance")
 		unbindNodeDescend(rootNode, resolvedManifest)
 		rootInstToRootNode[root] = nil
 	end
@@ -264,7 +262,7 @@ function AtomicBinding:destroy()
 
 	local rootInstToManifest = self._rootInstToManifest
 	for rootInst, rootNode in pairs(self._rootInstToRootNode) do
-		local resolvedManifest = assert(rootInstToManifest[rootInst])
+		local resolvedManifest = assert(rootInstToManifest[rootInst], "No resolved manifest found for the given root instance")
 		unbindNodeDescend(rootNode, resolvedManifest)
 	end
 	table.clear(self._rootInstToManifest)

@@ -61,7 +61,7 @@ detachCartEvent.OnServerEvent:Connect(function(player: Player)
 end)
 
 -- Remote Event: Owner sends position updates
-updateCartEvent.OnServerEvent:Connect(function(player: Player, cartCFrame: CFrame, wheelRotation: number?)
+updateCartEvent.OnServerEvent:Connect(function(player: Player, cartCFrame: CFrame, _: number?)
 	local data = CartStateManager.GetPlayerData(player)
 	if not data or not data.IsOwner then return end
 

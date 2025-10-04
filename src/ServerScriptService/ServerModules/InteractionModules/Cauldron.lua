@@ -15,7 +15,9 @@ local function GetPartsInBounds(cauldron: Model): {Instance}
 	local region = Region3.new(bounds.Position - size/2, bounds.Position + size/2)
 	region = region:ExpandToGrid(4)
 
-	local parts = workspace:FindPartsInRegion3(region, cauldron, math.huge)
+	local parts = workspace:GetPartBoundsInBox(region.CFrame, region.Size, function(part)
+		return not cauldron:IsAncestorOf(part)
+	end)
 	return parts
 end
 

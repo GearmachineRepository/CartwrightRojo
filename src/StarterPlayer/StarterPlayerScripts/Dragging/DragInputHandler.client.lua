@@ -1,6 +1,5 @@
 --!strict
 --!optimize 2
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,9 +8,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PlatformManager = require(Modules:WaitForChild("PlatformManager"))
 local KeybindConfig = require(Modules:WaitForChild("KeybindConfig"))
-
--- Services and Objects
-local Player: Player = Players.LocalPlayer
 
 -- Events
 local Events: Folder = ReplicatedStorage:WaitForChild("Events")
@@ -38,7 +34,7 @@ local function UpdateKeybinds(): ()
 end
 
 -- Controller distance adjustment action (prevents camera movement)
-local function HandleControllerDistance(actionName: string, inputState: Enum.UserInputState, inputObject: InputObject): Enum.ContextActionResult
+local function HandleControllerDistance(_: string, inputState: Enum.UserInputState, inputObject: InputObject): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.Change and inputObject.KeyCode == Enum.KeyCode.Thumbstick2 then
 		if IsDragging and IsModifierHeld then
 			local stickY = inputObject.Position.Y
@@ -54,7 +50,7 @@ local function HandleControllerDistance(actionName: string, inputState: Enum.Use
 end
 
 -- Distance control action (prevents camera zoom)
-local function HandleDistanceControl(actionName: string, inputState: Enum.UserInputState, inputObject: InputObject): Enum.ContextActionResult
+local function HandleDistanceControl(_: string, inputState: Enum.UserInputState, inputObject: InputObject): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.Change and inputObject.UserInputType == Enum.UserInputType.MouseWheel then
 		if IsDragging then
 			AdjustDistanceEvent:Fire(inputObject.Position.Z, true)

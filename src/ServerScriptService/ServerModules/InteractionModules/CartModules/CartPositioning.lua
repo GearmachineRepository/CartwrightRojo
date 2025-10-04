@@ -10,12 +10,11 @@ function CartPositioning.PositionAtGroundLevel(cart: Model, wheelDiameter: numbe
 
 	rayParams.FilterDescendantsInstances = {cart, workspace.Characters, workspace.Draggables, workspace.Interactables, workspace.NPC}
 
-
 	local rayOrigin = cart.PrimaryPart.Position + Vector3.new(0, 5, 0)
 	local rayResult = workspace:Raycast(rayOrigin, Vector3.new(0, -50, 0), rayParams)
 
 	if rayResult then
-		local Bounds, Size = cart:GetBoundingBox()
+		local _, Size = cart:GetBoundingBox()
 		
 		local wheelRadius = (wheelDiameter/2) - 0.3
 		local targetY = rayResult.Position.Y + wheelRadius + (Size.Y/2)

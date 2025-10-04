@@ -215,7 +215,8 @@ end
 
 function CartAssembly.detachWheelAttachment(Cart: Model, WheelModel: Model): boolean
 	local AxleNumber = tonumber(WheelModel:GetAttribute("AxleNumber")) or 1
-	local Spin = GetSpinByNumber(Cart, AxleNumber); if not Spin then return false end
+	local Spin = GetSpinByNumber(Cart, AxleNumber)
+	if not Spin then return false end
 	local Root = (WheelModel.PrimaryPart or WheelModel:FindFirstChildWhichIsA("BasePart")) :: BasePart?
 	if not Root then return false end
 
@@ -231,7 +232,9 @@ function CartAssembly.detachWheelAttachment(Cart: Model, WheelModel: Model): boo
 	-- Stabilize the cart chassis while we break the constraint
 	local WagonRoot = CartAssembly.getWagonRoot(Cart)
 	local prevAnchored: boolean? = WagonRoot and WagonRoot.Anchored
-	if WagonRoot then WagonRoot.Anchored = true end
+	if WagonRoot then 
+		WagonRoot.Anchored = true 
+	end
 
 	Root.Anchored = true
 	Weld:Destroy()

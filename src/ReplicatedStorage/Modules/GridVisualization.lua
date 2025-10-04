@@ -182,7 +182,7 @@ local function UpdateVisualization(DraggedObject: Instance?, PlayerUserId: numbe
 		end
 	end
 
-	local ValidPlacementCells: {BasePart} = {}
+	--local ValidPlacementCells: {BasePart} = {}
 	local ValidCellsSet: {[BasePart]: boolean} = {}
 
 	local FootprintCells = PlacementSnap.FindNearestFreeFootprintOnSameStation(
@@ -194,7 +194,7 @@ local function UpdateVisualization(DraggedObject: Instance?, PlayerUserId: numbe
 	if FootprintCells then
 		for _, Cell in ipairs(FootprintCells) do
 			ValidCellsSet[Cell] = true
-			table.insert(ValidPlacementCells, Cell)
+			--table.insert(ValidPlacementCells, Cell)
 		end
 	end
 
@@ -244,7 +244,7 @@ end
 
 -- Clean up all visualization
 local function CleanupVisualization()
-	for cell, indicator in pairs(VisualizationCache) do
+	for _, indicator in pairs(VisualizationCache) do
 		if indicator then
 			indicator:Destroy()
 		end

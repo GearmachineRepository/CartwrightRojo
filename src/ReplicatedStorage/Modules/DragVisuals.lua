@@ -11,12 +11,12 @@ local CartAssembly = require(Modules:WaitForChild("CartAssembly"))
 
 local Player = Players.LocalPlayer
 
-local HIGHLIGHT_COLOR = Color3.fromRGB(100, 200, 255)
+local HIGHLIGHT_COLOR = Color3.fromRGB(182, 209, 224)
 local HIGHLIGHT_FILL_TRANSPARENCY = 0.5
 local HIGHLIGHT_OUTLINE_TRANSPARENCY = 0
 local FADE_TIME = 0.15
 
-local WHEEL_INDICATOR_COLOR = Color3.fromRGB(255, 200, 100)
+local WHEEL_INDICATOR_COLOR = Color3.fromRGB(100, 200, 255)
 local WHEEL_INDICATOR_WIDTH = 0.5
 
 local GHOST_TRANSPARENCY = 0.25
@@ -216,7 +216,9 @@ end
 
 local function HideAllGhosts()
 	for _, g in ipairs(GhostPool) do
-		if g.Parent then g.Parent = nil end
+		if g.Parent then 
+			g.Parent = nil 
+		end
 	end
 end
 
@@ -261,7 +263,9 @@ local function UpdateGhosts()
 	local anchors: {Instance} = {}
 	for _, cart in ipairs(GetOwnedCarts()) do
 		local free = GetFreeWheelAnchors(cart)
-		for _, a in ipairs(free) do table.insert(anchors, a) end
+		for _, a in ipairs(free) do 
+			table.insert(anchors, a) 
+		end
 	end
 	if #anchors == 0 then
 		HideAllGhosts()
@@ -284,7 +288,9 @@ local function UpdateGhosts()
 		if g and cf then
 			if not g.PrimaryPart then
 				local any = g:FindFirstChildWhichIsA("BasePart")
-				if any then g.PrimaryPart = any end
+				if any then 
+					g.PrimaryPart = any 
+				end
 			end
 			if g.PrimaryPart then
 				g:PivotTo(cf)
@@ -296,7 +302,9 @@ local function UpdateGhosts()
 	end
 	for i = needed + 1, #GhostPool do
 		local g = GhostPool[i]
-		if g.Parent then g.Parent = nil end
+		if g.Parent then 
+			g.Parent = nil 
+		end
 	end
 end
 
