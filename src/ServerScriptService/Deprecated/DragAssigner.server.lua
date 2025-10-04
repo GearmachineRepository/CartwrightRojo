@@ -15,7 +15,7 @@ local function MakeModelDraggable(Model: Model): ()
 	end
 end
 
-for Index, Draggable in pairs(Interactables:GetChildren()) do
+for _, Draggable in pairs(Interactables:GetChildren()) do
 	if Draggable:IsA("Model") then
 		MakeModelDraggable(Draggable)
 	end

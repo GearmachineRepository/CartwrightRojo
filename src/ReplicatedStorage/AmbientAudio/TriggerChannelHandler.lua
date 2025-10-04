@@ -21,7 +21,7 @@ Core.CHANNEL_PERSISTENCE_TIME = Core.CHANNEL_PERSISTENCE_TIME or 2.0 -- Time to 
 
 -- Smooth target position updates to prevent discontinuous jumps
 function TriggerChannelHandler.UpdateTargetPosition(ChannelState: ChannelState, NewTarget: Vector3): boolean
-	local MaxJumpDistance = 8.0 -- Studs - maximum distance target can jump instantly
+	local _ = 8.0 -- Studs - maximum distance target can jump instantly
 	local PositionChanged = false
 
 	if ChannelState.TargetPos then
@@ -68,8 +68,8 @@ end
 
 -- Handle channel handoff for linked zones
 function TriggerChannelHandler.HandleChannelHandoff(
-	ChannelId: string, 
-	NewZone: TriggerZone, 
+	ChannelId: string,
+	NewZone: TriggerZone,
 	NewPosition: Vector3,
 	ActiveSound: SoundData?
 ): ()
@@ -89,7 +89,7 @@ function TriggerChannelHandler.HandleChannelHandoff(
 	end
 
 	-- Update target position with smoothing
-	local PositionChanged = TriggerChannelHandler.UpdateTargetPosition(ChannelState, NewPosition)
+	local _ = TriggerChannelHandler.UpdateTargetPosition(ChannelState, NewPosition)
 
 	-- Initialize velocity if needed
 	if not ChannelState.Vel then
@@ -110,7 +110,7 @@ end
 
 -- Smooth movement for all channel containers
 function TriggerChannelHandler.UpdateChannelContainers(DeltaTime: number): ()
-	for ChannelId, ChannelState in pairs(Core.ChannelState) do
+	for _, ChannelState in pairs(Core.ChannelState) do
 		local SoundData = ChannelState.ActiveSound
 		local TargetPosition = ChannelState.TargetPos
 
@@ -122,11 +122,11 @@ function TriggerChannelHandler.UpdateChannelContainers(DeltaTime: number): ()
 			local DistanceToTarget = (TargetPosition - CurrentPosition).Magnitude
 			if DistanceToTarget > 0.05 then
 				local NextPosition, NextVelocity = SmoothDampVector3(
-					CurrentPosition, 
-					TargetPosition, 
-					Velocity, 
-					Core.TRIGGER_SMOOTH_TIME, 
-					Core.TRIGGER_MAX_SPEED, 
+					CurrentPosition,
+					TargetPosition,
+					Velocity,
+					Core.TRIGGER_SMOOTH_TIME,
+					Core.TRIGGER_MAX_SPEED,
 					DeltaTime
 				)
 
@@ -142,7 +142,7 @@ end
 
 -- Clean up channel references when sounds are destroyed
 function TriggerChannelHandler.CleanupChannelReferences(DestroyedSound: SoundData): ()
-	for ChannelId, ChannelState in pairs(Core.ChannelState) do
+	for _, ChannelState in pairs(Core.ChannelState) do
 		if ChannelState.ActiveSound == DestroyedSound then
 			ChannelState.ActiveSound = nil
 			-- Don't clear other state immediately - let natural cleanup handle it

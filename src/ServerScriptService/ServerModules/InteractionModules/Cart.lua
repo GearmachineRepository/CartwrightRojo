@@ -9,6 +9,7 @@ local SoundModule = require(Modules:WaitForChild("SoundPlayer"))
 local CartStateManager = require(CartModules:WaitForChild("CartStateManager"))
 local OwnershipManager = require(Modules:WaitForChild("OwnershipManager"))
 local PhysicsGroups = require(Modules:WaitForChild("PhysicsGroups"))
+local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local CartEvents = Events:WaitForChild("CartEvents")
@@ -18,7 +19,6 @@ local UpdateCartEvent = CartEvents:WaitForChild("UpdateCart")
 local UpdateWheelHeightEvent = CartEvents:WaitForChild("UpdateWheelHeight")
 
 local CART_TAG = "Cart"
-local UPDATE_RATE = 0.1
 
 AttachCartEvent.OnServerEvent:Connect(function(Player: Player, ActionOrCart, MaybeCart: Model?)
 	local Action: string?
@@ -68,7 +68,7 @@ UpdateCartEvent.OnServerEvent:Connect(function(Player: Player, CartCFrame: CFram
 	end
 
 	local Now = tick()
-	if Now - (Data.LastUpdateTime or 0) < UPDATE_RATE then
+	if Now - (Data.LastUpdateTime or 0) < GeneralUtil.UPDATE_RATE then
 		return
 	end
 

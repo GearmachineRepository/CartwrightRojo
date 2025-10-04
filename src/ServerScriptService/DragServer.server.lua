@@ -19,7 +19,7 @@ local Maid = require(Modules:WaitForChild("Maid"))
 local DRAG_TAG: string = "Drag"
 local DRAG_ATTACHMENT_NAME: string = "DragAttachment"
 local DRAG_NETWORK_DELAY: number = 0.35
-local DEFAULT_DRAG_RESPONSIVENESS: number = 25 
+local DEFAULT_DRAG_RESPONSIVENESS: number = 25
 local MASS_DIVISOR: number = 10
 local REINSTALL_COOLDOWN = 0.6
 local SNAP_RADIUS = GeneralUtil.SNAP_DISTANCE
@@ -39,7 +39,7 @@ type PlayerData = {[Player]: {
 local PlayerData: PlayerData = {}
 
 local function CleanupDragState(Player: Player, Target: Instance)
-	local Data = PlayerData[Player] 
+	local Data = PlayerData[Player]
 	if not Data then return end
 
 	local PhysicsPart: BasePart? = Target:IsA("Model") and (Target :: Model).PrimaryPart or (Target :: BasePart)
@@ -56,19 +56,19 @@ local function CleanupDragState(Player: Player, Target: Instance)
 	PhysicsModule.SetToGroup(Target, "Static")
 
 	local DragAtt = PhysicsPart:FindFirstChild("DragAttachment")
-	if DragAtt then 
-		DragAtt:Destroy() 
+	if DragAtt then
+		DragAtt:Destroy()
 	end
 
 	local AlignPos = PhysicsPart:FindFirstChildOfClass("AlignPosition")
-	if AlignPos then 
-		AlignPos.Enabled = false 
-		AlignPos.Attachment0 = nil 
+	if AlignPos then
+		AlignPos.Enabled = false
+		AlignPos.Attachment0 = nil
 	end
 	local AlignOri = PhysicsPart:FindFirstChildOfClass("AlignOrientation")
-	if AlignOri then 
-		AlignOri.Enabled = false 
-		AlignOri.Attachment0 = nil 
+	if AlignOri then
+		AlignOri.Enabled = false
+		AlignOri.Attachment0 = nil
 	end
 
 	if PhysicsPart:IsDescendantOf(workspace) then
@@ -83,14 +83,14 @@ local function CleanupDragState(Player: Player, Target: Instance)
 			PhysicsModule.SetProperty(Target, "CanCollide", true)
 		end
 	end
-		
+
 	task.delay(DRAG_NETWORK_DELAY, function()
 		local CurrentState = ObjectStateManager.GetState(Target)
-		if PhysicsPart:IsDescendantOf(workspace) 
+		if PhysicsPart:IsDescendantOf(workspace)
 			and not PhysicsPart.Anchored
 			and CurrentState == "Idle" then
-			pcall(function() 
-				PhysicsPart:SetNetworkOwnershipAuto() 
+			pcall(function()
+				PhysicsPart:SetNetworkOwnershipAuto()
 			end)
 		end
 	end)
@@ -115,55 +115,55 @@ end
 local function GetNearestGridDistance(Target: Instance): number?
 	local Root = PlacementSnap.GetRootPart(Target)
 	if not Root then return nil end
-	
+
 	local NearestCell = PlacementSnap.FindNearestFreeCellOnSameStation(Target, SNAP_RADIUS)
 	if NearestCell then
 		return (Root.Position - NearestCell.Position).Magnitude
 	end
-	
+
 	return nil
 end
 
 local function GetNearestAnchor(Player: Player, Target: Instance): (Instance?, number?)
 	if not Target:IsA("Model") then return nil, nil end
 	if not Target:GetAttribute("PartType") then return nil, nil end
-	
+
 	local Root = PlacementSnap.GetRootPart(Target)
 	if not Root then return nil, nil end
-	
+
 	local NearestCart = FindNearestOwnedCart(Player, Root.Position, 30)
 	if not NearestCart then return nil, nil end
-	
+
 	local NearestAnchor, _ = CartAssembly.findNearestWheelAnchor(
-		NearestCart, 
-		Root.Position, 
+		NearestCart,
+		Root.Position,
 		SNAP_RADIUS
 	)
-	
+
 	if NearestAnchor then
-		local AnchorPosition = NearestAnchor:IsA("Attachment") 
-			and NearestAnchor.WorldPosition 
+		local AnchorPosition = NearestAnchor:IsA("Attachment")
+			and NearestAnchor.WorldPosition
 			or NearestAnchor.Position
 		local Distance = (Root.Position - AnchorPosition).Magnitude
 		return NearestAnchor, Distance
 	end
-	
+
 	return nil, nil
 end
 
 local function TryInstallWheelAtAnchor(Player: Player, Model: Model): boolean
 	local LastDetachTime = Model:GetAttribute("LastDetachTime")
 	if typeof(LastDetachTime) == "number" and (tick() - LastDetachTime) < REINSTALL_COOLDOWN then return false end
-	
-	local Root = Model.PrimaryPart or Model:FindFirstChildWhichIsA("BasePart") 
+
+	local Root = Model.PrimaryPart or Model:FindFirstChildWhichIsA("BasePart")
 	if not Root then return false end
-	
-	local Cart = FindNearestOwnedCart(Player, Root.Position, 20) 
+
+	local Cart = FindNearestOwnedCart(Player, Root.Position, 20)
 	if not Cart then return false end
 
 	local LastCartUID = Model:GetAttribute("LastDetachCartUID")
 	if typeof(LastCartUID) == "string" and LastCartUID ~= "" then
-		local ThisCartUID = UIDManager.ensureModelUID(Cart)
+		local ThisCartUID = UIDManager.EnsureModelUID(Cart)
 		if ThisCartUID ~= LastCartUID and typeof(LastDetachTime) == "number" and (tick() - LastDetachTime) < (REINSTALL_COOLDOWN * 2) then
 			return false
 		end
@@ -269,7 +269,7 @@ local function StartDragging(Player: Player, Target: Instance): ()
 			if Cart and Cart:GetAttribute("Owner") == Player.UserId then
 				if CartAssembly.detachWheelAttachment(Cart, Target) then
 					Target:SetAttribute("LastDetachTime", tick())
-					Target:SetAttribute("LastDetachCartUID", UIDManager.ensureModelUID(Cart))
+					Target:SetAttribute("LastDetachCartUID", UIDManager.EnsureModelUID(Cart))
 					Target:SetAttribute("LastDetachAnchor", Target:GetAttribute("AnchorName"))
 				end
 			end
@@ -318,22 +318,22 @@ local function StartDragging(Player: Player, Target: Instance): ()
 		AlignOrientation.Enabled = true
 
 		local DragMaid = Maid.new()
-		
+
 		DragMaid:GiveTask(RunService.Heartbeat:Connect(function()
 			if Data.CFrameValue then
 				local TargetCFrame: CFrame = Data.CFrameValue.Value
 				AlignPosition.Position = TargetCFrame.Position
 				AlignOrientation.CFrame = TargetCFrame
 			end
-			
+
 			if not Target.Parent or ObjectStateManager.GetState(Target) ~= "BeingDragged" then
 				DragMaid:Destroy()
 				return
 			end
-			
+
 			local _, AnchorDistance = GetNearestAnchor(Player, Target)
 			local GridDistance = GetNearestGridDistance(Target)
-			
+
 			if AnchorDistance and GridDistance then
 				if AnchorDistance < GridDistance then
 					Target:SetAttribute("ClosestSnapType", "Anchor")
@@ -368,8 +368,8 @@ local function StopDragging(Player: Player, Target: Instance): ()
 	if Player:GetAttribute("Carting") then
 		task.delay(DRAG_NETWORK_DELAY, function()
 			if Root:IsDescendantOf(workspace) and not Root.Anchored then
-				pcall(function() 
-					Root:SetNetworkOwnershipAuto() 
+				pcall(function()
+					Root:SetNetworkOwnershipAuto()
 				end)
 			end
 		end)
@@ -386,9 +386,9 @@ local function StopDragging(Player: Player, Target: Instance): ()
 
 	local _, AnchorDistance = GetNearestAnchor(Player, Target)
 	local GridDistance = GetNearestGridDistance(Target)
-	
+
 	local SnapSuccess = false
-	
+
 	if AnchorDistance and GridDistance then
 		if AnchorDistance < GridDistance then
 			SnapSuccess = TryInstallWheelAtAnchor(Player, Target)
@@ -477,7 +477,7 @@ local function CleanupPlayerData(Player: Player): ()
 	if Data.CFrameValue then
 		Data.CFrameValue:Destroy()
 	end
-	
+
 	Data.PlayerMaid:Destroy()
 
 	PlayerData[Player] = nil

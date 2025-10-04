@@ -1,8 +1,4 @@
 --!strict
-local PlacementSnap = {
-	SNAP_RADIUS = 5,
-}
-
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 
@@ -10,6 +6,12 @@ local Modules = script.Parent
 local PlacementFootprint = require(Modules:WaitForChild("PlacementFootprint"))
 local PlacementGrid = require(Modules:WaitForChild("PlacementGrid"))
 local ObjectStateManager = require(Modules:WaitForChild("ObjectStateManager"))
+local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
+local Maid = require(Modules:WaitForChild("Maid"))
+
+local PlacementSnap = {
+	SNAP_RADIUS = GeneralUtil.SNAP_DISTANCE,
+}
 
 local CFG = {
 	PLACEMENT_GRID_NAME = "PlacementGrid",
@@ -22,159 +24,154 @@ local CFG = {
 
 local CELL_REFS_FOLDER_NAME = "PlacementCells"
 
--- Utils
-local function IsAncestorOf(a: Instance, b: Instance): boolean
-	return b:IsDescendantOf(a)
+local function IsAncestorOf(InstanceA: Instance, InstanceB: Instance): boolean
+	return InstanceB:IsDescendantOf(InstanceA)
 end
 
-function PlacementSnap.GetRootPart(inst: Instance): BasePart?
-	if inst:IsA("BasePart") then return inst end
-	if inst:IsA("Model") then
-		local m = inst :: Model
-		return m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart")
+function PlacementSnap.GetRootPart(Inst: Instance): BasePart?
+	if Inst:IsA("BasePart") then return Inst end
+	if Inst:IsA("Model") then
+		local ModelInstance = Inst :: Model
+		return ModelInstance.PrimaryPart or ModelInstance:FindFirstChildWhichIsA("BasePart")
 	end
 	return nil
 end
 
-local function EnsurePrimary(model: Model): BasePart?
-	if model.PrimaryPart and model.PrimaryPart:IsDescendantOf(model) then
-		return model.PrimaryPart
+local function EnsurePrimary(ModelInstance: Model): BasePart?
+	if ModelInstance.PrimaryPart and ModelInstance.PrimaryPart:IsDescendantOf(ModelInstance) then
+		return ModelInstance.PrimaryPart
 	end
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("BasePart") then
-			model.PrimaryPart = d
-			return d
+	for _, Descendant in ipairs(ModelInstance:GetDescendants()) do
+		if Descendant:IsA("BasePart") then
+			ModelInstance.PrimaryPart = Descendant
+			return Descendant
 		end
 	end
 	return nil
 end
 
--- Cell reference management
-local function GetCellRef(target: Instance): ObjectValue?
-	return target:FindFirstChild(CFG.PLACEMENT_CELL_REF_NAME) :: ObjectValue
+local function GetCellRef(Target: Instance): ObjectValue?
+	return Target:FindFirstChild(CFG.PLACEMENT_CELL_REF_NAME) :: ObjectValue
 end
 
-local function SetCellRef(target: Instance, cell: BasePart?)
-	local ref: any = GetCellRef(target)
-	if cell then
-		if not ref then
+local function SetCellRef(Target: Instance, Cell: BasePart?)
+	local Ref: any = GetCellRef(Target)
+	if Cell then
+		if not Ref then
 			local NewRef = Instance.new("ObjectValue")
 			NewRef.Name = CFG.PLACEMENT_CELL_REF_NAME
-			NewRef.Parent = target
-			ref = NewRef
+			NewRef.Parent = Target
+			Ref = NewRef
 		end
-		ref.Value = cell
+		Ref.Value = Cell
 	else
-		if ref then 
-			ref:Destroy() 
+		if Ref then
+			Ref:Destroy()
 		end
 	end
 end
 
-local function GetOriginalParentRef(target: Instance): ObjectValue?
-	return target:FindFirstChild(CFG.ORIGINAL_PARENT_REF_NAME) :: ObjectValue
+local function GetOriginalParentRef(Target: Instance): ObjectValue?
+	return Target:FindFirstChild(CFG.ORIGINAL_PARENT_REF_NAME) :: ObjectValue
 end
 
-local function SetOriginalParentRef(target: Instance, parentInst: Instance?)
-	local ref = GetOriginalParentRef(target)
-	if parentInst then
-		if not ref then
-			ref = Instance.new("ObjectValue")
-			ref.Name = CFG.ORIGINAL_PARENT_REF_NAME
-			ref.Parent = target
+local function SetOriginalParentRef(Target: Instance, ParentInst: Instance?)
+	local Ref = GetOriginalParentRef(Target)
+	if ParentInst then
+		if not Ref then
+			Ref = Instance.new("ObjectValue")
+			Ref.Name = CFG.ORIGINAL_PARENT_REF_NAME
+			Ref.Parent = Target
 		end
-		ref.Value = parentInst
+		Ref.Value = ParentInst
 	else
-		if ref then 
-			ref:Destroy() 
+		if Ref then
+			Ref:Destroy()
 		end
 	end
 end
 
-local function GetOrCreateCellsFolder(target: Instance): Folder
-	local f = target:FindFirstChild(CELL_REFS_FOLDER_NAME)
-	if not f then
-		f = Instance.new("Folder")
-		f.Name = CELL_REFS_FOLDER_NAME
-		f.Parent = target
+local function GetOrCreateCellsFolder(Target: Instance): Folder
+	local FolderInstance = Target:FindFirstChild(CELL_REFS_FOLDER_NAME)
+	if not FolderInstance then
+		FolderInstance = Instance.new("Folder")
+		FolderInstance.Name = CELL_REFS_FOLDER_NAME
+		FolderInstance.Parent = Target
 	end
-	return f :: Folder
+	return FolderInstance :: Folder
 end
 
-local function ClearCellsFolder(target: Instance)
-	local f = target:FindFirstChild(CELL_REFS_FOLDER_NAME)
-	if f then
-		for _, ch in ipairs(f:GetChildren()) do 
-			ch:Destroy() 
+local function ClearCellsFolder(Target: Instance)
+	local FolderInstance = Target:FindFirstChild(CELL_REFS_FOLDER_NAME)
+	if FolderInstance then
+		for _, Child in ipairs(FolderInstance:GetChildren()) do
+			Child:Destroy()
 		end
 	end
 end
 
--- Find station for target
-local function FindNearestStation(target: Instance, _: number): Model?
-	local root = PlacementSnap.GetRootPart(target)
-	if not root then return nil end
+local function FindNearestStation(Target: Instance, _: number): Model?
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return nil end
 
-	local ref = GetCellRef(target)
-	if ref and ref.Value and ref.Value:IsA("BasePart") then
-		return PlacementGrid.GetStationFromCell(ref.Value)
+	local Ref = GetCellRef(Target)
+	if Ref and Ref.Value and Ref.Value:IsA("BasePart") then
+		return PlacementGrid.GetStationFromCell(Ref.Value)
 	end
 
-	local bestDist = math.huge
-	local station: Model? = nil
+	local BestDist = math.huge
+	local Station: Model? = nil
 
-	for _, folder in ipairs(Workspace:GetDescendants()) do
-		if folder:IsA("Folder") and folder.Name == CFG.PLACEMENT_GRID_NAME then
-			local par = folder.Parent
-			if par and par:IsA("Model") then
-				local pp = EnsurePrimary(par)
-				if pp then
-					local d = (pp.Position - root.Position).Magnitude
-					if d < bestDist then
-						bestDist = d
-						station = par
+	for _, Folder in ipairs(Workspace:GetDescendants()) do
+		if Folder:IsA("Folder") and Folder.Name == CFG.PLACEMENT_GRID_NAME then
+			local Par = Folder.Parent
+			if Par and Par:IsA("Model") then
+				local Pp = EnsurePrimary(Par)
+				if Pp then
+					local Distance = (Pp.Position - Root.Position).Magnitude
+					if Distance < BestDist then
+						BestDist = Distance
+						Station = Par
 					end
 				end
 			end
 		end
 	end
 
-	return station
+	return Station
 end
 
--- Public: Find nearest free footprint on same station
 function PlacementSnap.FindNearestFreeFootprintOnSameStation(
-	target: Instance, 
-	radius: number?, 
-	rotationDegrees: number?
+	Target: Instance,
+	Radius: number?,
+	RotationDegrees: number?
 ): {BasePart}?
-	local root = PlacementSnap.GetRootPart(target)
-	if not root then return nil end
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return nil end
 
-	local baseFp = PlacementFootprint.GetFootprint(target)
-	local fp = PlacementFootprint.ApplyRotation(baseFp, rotationDegrees)
-	local need = PlacementFootprint.GetCellCount(fp)
-	local R = radius or PlacementSnap.SNAP_RADIUS
+	local BaseFp = PlacementFootprint.GetFootprint(Target)
+	local Fp = PlacementFootprint.ApplyRotation(BaseFp, RotationDegrees)
+	local Need = PlacementFootprint.GetCellCount(Fp)
+	local RadiusToUse = Radius or PlacementSnap.SNAP_RADIUS
 
-	local station = FindNearestStation(target, R)
-	if not station then return nil end
+	local Station = FindNearestStation(Target, RadiusToUse)
+	if not Station then return nil end
 
-	local index = PlacementGrid.BuildIndex(station)
-	if not index then return nil end
+	local Index = PlacementGrid.BuildIndex(Station)
+	if not Index then return nil end
 
-	-- Sort cells by distance
-	table.sort(index.all, function(a, b)
-		local da = (a.cell.Position - root.Position).Magnitude
-		local db = (b.cell.Position - root.Position).Magnitude
-		return da < db
+	table.sort(Index.all, function(CellA, CellB)
+		local Da = (CellA.cell.Position - Root.Position).Magnitude
+		local Db = (CellB.cell.Position - Root.Position).Magnitude
+		return Da < Db
 	end)
 
-	for _, meta in ipairs(index.all) do
-		local dist = (meta.cell.Position - root.Position).Magnitude
-		if dist <= R then
-			local patch = PlacementGrid.FindFootprintCells(index, meta.area, meta.x, meta.y, fp)
-			if patch and #patch == need then
-				return patch
+	for _, Meta in ipairs(Index.all) do
+		local Dist = (Meta.cell.Position - Root.Position).Magnitude
+		if Dist <= RadiusToUse then
+			local Patch = PlacementGrid.FindFootprintCells(Index, Meta.area, Meta.x, Meta.y, Fp)
+			if Patch and #Patch == Need then
+				return Patch
 			end
 		end
 	end
@@ -182,368 +179,334 @@ function PlacementSnap.FindNearestFreeFootprintOnSameStation(
 	return nil
 end
 
--- Weld management
-function PlacementSnap.DestroyPlacementWeldsFor(root: BasePart)
-	for _, ch in ipairs(root:GetChildren()) do
-		if ch:IsA("WeldConstraint") and ch.Name == CFG.PLACEMENT_WELD_NAME then
-			ch:Destroy()
+function PlacementSnap.DestroyPlacementWeldsFor(Root: BasePart)
+	for _, Ch in ipairs(Root:GetChildren()) do
+		if Ch:IsA("WeldConstraint") and Ch.Name == CFG.PLACEMENT_WELD_NAME then
+			Ch:Destroy()
 		end
 	end
 end
 
--- Public: Unsnap
-function PlacementSnap.UnsnapFromPlacementCell(target: Instance, _Player: Player?)
-	local root = PlacementSnap.GetRootPart(target)
-	if not root then return end
+function PlacementSnap.UnsnapFromPlacementCell(Target: Instance, _Player: Player?)
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return end
 
-	local station: Model? = nil
-	local stationWasAnchored = false
-	local ref = GetCellRef(target)
-	if ref and ref.Value and ref.Value:IsA("BasePart") then
-		station = PlacementGrid.GetStationFromCell(ref.Value)
-		if station and station.PrimaryPart then
-			stationWasAnchored = station.PrimaryPart.Anchored
-			if not stationWasAnchored then
-				station.PrimaryPart.Anchored = true
+	local Station: Model? = nil
+	local StationWasAnchored = false
+	local Ref = GetCellRef(Target)
+	if Ref and Ref.Value and Ref.Value:IsA("BasePart") then
+		Station = PlacementGrid.GetStationFromCell(Ref.Value)
+		if Station and Station.PrimaryPart then
+			StationWasAnchored = Station.PrimaryPart.Anchored
+			if not StationWasAnchored then
+				Station.PrimaryPart.Anchored = true
 			end
 		end
 	end
 
-	PlacementSnap.DestroyPlacementWeldsFor(root)
+	PlacementSnap.DestroyPlacementWeldsFor(Root)
 
-	-- Clear multi-cell reservations
-	local cellsFolder = target:FindFirstChild(CELL_REFS_FOLDER_NAME)
-	if cellsFolder then
-		for _, ov in ipairs(cellsFolder:GetChildren()) do
-			if ov:IsA("ObjectValue") and ov.Value and ov.Value:IsA("BasePart") then
-				PlacementGrid.MarkCell(ov.Value, false)
+	local CellsFolder = Target:FindFirstChild(CELL_REFS_FOLDER_NAME)
+	if CellsFolder then
+		for _, Ov in ipairs(CellsFolder:GetChildren()) do
+			if Ov:IsA("ObjectValue") and Ov.Value and Ov.Value:IsA("BasePart") then
+				PlacementGrid.MarkCell(Ov.Value, false)
 			end
 		end
-		cellsFolder:ClearAllChildren()
+		CellsFolder:ClearAllChildren()
 	end
 
-	-- Legacy single-cell ref
-	if ref and ref.Value and ref.Value:IsA("BasePart") then
-		PlacementGrid.MarkCell(ref.Value, false)
+	if Ref and Ref.Value and Ref.Value:IsA("BasePart") then
+		PlacementGrid.MarkCell(Ref.Value, false)
 	end
 
-	local op = GetOriginalParentRef(target)
-	if op and op.Value then
-		target.Parent = op.Value
+	local Op = GetOriginalParentRef(Target)
+	if Op and Op.Value then
+		Target.Parent = Op.Value
 	end
 
-	SetCellRef(target, nil)
-	SetOriginalParentRef(target, nil)
-	ObjectStateManager.ForceIdle(target)
+	SetCellRef(Target, nil)
+	SetOriginalParentRef(Target, nil)
+	ObjectStateManager.ForceIdle(Target)
 
-	if not CollectionService:HasTag(target, CFG.DRAG_TAG) then
-		CollectionService:AddTag(target, CFG.DRAG_TAG)
+	if not CollectionService:HasTag(Target, CFG.DRAG_TAG) then
+		CollectionService:AddTag(Target, CFG.DRAG_TAG)
 	end
 
 	pcall(function()
-		if root:IsDescendantOf(Workspace) and not root.Anchored then
-			root:SetNetworkOwnershipAuto()
+		if Root:IsDescendantOf(Workspace) and not Root.Anchored then
+			Root:SetNetworkOwnershipAuto()
 		end
 	end)
 
-	-- CRITICAL FIX: Restore station anchored state after unsnap
-	if station and station.PrimaryPart and not stationWasAnchored then
+	if Station and Station.PrimaryPart and not StationWasAnchored then
 		task.defer(function()
-			if station.PrimaryPart then
-				station.PrimaryPart.Anchored = false
+			if Station.PrimaryPart then
+				Station.PrimaryPart.Anchored = false
 			end
 		end)
 	end
 end
 
--- Public: Snap to cells
 function PlacementSnap.SnapToCells(
-	target: Instance, 
-	cells: any, 
-	alignOrientation: boolean?, 
-	Player: Player?, 
-	manualRotationDegrees: number?
+	Target: Instance,
+	Cells: any,
+	AlignOrientation: boolean?,
+	Player: Player?,
+	ManualRotationDegrees: number?
 )
-	if typeof(cells) == "Instance" and cells:IsA("BasePart") then
-		cells = { cells }
-	elseif typeof(cells) ~= "table" then
-		warn("[PlacementSnap] SnapToCells expected BasePart or {BasePart}, got:", typeof(cells))
+	if typeof(Cells) == "Instance" and Cells:IsA("BasePart") then
+		Cells = { Cells }
+	elseif typeof(Cells) ~= "table" then
+		warn("[PlacementSnap] SnapToCells expected BasePart or {BasePart}, got:", typeof(Cells))
 		return
 	end
-	if #cells == 0 then return end
+	if #Cells == 0 then return end
 
-	for _, c in ipairs(cells) do
-		if not PlacementGrid.IsCellAvailable(c) then
+	for _, Cell in ipairs(Cells) do
+		if not PlacementGrid.IsCellAvailable(Cell) then
 			warn("[PlacementSnap] Cannot snap - one or more cells already occupied")
 			return
 		end
 	end
 
-	-- if target:GetAttribute("PartType") == "Wheel" then
-	-- 	local WheelState = target:GetAttribute("WheelState")
-	-- 	if WheelState ~= "Cargo" then
-	-- 		return
-	-- 	end
-	-- end
-	
-	local root = PlacementSnap.GetRootPart(target)
-	if not root then return end
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return end
 
-	local firstCell: BasePart = cells[1]
-	local station = PlacementGrid.GetStationFromCell(firstCell)
-	if not (station and station:IsA("Model")) then return end
-	EnsurePrimary(station)
-	if target == station or IsAncestorOf(target, firstCell) then return end
+	local FirstCell: BasePart = Cells[1]
+	local Station = PlacementGrid.GetStationFromCell(FirstCell)
+	if not (Station and Station:IsA("Model")) then return end
+	EnsurePrimary(Station)
+	if Target == Station or IsAncestorOf(Target, FirstCell) then return end
 
-	-- CRITICAL: Clear any existing drag state before snapping
-	if target:GetAttribute("BeingDragged") then
+	if Target:GetAttribute("BeingDragged") then
 		warn("[PlacementSnap] Object was still BeingDragged, clearing state before snap")
-		ObjectStateManager.ForceIdle(target)
+		ObjectStateManager.ForceIdle(Target)
 	end
 
-	PlacementSnap.DestroyPlacementWeldsFor(root)
+	PlacementSnap.DestroyPlacementWeldsFor(Root)
 
-	-- Remember original parent
-	if not GetOriginalParentRef(target) then
-		SetOriginalParentRef(target, target.Parent)
+	if not GetOriginalParentRef(Target) then
+		SetOriginalParentRef(Target, Target.Parent)
 	end
 
-	-- Disable aligns
-	local ap = root:FindFirstChildOfClass("AlignPosition")
-	if ap then 
-		ap.Enabled = false
-		ap.Attachment0 = nil
+	local Ap = Root:FindFirstChildOfClass("AlignPosition")
+	if Ap then
+		Ap.Enabled = false
+		Ap.Attachment0 = nil
 	end
-	local ao = root:FindFirstChildOfClass("AlignOrientation")
-	if ao then 
-		ao.Enabled = false 
-		ao.Attachment0 = nil 
+	local Ao = Root:FindFirstChildOfClass("AlignOrientation")
+	if Ao then
+		Ao.Enabled = false
+		Ao.Attachment0 = nil
 	end
-	root.AssemblyLinearVelocity = Vector3.zero
-	root.AssemblyAngularVelocity = Vector3.zero
-	root.Anchored = false
+	Root.AssemblyLinearVelocity = Vector3.zero
+	Root.AssemblyAngularVelocity = Vector3.zero
+	Root.Anchored = false
 
-	-- Compute center
-	local sum = Vector3.zero
-	for _, c in ipairs(cells) do 
-		sum += c.Position 
+	local Sum = Vector3.zero
+	for _, Cell in ipairs(Cells) do
+		Sum += Cell.Position
 	end
-	local centerPos = sum / #cells
+	local CenterPos = Sum / #Cells
 
-	-- Orientation
-	local doOrient = (alignOrientation ~= nil) and alignOrientation or CFG.ALIGN_ORIENTATION
-	local targetCF
-	if doOrient then
-		local baseCF = CFrame.new(centerPos) * (firstCell.CFrame - firstCell.Position)
+	local DoOrient = (AlignOrientation ~= nil) and AlignOrientation or CFG.ALIGN_ORIENTATION
+	local TargetCF
+	if DoOrient then
+		local BaseCF = CFrame.new(CenterPos) * (FirstCell.CFrame - FirstCell.Position)
 
-		if Player and not manualRotationDegrees then
-			local character = Player.Character
-			if character then
-				local hrp = character:FindFirstChild("HumanoidRootPart")
-				if hrp and hrp:IsA("BasePart") then
-					local cellForward = firstCell.CFrame.LookVector
-					local playerForward = hrp.CFrame.LookVector
+		if Player and not ManualRotationDegrees then
+			local Character = Player.Character
+			if Character then
+				local Hrp = Character:FindFirstChild("HumanoidRootPart")
+				if Hrp and Hrp:IsA("BasePart") then
+					local CellForward = FirstCell.CFrame.LookVector
+					local PlayerForward = Hrp.CFrame.LookVector
 
-					local playerForwardFlat = Vector3.new(playerForward.X, 0, playerForward.Z).Unit
-					local cellForwardFlat = Vector3.new(cellForward.X, 0, cellForward.Z).Unit
+					local PlayerForwardFlat = Vector3.new(PlayerForward.X, 0, PlayerForward.Z).Unit
+					local CellForwardFlat = Vector3.new(CellForward.X, 0, CellForward.Z).Unit
 
-					local dotProduct = cellForwardFlat:Dot(playerForwardFlat)
-					local crossProduct = cellForwardFlat:Cross(playerForwardFlat).Y
-					local relativeAngle = math.atan2(crossProduct, dotProduct)
+					local DotProduct = CellForwardFlat:Dot(PlayerForwardFlat)
+					local CrossProduct = CellForwardFlat:Cross(PlayerForwardFlat).Y
+					local RelativeAngle = math.atan2(CrossProduct, DotProduct)
 
-					local snappedRelativeAngle = math.round(relativeAngle / (math.pi/2)) * (math.pi/2)
+					local SnappedRelativeAngle = math.round(RelativeAngle / (math.pi/2)) * (math.pi/2)
 
-					targetCF = baseCF * CFrame.Angles(0, snappedRelativeAngle, 0)
+					TargetCF = BaseCF * CFrame.Angles(0, SnappedRelativeAngle, 0)
 				else
-					targetCF = baseCF
+					TargetCF = BaseCF
 				end
 			else
-				targetCF = baseCF
+				TargetCF = BaseCF
 			end
-		elseif manualRotationDegrees then
-			local manualRotationRad = math.rad(manualRotationDegrees)
-			targetCF = baseCF * CFrame.Angles(0, manualRotationRad, 0)
+		elseif ManualRotationDegrees then
+			local ManualRotationRad = math.rad(ManualRotationDegrees)
+			TargetCF = BaseCF * CFrame.Angles(0, ManualRotationRad, 0)
 		else
-			targetCF = baseCF
+			TargetCF = BaseCF
 		end
 	else
-		targetCF = CFrame.new(centerPos)
+		TargetCF = CFrame.new(CenterPos)
 	end
 
-	-- Height offset
-	local itemHeight = 0
-	if target:IsA("Model") then
-		local _, size = target:GetBoundingBox()
-		itemHeight = size.Y
-	elseif target:IsA("BasePart") then
-		itemHeight = target.Size.Y
+	local ItemHeight = 0
+	if Target:IsA("Model") then
+		local _, Size = Target:GetBoundingBox()
+		ItemHeight = Size.Y
+	elseif Target:IsA("BasePart") then
+		ItemHeight = Target.Size.Y
 	end
 
-	local cellHeight = firstCell.Size.Y
-	local heightOffset = ((cellHeight/2) + (itemHeight / 2)) - cellHeight
+	local CellHeight = FirstCell.Size.Y
+	local HeightOffset = ((CellHeight/2) + (ItemHeight / 2)) - CellHeight
 
-	-- Place
-	if target:IsA("Model") then
-		target:PivotTo(targetCF * CFrame.new(0, heightOffset, 0))
+	if Target:IsA("Model") then
+		Target:PivotTo(TargetCF * CFrame.new(0, HeightOffset, 0))
 	else
-		root.CFrame = targetCF * CFrame.new(0, cellHeight, 0)
+		Root.CFrame = TargetCF * CFrame.new(0, CellHeight, 0)
 	end
 
-	-- Weld
-	local weld = Instance.new("WeldConstraint")
-	weld.Name = CFG.PLACEMENT_WELD_NAME
-	weld.Part0 = firstCell
-	weld.Part1 = root
-	weld.Parent = root
+	local Weld = Instance.new("WeldConstraint")
+	Weld.Name = CFG.PLACEMENT_WELD_NAME
+	Weld.Part0 = FirstCell
+	Weld.Part1 = Root
+	Weld.Parent = Root
 
-	target.Parent = firstCell
+	Target.Parent = FirstCell
 
-	-- Mark occupied
-	PlacementGrid.MarkCells(cells, true)
-	SetCellRef(target, firstCell)
+	PlacementGrid.MarkCells(Cells, true)
+	SetCellRef(Target, FirstCell)
 
-	ClearCellsFolder(target)
-	local folder = GetOrCreateCellsFolder(target)
-	for _, c in ipairs(cells) do
-		local ov = Instance.new("ObjectValue")
-		ov.Name = "Cell"
-		ov.Value = c
-		ov.Parent = folder
+	ClearCellsFolder(Target)
+	local Folder = GetOrCreateCellsFolder(Target)
+	for _, Cell in ipairs(Cells) do
+		local Ov = Instance.new("ObjectValue")
+		Ov.Name = "Cell"
+		Ov.Value = Cell
+		Ov.Parent = Folder
 	end
 
-	ObjectStateManager.SetState(target, "SnappedToGrid")
-	if Player then 
-		target:SetAttribute("Owner", Player.UserId or Player:GetAttribute("Id")) 
+	ObjectStateManager.SetState(Target, "SnappedToGrid")
+	if Player then
+		Target:SetAttribute("Owner", Player.UserId or Player:GetAttribute("Id"))
 	end
-	if not CollectionService:HasTag(target, CFG.DRAG_TAG) then
-		CollectionService:AddTag(target, CFG.DRAG_TAG)
+	if not CollectionService:HasTag(Target, CFG.DRAG_TAG) then
+		CollectionService:AddTag(Target, CFG.DRAG_TAG)
 	end
 
-	-- Settle
 	task.defer(function()
-		if root.Parent then
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-			pcall(function() 
-				root:SetNetworkOwnershipAuto() 
+		if Root.Parent then
+			Root.AssemblyLinearVelocity = Vector3.zero
+			Root.AssemblyAngularVelocity = Vector3.zero
+			pcall(function()
+				Root:SetNetworkOwnershipAuto()
 			end)
 		end
 	end)
 end
 
--- Back-compat wrapper
 function PlacementSnap.SnapToPlacementCell(
-	_: Instance, 
-	cell: BasePart, 
-	alignOrientation: boolean?, 
-	Player: Player?, 
-	manualRotationDegrees: number?
+	_: Instance,
+	Cell: BasePart,
+	AlignOrientation: boolean?,
+	Player: Player?,
+	ManualRotationDegrees: number?
 )
-	if not cell or not cell:IsA("BasePart") then return end
-	PlacementSnap.SnapToCells({cell}, alignOrientation, Player, manualRotationDegrees)
+	if not Cell or not Cell:IsA("BasePart") then return end
+	PlacementSnap.SnapToCells({Cell}, AlignOrientation, Player, ManualRotationDegrees)
 end
 
--- Public: Find nearest free cell
-function PlacementSnap.FindNearestFreeCellOnSameStation(target: Instance, radius: number?): BasePart?
-	local root = PlacementSnap.GetRootPart(target)
-	if not root then return nil end
+function PlacementSnap.FindNearestFreeCellOnSameStation(Target: Instance, Radius: number?): BasePart?
+	local Root = PlacementSnap.GetRootPart(Target)
+	if not Root then return nil end
 
-	local station = FindNearestStation(target, radius or PlacementSnap.SNAP_RADIUS)
-	if not station then return nil end
+	local Station = FindNearestStation(Target, Radius or PlacementSnap.SNAP_RADIUS)
+	if not Station then return nil end
 
-	return PlacementGrid.FindNearestAvailableCell(station, root.Position, radius or PlacementSnap.SNAP_RADIUS)
+	return PlacementGrid.FindNearestAvailableCell(Station, Root.Position, Radius or PlacementSnap.SNAP_RADIUS)
 end
 
--- Public: Auto-unsnap hooks
-function PlacementSnap.BindAutoUnsnapHooks(target: Instance): (() -> ())
-	local conns: {RBXScriptConnection} = {}
+function PlacementSnap.BindAutoUnsnapHooks(Target: Instance): (() -> ())
+	local HookMaid = Maid.new()
 
 	local function ShouldUnsnap(): boolean
-		if not target.Parent then return true end
-		if target:IsDescendantOf(game:GetService("Players")) then return true end
-		local p = target.Parent
-		if p:IsA("Backpack") or p:IsA("Tool") or p:IsA("Accessory") then return true end
+		if not Target.Parent then return true end
+		if Target:IsDescendantOf(game:GetService("Players")) then return true end
+		local Parent = Target.Parent
+		if Parent:IsA("Backpack") or Parent:IsA("Tool") or Parent:IsA("Accessory") then return true end
 
-		local cellRef = GetCellRef(target)
-		if cellRef and cellRef.Value then
-			if not target:IsDescendantOf(cellRef.Value) then
+		local CellRef = GetCellRef(Target)
+		if CellRef and CellRef.Value then
+			if not Target:IsDescendantOf(CellRef.Value) then
 				return true
 			end
 		end
 		return false
 	end
 
-	table.insert(conns, target.AncestryChanged:Connect(function()
-		if target:GetAttribute("SnappedToGrid") and ShouldUnsnap() then
-			PlacementSnap.UnsnapFromPlacementCell(target)
+	HookMaid:GiveTask(Target.AncestryChanged:Connect(function()
+		if Target:GetAttribute("SnappedToGrid") and ShouldUnsnap() then
+			PlacementSnap.UnsnapFromPlacementCell(Target)
 		end
 	end))
-	table.insert(conns, target:GetPropertyChangedSignal("Parent"):Connect(function()
-		if target:GetAttribute("SnappedToGrid") and ShouldUnsnap() then
-			PlacementSnap.UnsnapFromPlacementCell(target)
+
+	HookMaid:GiveTask(Target:GetPropertyChangedSignal("Parent"):Connect(function()
+		if Target:GetAttribute("SnappedToGrid") and ShouldUnsnap() then
+			PlacementSnap.UnsnapFromPlacementCell(Target)
 		end
 	end))
 
 	return function()
-		for _, c in ipairs(conns) do 
-			c:Disconnect() 
-		end
+		HookMaid:Destroy()
 	end
 end
 
--- Convenience: Try snap nearest footprint
 function PlacementSnap.TrySnapNearestFootprint(
-	target: Instance, 
-	radius: number?, 
-	Player: Player?, 
-	manualRotationDegrees: number?
+	Target: Instance,
+	Radius: number?,
+	Player: Player?,
+	ManualRotationDegrees: number?
 ): boolean
-	-- Skip wheels
-	-- if target:IsA("Model") and target:GetAttribute("PartType") == "Wheel" then
-	-- 	return false
-	-- end
+	local Fp = PlacementFootprint.GetFootprint(Target)
 
-	local fp = PlacementFootprint.GetFootprint(target)
+	local RotationToUse = ManualRotationDegrees
+	if not RotationToUse and Player then
+		local Character = Player.Character
+		if Character then
+			local Hrp = Character:FindFirstChild("HumanoidRootPart")
+			if Hrp and Hrp:IsA("BasePart") then
+				local Root = PlacementSnap.GetRootPart(Target)
+				if Root then
+					local RadiusToUse = Radius or PlacementSnap.SNAP_RADIUS
+					local Station = FindNearestStation(Target, RadiusToUse)
 
-	-- Calculate rotation
-	local rotationToUse = manualRotationDegrees
-	if not rotationToUse and Player then
-		local character = Player.Character
-		if character then
-			local hrp = character:FindFirstChild("HumanoidRootPart")
-			if hrp and hrp:IsA("BasePart") then
-				local root = PlacementSnap.GetRootPart(target)
-				if root then
-					local R = radius or PlacementSnap.SNAP_RADIUS
-					local station = FindNearestStation(target, R)
-
-					if station then
-						local grid = station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
-						if grid and grid:IsA("Folder") then
-							local nearestCell: BasePart? = nil
-							local bestDist = math.huge
-							for _, cell in ipairs(grid:GetDescendants()) do
-								if cell:IsA("BasePart") then
-									local d = (cell.Position - root.Position).Magnitude
-									if d <= R and d < bestDist then
-										bestDist = d
-										nearestCell = cell
+					if Station then
+						local Grid = Station:FindFirstChild(CFG.PLACEMENT_GRID_NAME)
+						if Grid and Grid:IsA("Folder") then
+							local NearestCell: BasePart? = nil
+							local BestDist = math.huge
+							for _, Cell in ipairs(Grid:GetDescendants()) do
+								if Cell:IsA("BasePart") then
+									local Distance = (Cell.Position - Root.Position).Magnitude
+									if Distance <= RadiusToUse and Distance < BestDist then
+										BestDist = Distance
+										NearestCell = Cell
 									end
 								end
 							end
 
-							if nearestCell then
-								local cellForward = nearestCell.CFrame.LookVector
-								local playerForward = hrp.CFrame.LookVector
+							if NearestCell then
+								local CellForward = NearestCell.CFrame.LookVector
+								local PlayerForward = Hrp.CFrame.LookVector
 
-								local playerForwardFlat = Vector3.new(playerForward.X, 0, playerForward.Z).Unit
-								local cellForwardFlat = Vector3.new(cellForward.X, 0, cellForward.Z).Unit
+								local PlayerForwardFlat = Vector3.new(PlayerForward.X, 0, PlayerForward.Z).Unit
+								local CellForwardFlat = Vector3.new(CellForward.X, 0, CellForward.Z).Unit
 
-								local dotProduct = cellForwardFlat:Dot(playerForwardFlat)
-								local crossProduct = cellForwardFlat:Cross(playerForwardFlat).Y
-								local relativeAngle = math.atan2(crossProduct, dotProduct)
+								local DotProduct = CellForwardFlat:Dot(PlayerForwardFlat)
+								local CrossProduct = CellForwardFlat:Cross(PlayerForwardFlat).Y
+								local RelativeAngle = math.atan2(CrossProduct, DotProduct)
 
-								rotationToUse = math.round(math.deg(relativeAngle) / 90) * 90
+								RotationToUse = math.round(math.deg(RelativeAngle) / 90) * 90
 							end
 						end
 					end
@@ -552,55 +515,48 @@ function PlacementSnap.TrySnapNearestFootprint(
 		end
 	end
 
-	-- Try to find cells with calculated rotation
-	local cells = PlacementSnap.FindNearestFreeFootprintOnSameStation(target, radius, rotationToUse)
+	local Cells = PlacementSnap.FindNearestFreeFootprintOnSameStation(Target, Radius, RotationToUse)
 
-	-- Only snap if we found the correct number of cells
-	if cells and #cells == (fp.X * fp.Y) then
-		PlacementSnap.SnapToCells(target, cells, true, Player, rotationToUse)
-		PlacementSnap.BindAutoUnsnapHooks(target)
+	if Cells and #Cells == (Fp.X * Fp.Y) then
+		PlacementSnap.SnapToCells(Target, Cells, true, Player, RotationToUse)
+		PlacementSnap.BindAutoUnsnapHooks(Target)
 		return true
 	end
 
 	return false
 end
 
--- Check if object is a placement cell
-function PlacementSnap.IsPlacementCell(obj: Instance?): boolean
-	return obj ~= nil
-		and obj:IsA("BasePart")
-		and obj.Parent ~= nil
-		and obj.Parent.Name == CFG.PLACEMENT_GRID_NAME
+function PlacementSnap.IsPlacementCell(Obj: Instance?): boolean
+	return Obj ~= nil
+		and Obj:IsA("BasePart")
+		and Obj.Parent ~= nil
+		and Obj.Parent.Name == CFG.PLACEMENT_GRID_NAME
 end
 
--- Helper: Check if station has enough space
-function PlacementSnap.HasAvailableSpace(station: Model, requiredFootprint: any): boolean
-	return PlacementGrid.HasAvailableSpace(station, requiredFootprint)
+function PlacementSnap.HasAvailableSpace(Station: Model, RequiredFootprint: any): boolean
+	return PlacementGrid.HasAvailableSpace(Station, RequiredFootprint)
 end
 
--- Helper: Get free cell count
-function PlacementSnap.GetFreeCellCount(station: Model): number
-	return PlacementGrid.GetFreeCellCount(station)
+function PlacementSnap.GetFreeCellCount(Station: Model): number
+	return PlacementGrid.GetFreeCellCount(Station)
 end
 
--- Helper: Get total cell count
-function PlacementSnap.GetTotalCellCount(station: Model): number
-	return PlacementGrid.GetTotalCellCount(station)
+function PlacementSnap.GetTotalCellCount(Station: Model): number
+	return PlacementGrid.GetTotalCellCount(Station)
 end
 
--- Helper: Calculate player rotation relative to a cell (shared with GridVisualization)
-function PlacementSnap.CalculatePlayerRotationRelativeToCell(playerCFrame: CFrame, cell: BasePart): number
-	local cellForward = cell.CFrame.LookVector
-	local playerForward = playerCFrame.LookVector
+function PlacementSnap.CalculatePlayerRotationRelativeToCell(PlayerCFrame: CFrame, Cell: BasePart): number
+	local CellForward = Cell.CFrame.LookVector
+	local PlayerForward = PlayerCFrame.LookVector
 
-	local playerForwardFlat = Vector3.new(playerForward.X, 0, playerForward.Z).Unit
-	local cellForwardFlat = Vector3.new(cellForward.X, 0, cellForward.Z).Unit
+	local PlayerForwardFlat = Vector3.new(PlayerForward.X, 0, PlayerForward.Z).Unit
+	local CellForwardFlat = Vector3.new(CellForward.X, 0, CellForward.Z).Unit
 
-	local dotProduct = cellForwardFlat:Dot(playerForwardFlat)
-	local crossProduct = cellForwardFlat:Cross(playerForwardFlat).Y
-	local relativeAngle = math.atan2(crossProduct, dotProduct)
+	local DotProduct = CellForwardFlat:Dot(PlayerForwardFlat)
+	local CrossProduct = CellForwardFlat:Cross(PlayerForwardFlat).Y
+	local RelativeAngle = math.atan2(CrossProduct, DotProduct)
 
-	return math.round(math.deg(relativeAngle) / 90) * 90
+	return math.round(math.deg(RelativeAngle) / 90) * 90
 end
 
 return PlacementSnap
