@@ -196,6 +196,19 @@ function PlacementSnap.UnsnapFromPlacementCell(target: Instance, _Player: Player
 	local root = PlacementSnap.GetRootPart(target)
 	if not root then return end
 
+	local station: Model? = nil
+	local stationWasAnchored = false
+	local ref = GetCellRef(target)
+	if ref and ref.Value and ref.Value:IsA("BasePart") then
+		station = PlacementGrid.GetStationFromCell(ref.Value)
+		if station and station.PrimaryPart then
+			stationWasAnchored = station.PrimaryPart.Anchored
+			if not stationWasAnchored then
+				station.PrimaryPart.Anchored = true
+			end
+		end
+	end
+
 	PlacementSnap.DestroyPlacementWeldsFor(root)
 
 	-- Clear multi-cell reservations
@@ -210,7 +223,6 @@ function PlacementSnap.UnsnapFromPlacementCell(target: Instance, _Player: Player
 	end
 
 	-- Legacy single-cell ref
-	local ref = GetCellRef(target)
 	if ref and ref.Value and ref.Value:IsA("BasePart") then
 		PlacementGrid.MarkCell(ref.Value, false)
 	end
@@ -233,6 +245,15 @@ function PlacementSnap.UnsnapFromPlacementCell(target: Instance, _Player: Player
 			root:SetNetworkOwnershipAuto()
 		end
 	end)
+
+	-- CRITICAL FIX: Restore station anchored state after unsnap
+	if station and station.PrimaryPart and not stationWasAnchored then
+		task.defer(function()
+			if station.PrimaryPart then
+				station.PrimaryPart.Anchored = false
+			end
+		end)
+	end
 end
 
 -- Public: Snap to cells

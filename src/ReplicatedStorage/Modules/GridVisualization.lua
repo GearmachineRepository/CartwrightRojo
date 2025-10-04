@@ -24,6 +24,7 @@ local LastVisualizationUpdate = 0
 local LastStationSearch = 0
 local CurrentStation: Model? = nil
 local VisualizationConnection: RBXScriptConnection? = nil
+local GridHidden: boolean = false
 
 -- Create a SurfaceGui indicator on a cell
 local function CreateCellIndicator(cell: BasePart): SurfaceGui
@@ -70,7 +71,7 @@ end
 
 -- Find the nearest station/cart with a grid, ONLY if owned by player
 local function FindNearestStation(position: Vector3, playerUserId: number?): Model?
-	if not playerUserId then return nil end
+    if not playerUserId then return nil end
 
 	local playerStation: Model? = nil
 	local closestDistance = math.huge
@@ -79,12 +80,11 @@ local function FindNearestStation(position: Vector3, playerUserId: number?): Mod
 		if descendant:IsA("Folder") and descendant.Name == "PlacementGrid" then
 			local station = descendant.Parent.Parent
 			if station and station:IsA("Model") then
-				-- CRITICAL: Only consider stations owned by this player
 				local owner = station:GetAttribute("Owner")
 				if owner ~= playerUserId then
 					continue -- Skip non-owned stations
 				end
-
+				
 				local stationPrimary = station.PrimaryPart or station:FindFirstChildWhichIsA("BasePart")
 				if stationPrimary then
 					local distance = (stationPrimary.Position - position).Magnitude
@@ -124,127 +124,120 @@ local function IsCellOccupied(cell: BasePart): boolean
 end
 
 -- Update visualization for all cells
-local function UpdateVisualization(draggedObject: Instance?, playerUserId: number?, playerCharacter: Model?)
-	local currentTime = tick()
-	if currentTime - LastVisualizationUpdate < VISUAL_UPDATE_FREQUENCY then
+local function UpdateVisualization(DraggedObject: Instance?, PlayerUserId: number?, PlayerCharacter: Model?)
+	local CurrentTime = tick()
+	if CurrentTime - LastVisualizationUpdate < VISUAL_UPDATE_FREQUENCY then
 		return
 	end
-	LastVisualizationUpdate = currentTime
+	LastVisualizationUpdate = CurrentTime
 
-	if not draggedObject then return end
+	if not DraggedObject then return end
 
-	local objectPosition: Vector3
-	if draggedObject:IsA("Model") then
-		local primary = draggedObject.PrimaryPart or draggedObject:FindFirstChildWhichIsA("BasePart")
-		if not primary then return end
-		objectPosition = primary.Position
-	elseif draggedObject:IsA("BasePart") then
-		objectPosition = draggedObject.Position
+	local ObjectPosition: Vector3
+	if DraggedObject:IsA("Model") then
+		local Primary = DraggedObject.PrimaryPart or DraggedObject:FindFirstChildWhichIsA("BasePart")
+		if not Primary then return end
+		ObjectPosition = Primary.Position
+	elseif DraggedObject:IsA("BasePart") then
+		ObjectPosition = DraggedObject.Position
 	else
 		return
 	end
 
-	-- Periodically re-search for nearest station
-	if currentTime - LastStationSearch > STATION_SEARCH_FREQUENCY then
-		LastStationSearch = currentTime
-		CurrentStation = FindNearestStation(objectPosition, playerUserId)
+	if CurrentTime - LastStationSearch > STATION_SEARCH_FREQUENCY then
+		LastStationSearch = CurrentTime
+		CurrentStation = FindNearestStation(ObjectPosition, PlayerUserId)
 	end
 
 	if not CurrentStation or not CurrentStation.Parent then
-		-- Clear all indicators if no station found
-		for _, indicator in pairs(VisualizationCache) do
-			if indicator then
-				indicator.Enabled = false
+		for _, Indicator in pairs(VisualizationCache) do
+			if Indicator then
+				Indicator.Enabled = false
 			end
 		end
 		return
 	end
 
-	local cells = GetGridCells(CurrentStation)
-
-	-- Calculate player rotation for footprint search
-	local rotationToUse: number? = nil
-	if playerCharacter then
-		local hrp = playerCharacter:FindFirstChild("HumanoidRootPart")
-		if hrp and hrp:IsA("BasePart") then
-			local nearestCell: BasePart? = nil
-			local bestDist = math.huge
-			for _, cell in ipairs(cells) do
-				if IsPlacementCell(cell) then
-					local d = (cell.Position - objectPosition).Magnitude
-					if d < bestDist then
-						bestDist = d
-						nearestCell = cell
+	local Cells = GetGridCells(CurrentStation)
+	local RotationToUse: number? = nil
+	
+	if PlayerCharacter then
+		local HRP = PlayerCharacter:FindFirstChild("HumanoidRootPart")
+		if HRP and HRP:IsA("BasePart") then
+			local NearestCell: BasePart? = nil
+			local BestDist = math.huge
+			for _, Cell in ipairs(Cells) do
+				if IsPlacementCell(Cell) then
+					local Distance = (Cell.Position - ObjectPosition).Magnitude
+					if Distance < BestDist then
+						BestDist = Distance
+						NearestCell = Cell
 					end
 				end
 			end
 
-			if nearestCell then
-				-- Use shared function from PlacementSnap
-				rotationToUse = PlacementSnap.CalculatePlayerRotationRelativeToCell(hrp.CFrame, nearestCell)
+			if NearestCell then
+				RotationToUse = PlacementSnap.CalculatePlayerRotationRelativeToCell(HRP.CFrame, NearestCell)
 			end
 		end
 	end
 
-	-- Find valid placement cells for current object WITH rotation
-	local validPlacementCells: {BasePart} = {}
-	local validCellsSet: {[BasePart]: boolean} = {}
+	local ValidPlacementCells: {BasePart} = {}
+	local ValidCellsSet: {[BasePart]: boolean} = {}
 
-	local footprintCells = PlacementSnap.FindNearestFreeFootprintOnSameStation(
-		draggedObject, 
+	local FootprintCells = PlacementSnap.FindNearestFreeFootprintOnSameStation(
+		DraggedObject, 
 		PlacementSnap.SNAP_RADIUS,
-		rotationToUse
+		RotationToUse
 	)
 
-	if footprintCells then
-		for _, cell in ipairs(footprintCells) do
-			validCellsSet[cell] = true
-			table.insert(validPlacementCells, cell)
+	if FootprintCells then
+		for _, Cell in ipairs(FootprintCells) do
+			ValidCellsSet[Cell] = true
+			table.insert(ValidPlacementCells, Cell)
 		end
 	end
 
-	local updatedCells: {[BasePart]: boolean} = {}
+	local UpdatedCells: {[BasePart]: boolean} = {}
 
-	-- Update or create indicators for each cell
-	for _, cell in ipairs(cells) do
-		if IsPlacementCell(cell) then
-			updatedCells[cell] = true
+	for _, Cell in ipairs(Cells) do
+		if IsPlacementCell(Cell) then
+			UpdatedCells[Cell] = true
 
-			local distance = (cell.Position - objectPosition).Magnitude
-			if distance <= GRID_SEARCH_RADIUS then
-				local indicator = VisualizationCache[cell]
-				if not indicator or not indicator.Parent then
-					indicator = CreateCellIndicator(cell)
-					VisualizationCache[cell] = indicator
+			local Distance = (Cell.Position - ObjectPosition).Magnitude
+			if Distance <= GRID_SEARCH_RADIUS then
+				local Indicator = VisualizationCache[Cell]
+				if not Indicator or not Indicator.Parent then
+					Indicator = CreateCellIndicator(Cell)
+					VisualizationCache[Cell] = Indicator
 				end
 
-				local color: Color3
-				if validCellsSet[cell] then
-					color = COLOR_VALID_PLACEMENT
-				elseif IsCellOccupied(cell) then
-					color = COLOR_OCCUPIED
+				local Color: Color3
+				if ValidCellsSet[Cell] then
+					Color = COLOR_VALID_PLACEMENT
+				elseif IsCellOccupied(Cell) then
+					Color = COLOR_OCCUPIED
 				else
-					color = COLOR_AVAILABLE
+					Color = COLOR_AVAILABLE
 				end
 
-				UpdateCellColor(indicator, color)
-				indicator.Enabled = true
+				UpdateCellColor(Indicator, Color)
+				Indicator.Enabled = not GridHidden
 			else
-				local indicator = VisualizationCache[cell]
-				if indicator then
-					indicator.Enabled = false
+				local Indicator = VisualizationCache[Cell]
+				if Indicator then
+					Indicator.Enabled = false
 				end
 			end
 		end
 	end
 
-	-- Clean up indicators for cells that are no longer valid
-	for cell, indicator in pairs(VisualizationCache) do
-		if not updatedCells[cell] or not IsPlacementCell(cell) then
-			if indicator then
-				indicator:Destroy()
+	for Cell, Indicator in pairs(VisualizationCache) do
+		if not UpdatedCells[Cell] or not IsPlacementCell(Cell) then
+			if Indicator then
+				Indicator:Destroy()
 			end
-			VisualizationCache[cell] = nil
+			VisualizationCache[Cell] = nil
 		end
 	end
 end
@@ -296,14 +289,34 @@ local function StopVisualization()
 	CleanupVisualization()
 end
 
+local function HideGrid()
+	GridHidden = true
+	for _, Indicator in pairs(VisualizationCache) do
+		if Indicator then
+			Indicator.Enabled = false
+		end
+	end
+end
+
+local function ShowGrid()
+	GridHidden = false
+	for _, Indicator in pairs(VisualizationCache) do
+		if Indicator then
+			Indicator.Enabled = true
+		end
+	end
+end
+
 return {
 	StartVisualization = StartVisualization,
 	StopVisualization = StopVisualization,
 	CleanupVisualization = CleanupVisualization,
+	HideGrid = HideGrid,
+	ShowGrid = ShowGrid,
 	RemoveAllHighlights = function()
-		for _, descendant in ipairs(workspace:GetDescendants()) do
-			if descendant:IsA("Highlight") and descendant.Name == "DragHighlight" then
-				descendant:Destroy()
+		for _, Descendant in ipairs(workspace:GetDescendants()) do
+			if Descendant:IsA("Highlight") and Descendant.Name == "DragHighlight" then
+				Descendant:Destroy()
 			end
 		end
 	end

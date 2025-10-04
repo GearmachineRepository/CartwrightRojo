@@ -1,215 +1,267 @@
 --!strict
 local CartAssembly = {}
 
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local UIDManager = require(script.Parent:WaitForChild("UIDManager"))
 local ObjectValidator = require(script.Parent:WaitForChild("ObjectValidator"))
 
--- Constants
 local MAX_WHEEL_SIZE_RATIO = 1.3
 
--- Accessors
-function CartAssembly.getWagon(cart: Model): Model?
-	local w = cart:FindFirstChild("Wagon")
-	return (w and w:IsA("Model")) and w or nil
+function CartAssembly.getWagon(Cart: Model): Model?
+	local Wagon = Cart:FindFirstChild("Wagon")
+	return (Wagon and Wagon:IsA("Model")) and Wagon or nil
 end
 
-function CartAssembly.getWagonRoot(cart: Model): BasePart?
-	local w = CartAssembly.getWagon(cart); if not w then return nil end
-	local wr = w:FindFirstChild("WagonRoot")
-	return (wr and wr:IsA("BasePart")) and wr or nil
+function CartAssembly.getWagonRoot(Cart: Model): BasePart?
+	local Wagon = CartAssembly.getWagon(Cart)
+	 if not Wagon then return nil end
+	local WagonRoot = Wagon:FindFirstChild("WagonRoot")
+	return (WagonRoot and WagonRoot:IsA("BasePart")) and WagonRoot or nil
 end
 
--- Calculate wheel diameter from bounding box
-local function GetWheelDiameter(wheelModel: Model): number
-	local _, size = wheelModel:GetBoundingBox()
-	-- Use largest of X or Z for circular wheels
-	return math.max(size.X, size.Z)
+local function GetWheelDiameter(WheelModel: Model): number
+	local _, Size = WheelModel:GetBoundingBox()
+	return math.max(Size.X, Size.Z)
 end
 
--- Get all currently installed wheel diameters
-local function GetInstalledWheelSizes(cart: Model): {number}
-	local sizes = {}
-
-	for _, descendant in ipairs(cart:GetDescendants()) do
-		if descendant:IsA("Model") and descendant:GetAttribute("PartType") == "Wheel" then
-			local diameter = GetWheelDiameter(descendant)
-			table.insert(sizes, diameter)
+local function GetInstalledWheelSizes(Cart: Model): {number}
+	local Sizes = {}
+	for _, Descendant in ipairs(Cart:GetDescendants()) do
+		if Descendant:IsA("Model") and Descendant:GetAttribute("PartType") == "Wheel" then
+			local Diameter = GetWheelDiameter(Descendant)
+			table.insert(Sizes, Diameter)
 		end
 	end
-
-	return sizes
+	return Sizes
 end
 
-local function IsWheelSizeCompatible(cart: Model, newWheelDiameter: number): boolean
-	local existingSizes = GetInstalledWheelSizes(cart)
-
-	-- No wheels yet, any size is fine
-	if #existingSizes == 0 then
+local function IsWheelSizeCompatible(Cart: Model, NewWheelDiameter: number): boolean
+	local ExistingSizes = GetInstalledWheelSizes(Cart)
+	if #ExistingSizes == 0 then
 		return true
 	end
-
-	-- Check ratio against all existing wheels
-	for _, existingDiameter in ipairs(existingSizes) do
-		local larger = math.max(newWheelDiameter, existingDiameter)
-		local smaller = math.min(newWheelDiameter, existingDiameter)
-		local ratio = larger / smaller
-
-		if ratio > MAX_WHEEL_SIZE_RATIO then
+	for _, ExistingDiameter in ipairs(ExistingSizes) do
+		local Larger = math.max(NewWheelDiameter, ExistingDiameter)
+		local Smaller = math.min(NewWheelDiameter, ExistingDiameter)
+		local Ratio = Larger / Smaller
+		if Ratio > MAX_WHEEL_SIZE_RATIO then
 			return false
 		end
 	end
-
 	return true
 end
 
-local function getWheelsFolder(cart: Model): Instance?
-	local w = CartAssembly.getWagon(cart); return w and w:FindFirstChild("Wheels") or nil
+local function GetWheelsFolder(Cart: Model): Instance?
+	local Wagon = CartAssembly.getWagon(Cart)
+	return Wagon and Wagon:FindFirstChild("Wheels") or nil
 end
 
-local function getSpinByNumber(cart: Model, axleNumber: number): BasePart?
-	local wf = getWheelsFolder(cart); if not wf then return nil end
-	local s = wf:FindFirstChild("Spin"..tostring(axleNumber)) or wf:FindFirstChild("Spin"..axleNumber) or wf:FindFirstChild("Spin")
-	return (s and s:IsA("BasePart")) and s or nil
+local function GetSpinByNumber(Cart: Model, AxleNumber: number): BasePart?
+	local WheelsFolder = GetWheelsFolder(Cart)
+	if not WheelsFolder then return nil end
+	local Spin = WheelsFolder:FindFirstChild("Spin"..tostring(AxleNumber)) or WheelsFolder:FindFirstChild("Spin"..AxleNumber) or WheelsFolder:FindFirstChild("Spin")
+	return (Spin and Spin:IsA("BasePart")) and Spin or nil
 end
 
-local function getMotorByNumber(cart: Model, axleNumber: number): Motor6D?
-	local wr = CartAssembly.getWagonRoot(cart); if not wr then return nil end
-	local m = wr:FindFirstChild("WheelMotor"..tostring(axleNumber)) or wr:FindFirstChild("WheelMotor"..axleNumber) or wr:FindFirstChild("WheelMotor")
-	return (m and m:IsA("Motor6D")) and m or nil
+local function GetMotorByNumber(Cart: Model, AxleNumber: number): Motor6D?
+	local WagonRoot = CartAssembly.getWagonRoot(Cart)
+	if not WagonRoot then return nil end
+	local Motor = WagonRoot:FindFirstChild("WheelMotor"..tostring(AxleNumber)) or WagonRoot:FindFirstChild("WheelMotor"..AxleNumber) or WagonRoot:FindFirstChild("WheelMotor")
+	return (Motor and Motor:IsA("Motor6D")) and Motor or nil
 end
 
--- anchor CF
-local function attachmentCF(a: Attachment): CFrame
-	local p = a.Parent; return (p and p:IsA("BasePart")) and (p.CFrame * a.CFrame) or CFrame.new()
+local function AttachmentCF(AttachmentInstance: Attachment): CFrame
+	local Parent = AttachmentInstance.Parent
+	return (Parent and Parent:IsA("BasePart")) and (Parent.CFrame * AttachmentInstance.CFrame) or CFrame.new()
 end
 
-local function anchorCF(inst: Instance): CFrame
-	local cf = inst:IsA("Attachment") and attachmentCF(inst) or (inst :: BasePart).CFrame
-	local off = inst:GetAttribute("LocalOffset"); if typeof(off)=="Vector3" then cf = cf * CFrame.new(off) end
-	return cf
+local function AnchorCF(Inst: Instance): CFrame
+	local CF = Inst:IsA("Attachment") and AttachmentCF(Inst) or (Inst :: BasePart).CFrame
+	local Offset = Inst:GetAttribute("LocalOffset")
+	if typeof(Offset)=="Vector3" then 
+		CF = CF * CFrame.new(Offset) 
+	end
+	return CF
 end
 
--- occupancy + uid
-local function setAnchorOccupant(anchor: Instance, uid: string?) anchor:SetAttribute("OccupantUID", uid) end
-local function getAnchorOccupant(anchor: Instance): string? return anchor:GetAttribute("OccupantUID") end
-
--- parse axle number
-local function resolveAxleNumberFromAnchor(a: Instance): number
-	local ax = a:GetAttribute("AxleNumber")
-	if typeof(ax)=="number" and ax>=1 then return ax end
-	local n = tostring(a.Name):match("(%d+)")
-	return n and tonumber(n) or 1
+local function SetAnchorOccupant(Anchor: Instance, UID: string?)
+	Anchor:SetAttribute("OccupantUID", UID)
 end
 
--- nearest wheel anchor by radius; returns (anchor, axleNumber)
-function CartAssembly.findNearestWheelAnchor(cart: Model, nearPos: Vector3, radius: number): (Instance?, number?)
-	local w = CartAssembly.getWagon(cart); if not w then return nil, nil end
-	local folder = w:FindFirstChild("Anchors"); if not folder or not folder:IsA("Folder") then return nil, nil end
-	local best: Instance? = nil; local bestD = math.huge; local bestAx: number? = nil
-	for _, a in ipairs(folder:GetChildren()) do
-		if (a:IsA("Attachment") or a:IsA("BasePart")) and a.Name:match("^Wheel") then
-			local d = (anchorCF(a).Position - nearPos).Magnitude
-			if d <= radius and d < bestD then best, bestD, bestAx = a, d, resolveAxleNumberFromAnchor(a) end
+local function GetAnchorOccupant(Anchor: Instance): string?
+	return Anchor:GetAttribute("OccupantUID")
+end
+
+local function ResolveAxleNumberFromAnchor(AnchorInstance: Instance): number
+	local AxleAttribute = AnchorInstance:GetAttribute("AxleNumber")
+	if typeof(AxleAttribute)=="number" and AxleAttribute>=1 then 
+		return AxleAttribute 
+	end
+	local NumberMatch = tostring(AnchorInstance.Name):match("(%d+)")
+	return NumberMatch and tonumber(NumberMatch) or 1
+end
+
+function CartAssembly.CountWheelsOnAnchors(Cart: Model): number
+	local Wagon = CartAssembly.getWagon(Cart)
+	if not Wagon then return 0 end
+	
+	local AnchorsFolder = Wagon:FindFirstChild("Anchors")
+	if not AnchorsFolder or not AnchorsFolder:IsA("Folder") then return 0 end
+	
+	local WheelCount = 0
+	for _, Anchor in ipairs(AnchorsFolder:GetChildren()) do
+		if (Anchor:IsA("Attachment") or Anchor:IsA("BasePart")) and Anchor.Name:match("^Wheel") then
+			local OccupantUID = GetAnchorOccupant(Anchor)
+			if OccupantUID and OccupantUID ~= "" then
+				WheelCount = WheelCount + 1
+			end
 		end
 	end
-	return best, bestAx
+	
+	return WheelCount
 end
 
--- install: place wheel model at anchor, weld its PrimaryPart to SpinN; WheelMotorN.Part1 stays SpinN; one occupant per anchor
-function CartAssembly.installWheelAttachmentAtAnchor(cart: Model, wheelModel: Model, anchor: Instance, axleNumber: number, player: Player?): boolean
-	if player then
-		local validation = ObjectValidator.CanAttachWheel(player, cart, wheelModel)
-		if not validation.IsValid then
-			warn("[CartAssembly]", validation.Reason)
+function CartAssembly.findNearestWheelAnchor(Cart: Model, NearPos: Vector3, Radius: number): (Instance?, number?)
+	local Wagon = CartAssembly.getWagon(Cart)
+	 if not Wagon then return nil, nil end
+	local AnchorsFolder = Wagon:FindFirstChild("Anchors")
+	if not AnchorsFolder or not AnchorsFolder:IsA("Folder") then return nil, nil end
+	
+	local BestAnchor: Instance? = nil
+	local BestDistance = math.huge
+	local BestAxle: number? = nil
+	
+	for _, Anchor in ipairs(AnchorsFolder:GetChildren()) do
+		if (Anchor:IsA("Attachment") or Anchor:IsA("BasePart")) and Anchor.Name:match("^Wheel") then
+			local Distance = (AnchorCF(Anchor).Position - NearPos).Magnitude
+			if Distance <= Radius and Distance < BestDistance then
+				BestAnchor = Anchor
+				BestDistance = Distance
+				BestAxle = ResolveAxleNumberFromAnchor(Anchor)
+			end
+		end
+	end
+	return BestAnchor, BestAxle
+end
+
+function CartAssembly.installWheelAttachmentAtAnchor(Cart: Model, WheelModel: Model, Anchor: Instance, AxleNumber: number, Player: Player?): boolean
+	if Player then
+		local Validation = ObjectValidator.CanAttachWheel(Player, Cart, WheelModel)
+		if not Validation.IsValid then
+			warn("[CartAssembly]", Validation.Reason)
 			return false
 		end
 	end
 	
-	local spin = getSpinByNumber(cart, axleNumber); if not spin then return false end
-	local motor = getMotorByNumber(cart, axleNumber); if not motor then return false end
+	local Spin = GetSpinByNumber(Cart, AxleNumber)
+	if not Spin then return false end
+	local Motor = GetMotorByNumber(Cart, AxleNumber)
+	if not Motor then return false end
 
-	-- one occupant per anchor
-	local wheelUID = UIDManager.ensureModelUID(wheelModel)
-	local occ = getAnchorOccupant(anchor)
-	if occ and occ ~= wheelUID then return false end
+	local WheelUID = UIDManager.ensureModelUID(WheelModel)
+	local Occupant = GetAnchorOccupant(Anchor)
+	if Occupant and Occupant ~= WheelUID then return false end
 
-	-- ensure a root
-	if not wheelModel.PrimaryPart then
-		local any = wheelModel:FindFirstChildWhichIsA("BasePart"); if not any then return false end
-		wheelModel.PrimaryPart = any
+	if not WheelModel.PrimaryPart then
+		local AnyPart = WheelModel:FindFirstChildWhichIsA("BasePart")
+		if not AnyPart then return false end
+		WheelModel.PrimaryPart = AnyPart
 	end
 	
-	local newWheelDiameter = GetWheelDiameter(wheelModel)
-	if not IsWheelSizeCompatible(cart, newWheelDiameter) then
+	local NewWheelDiameter = GetWheelDiameter(WheelModel)
+	if not IsWheelSizeCompatible(Cart, NewWheelDiameter) then
 		warn("[CartAssembly] Wheel size incompatible with existing wheels")
 		return false
 	end
 	
-	-- parent and pose
-	local wf = getWheelsFolder(cart); if not wf then return false end
-	wheelModel.Parent = wf
-	wheelModel:PivotTo(anchorCF(anchor))
+	local WheelsFolder = GetWheelsFolder(Cart)
+	if not WheelsFolder then return false end
+	WheelModel.Parent = WheelsFolder
+	WheelModel:PivotTo(AnchorCF(Anchor))
 
-	-- weld PrimaryPart → SpinN (offset baked by placement)
-	local root = wheelModel.PrimaryPart :: BasePart
-	local exists: WeldConstraint? = nil
-	for _, ch in ipairs(spin:GetChildren()) do
-		if ch:IsA("WeldConstraint") and ((ch.Part0==spin and ch.Part1==root) or (ch.Part1==spin and ch.Part0==root)) then exists = ch; break end
+	local Root = WheelModel.PrimaryPart :: BasePart
+	local ExistingWeld: WeldConstraint? = nil
+	for _, Child in ipairs(Spin:GetChildren()) do
+		if Child:IsA("WeldConstraint") and ((Child.Part0==Spin and Child.Part1==Root) or (Child.Part1==Spin and Child.Part0==Root)) then
+			ExistingWeld = Child
+			break
+		end
 	end
-	if not exists then
-		local w = Instance.new("WeldConstraint")
-		w.Name = "WheelAttachWeld"
-		w.Part0 = spin; w.Part1 = root; w.Parent = spin
+	if not ExistingWeld then
+		local Weld = Instance.new("WeldConstraint")
+		Weld.Name = "WheelAttachWeld"
+		Weld.Part0 = Spin
+		Weld.Part1 = Root
+		Weld.Parent = Spin
 	end
 
-	-- motor target = SpinN
-	if motor.Part1 ~= spin then motor.Part1 = spin end
-	motor.C1 = CFrame.new()
+	if Motor.Part1 ~= Spin then 
+		Motor.Part1 = Spin 
+	end
+	Motor.C1 = CFrame.new()
 
-	-- free parts
-	spin.Anchored = false
-	for _, d in ipairs(wheelModel:GetDescendants()) do if d:IsA("BasePart") then d.Anchored = false end end
+	Spin.Anchored = false
+	for _, Descendant in ipairs(WheelModel:GetDescendants()) do
+		if Descendant:IsA("BasePart") then
+			Descendant.Anchored = false
+		end
+	end
 
-	-- record occupancy + metadata
-	setAnchorOccupant(anchor, wheelUID)
-
-	wheelModel:SetAttribute("AxleNumber", axleNumber)
-	wheelModel:SetAttribute("AnchorName", anchor.Name)
+	SetAnchorOccupant(Anchor, WheelUID)
+	WheelModel:SetAttribute("AxleNumber", AxleNumber)
+	WheelModel:SetAttribute("AnchorName", Anchor.Name)
 
 	return true
 end
 
--- detach: remove weld to SpinN, clear occupancy, parent to workspace
-function CartAssembly.detachWheelAttachment(cart: Model, wheelModel: Model): boolean
-	local ax = tonumber(wheelModel:GetAttribute("AxleNumber")) or 1
-	local spin = getSpinByNumber(cart, ax); if not spin then return false end
-	local root = (wheelModel.PrimaryPart or wheelModel:FindFirstChildWhichIsA("BasePart")) :: BasePart?; if not root then return false end
+function CartAssembly.detachWheelAttachment(Cart: Model, WheelModel: Model): boolean
+	local AxleNumber = tonumber(WheelModel:GetAttribute("AxleNumber")) or 1
+	local Spin = GetSpinByNumber(Cart, AxleNumber); if not Spin then return false end
+	local Root = (WheelModel.PrimaryPart or WheelModel:FindFirstChildWhichIsA("BasePart")) :: BasePart?
+	if not Root then return false end
 
-	-- remove weld to SpinN
-	local weld: WeldConstraint? = nil
-	for _, ch in ipairs(spin:GetChildren()) do
-		if ch:IsA("WeldConstraint") and ((ch.Part0==spin and ch.Part1==root) or (ch.Part1==spin and ch.Part0==root)) then weld = ch; break end
+	local Weld: WeldConstraint? = nil
+	for _, Child in ipairs(Spin:GetChildren()) do
+		if Child:IsA("WeldConstraint") and ((Child.Part0==Spin and Child.Part1==Root) or (Child.Part1==Spin and Child.Part0==Root)) then
+			Weld = Child
+			break
+		end
 	end
-	if not weld then return false end
-	weld:Destroy()
+	if not Weld then return false end
+	
+	-- Stabilize the cart chassis while we break the constraint
+	local WagonRoot = CartAssembly.getWagonRoot(Cart)
+	local prevAnchored: boolean? = WagonRoot and WagonRoot.Anchored
+	if WagonRoot then WagonRoot.Anchored = true end
 
-	-- clear occupancy on the specific anchor
-	local wagon = CartAssembly.getWagon(cart)
-	if wagon then
-		local anchors = wagon:FindFirstChild("Anchors")
-		if anchors then
-			local an = wheelModel:GetAttribute("AnchorName")
-			local a = an and anchors:FindFirstChild(tostring(an))
-			if a then setAnchorOccupant(a, nil) end
+	Root.Anchored = true
+	Weld:Destroy()
+
+	local Wagon = CartAssembly.getWagon(Cart)
+	if Wagon then
+		local AnchorsFolder = Wagon:FindFirstChild("Anchors")
+		if AnchorsFolder then
+			local AnchorName = WheelModel:GetAttribute("AnchorName")
+			local AnchorInstance = AnchorName and AnchorsFolder:FindFirstChild(tostring(AnchorName))
+			if AnchorInstance then
+				SetAnchorOccupant(AnchorInstance, nil)
+			end
 		end
 	end
 
-	-- free the wheel into world
-	wheelModel.Parent = workspace
-	for _, d in ipairs(wheelModel:GetDescendants()) do if d:IsA("BasePart") then d.Anchored = false end end
+	WheelModel.Parent = workspace
+	
+	task.defer(function()
+		for _, Descendant in ipairs(WheelModel:GetDescendants()) do
+			if Descendant:IsA("BasePart") then
+				Descendant.Anchored = false
+			end
+		end
+		-- Restore chassis anchor state on the next frame
+		if WagonRoot ~= nil and prevAnchored ~= nil then
+			WagonRoot.Anchored = prevAnchored
+		end
+	end)
+	
 	return true
 end
 

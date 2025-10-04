@@ -58,6 +58,26 @@ local function GetOwnerName(inst: Instance): string?
 	return "Player " .. tostring(ownerId)
 end
 
+local function CountWheelsOnAnchors(Cart: Model): number
+	local Wagon = Cart:FindFirstChild("Wagon")
+	if not Wagon or not Wagon:IsA("Model") then return 0 end
+	
+	local AnchorsFolder = Wagon:FindFirstChild("Anchors")
+	if not AnchorsFolder or not AnchorsFolder:IsA("Folder") then return 0 end
+	
+	local WheelCount = 0
+	for _, Anchor in ipairs(AnchorsFolder:GetChildren()) do
+		if (Anchor:IsA("Attachment") or Anchor:IsA("BasePart")) and Anchor.Name:match("^Wheel") then
+			local OccupantUID = Anchor:GetAttribute("OccupantUID")
+			if OccupantUID and OccupantUID ~= "" then
+				WheelCount = WheelCount + 1
+			end
+		end
+	end
+	
+	return WheelCount
+end
+
 -- Check if object is in a valid state for interaction
 local function IsInValidState(target: Instance, action: string): (boolean, string?)
 	-- Objects being dragged by others
@@ -214,35 +234,18 @@ function ObjectValidator.CanSnapToStation(player: Player, cell: BasePart): Valid
 end
 
 -- Check if player can attach wheel to this cart
-function ObjectValidator.CanAttachWheel(player: Player, cart: Model, wheel: Model): ValidationResult
-	-- Cart must be owned by player
-	local cartValidation = ObjectValidator.CanInteract(player, cart)
-	if not cartValidation.IsValid then
-		return cartValidation
+function ObjectValidator.CanAttachWheel(Player: Player, Cart: Model, Wheel: Model): ValidationResult
+	local CartValidation = ObjectValidator.CanInteract(Player, Cart)
+	if not CartValidation.IsValid then
+		return CartValidation
 	end
 
-	-- Wheel must be owned by player or unowned
-	local wheelOwnerId = GetOwningUserId(wheel)
-	if wheelOwnerId and wheelOwnerId ~= player.UserId then
+	local WheelOwnerId = GetOwningUserId(Wheel)
+	if WheelOwnerId and WheelOwnerId ~= Player.UserId then
 		return {
 			IsValid = false,
 			Reason = "Wheel owned by another player",
-			OwnerName = GetOwnerName(wheel)
-		}
-	end
-
-	-- Cart must have minimum wheels to be functional
-	local wheelCount = 0
-	for _, descendant in ipairs(cart:GetDescendants()) do
-		if descendant:IsA("Model") and descendant:GetAttribute("PartType") == "Wheel" then
-			wheelCount += 1
-		end
-	end
-
-	-- Carts need at least 2 wheels to be pulled
-	if wheelCount < 2 then
-		return {
-			IsValid = true -- Allow attaching to reach minimum
+			OwnerName = GetOwnerName(Wheel)
 		}
 	end
 
@@ -250,32 +253,23 @@ function ObjectValidator.CanAttachWheel(player: Player, cart: Model, wheel: Mode
 end
 
 -- Check if object meets prerequisites for an action
-function ObjectValidator.MeetsPrerequisites(target: Instance, action: string): ValidationResult
-	-- Cart pulling requires minimum wheels
-	if action == "pull_cart" then
-		if not target:IsA("Model") then
+function ObjectValidator.MeetsPrerequisites(Target: Instance, Action: string): ValidationResult
+	if Action == "pull_cart" then
+		if not Target:IsA("Model") then
 			return {IsValid = false, Reason = "Not a valid cart"}
 		end
 
-		local wheelCount = 0
-		for _, descendant in ipairs(target:GetDescendants()) do
-			if descendant:IsA("Model") and descendant:GetAttribute("PartType") == "Wheel" then
-				wheelCount += 1
-			end
-		end
+		local WheelCount = CountWheelsOnAnchors(Target)
 
-		if wheelCount < 2 then
+		if WheelCount < 2 then
 			return {
 				IsValid = false,
-				Reason = "Cart needs at least 2 wheels"
+				Reason = "Cart needs at least 2 wheels on anchor points"
 			}
 		end
 	end
 
-	-- Brewing requires ingredients
-	if action == "brew" then
-		-- This would check recipe prerequisites
-		-- Placeholder for now
+	if Action == "brew" then
 		return {IsValid = true}
 	end
 

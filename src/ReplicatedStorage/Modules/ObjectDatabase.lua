@@ -51,7 +51,7 @@ ObjectDatabase.Objects = {
 	},
 	["Wheel"] = {
 		Type = "Wheel",
-		GridFootprint = Vector2.new(1, 2),
+		GridFootprint = Vector2.new(1, 3),
 		Weight = 0,
 		LoadCapacity = 10,
 		InteractionSound = "rbxassetid://9118598470",

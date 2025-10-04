@@ -100,21 +100,31 @@ local function UpdateCameraPosition(): ()
 		if CurrentDragged and CurrentDragged:IsA("Model") and CurrentDragged:GetAttribute("PartType") == "Wheel" then
 			local WheelRoot = CurrentDragged.PrimaryPart or CurrentDragged:FindFirstChildWhichIsA("BasePart")
 			if WheelRoot then
-				local NearestAnchor = DragController.FindNearestWheelAnchor(WheelRoot.Position)
-				if NearestAnchor then
-					if not DragVisuals.GetCurrentWheelIndicator() then
-						DragVisuals.CreateWheelIndicator(WheelRoot, NearestAnchor)
+				local ClosestSnapType = CurrentDragged:GetAttribute("ClosestSnapType")
+				
+				if ClosestSnapType == "Anchor" then
+					local NearestAnchor = DragController.FindNearestWheelAnchor(WheelRoot.Position)
+					if NearestAnchor then
+						if not DragVisuals.GetCurrentWheelIndicator() then
+							DragVisuals.CreateWheelIndicator(WheelRoot, NearestAnchor)
+						else
+							DragVisuals.UpdateWheelIndicator(NearestAnchor)
+						end
+						GridVisualization.HideGrid()
 					else
-						DragVisuals.UpdateWheelIndicator(NearestAnchor)
+						DragVisuals.RemoveWheelIndicator()
+						GridVisualization.ShowGrid()
 					end
 				else
 					DragVisuals.RemoveWheelIndicator()
+					GridVisualization.ShowGrid()
 				end
 			end
 		else
 			DragVisuals.RemoveWheelIndicator()
+			GridVisualization.ShowGrid()
 		end
-	end
+end
 
 	local TargetCFrame: CFrame = CFrame.lookAt(TargetPosition, TargetPosition + Camera.CFrame.LookVector)
 	UpdateCameraPositionRemote:FireServer(TargetCFrame)
@@ -122,48 +132,61 @@ end
 
 -- Input Event Handlers
 local function OnDragStart(): ()
-	if Player:GetAttribute("Carting") then
-		return
-	end
+    if Player:GetAttribute("Carting") then
+        return
+    end
 
-	IsMouseHeld = true
-	CurrentDragDistance = DRAG_DISTANCE
+    IsMouseHeld = true
+    CurrentDragDistance = DRAG_DISTANCE
 
-	local Target = DragController.GetTargetPart()
-	if not Target then return end
+    local Target = DragController.GetTargetPart()
+    if not Target then return end
 
-	local canDrag, reason = DragController.CanDragTarget(Target)
-	if not canDrag then
-		return
-	end
+    local CanDrag, _ = DragController.CanDragTarget(Target)
+    if not CanDrag then
+        return
+    end
 
-	DragController.SetDraggedObject(Target)
-	DragVisuals.CreateHighlight(Target)
-	DragObjectRemote:FireServer(Target, true)
+    DragController.SetDraggedObject(Target)
+    DragVisuals.CreateHighlight(Target)
+    DragObjectRemote:FireServer(Target, true)
 
-	if not Target:HasTag("Cart") then
-		GridVisualization.StartVisualization(Target, Player.UserId, Player.Character)
-	end
+    if Target:IsA("Model") and Target:GetAttribute("PartType") == "Wheel" then
+        DragVisuals.StartGhostWheels(Target)
+        -- Ensure UserId is passed correctly
+        GridVisualization.StartVisualization(Target, Player.UserId, Player.Character)
+    elseif not Target:HasTag("Cart") then
+        -- Ensure UserId is passed correctly
+        GridVisualization.StartVisualization(Target, Player.UserId, Player.Character)
+    end
 
-	-- Verify drag started on server
-	task.delay(0.25, function()
-		local draggedObj = DragController.GetDraggedObject()
-		if draggedObj and (not draggedObj:GetAttribute("BeingDragged")) then
-			DragVisuals.RemoveHighlight(true)
-			GridVisualization.StopVisualization()
-			DragController.SetDraggedObject(nil)
-		end
-	end)
+    -- Increase delay and add state check
+    task.delay(0.5, function()
+        if not IsMouseHeld then return end
+        
+        local DraggedObj = DragController.GetDraggedObject()
+        if DraggedObj and (not DraggedObj:GetAttribute("BeingDragged")) then
+            DragVisuals.RemoveHighlight(true)
+            GridVisualization.StopVisualization()
+            DragVisuals.StopGhostWheels()
+            DragController.SetDraggedObject(nil)
+        end
+    end)
 end
 
 local function OnDragStop(): ()
 	IsMouseHeld = false
 
-	DragVisuals.RemoveHighlight(false)
+	local Target = DragController.GetDraggedObject()
+	if not Target then return end
+
+	DragController.SetDraggedObject(nil)
+	DragVisuals.RemoveHighlight(true)
 	DragVisuals.RemoveWheelIndicator()
 	GridVisualization.StopVisualization()
-	DragController.SetDraggedObject(nil)
-	DragObjectRemote:FireServer(nil, false)
+	DragVisuals.StopGhostWheels()
+
+	DragObjectRemote:FireServer(Target, false)
 
 	-- Safety cleanup
 	task.delay(0.1, function()

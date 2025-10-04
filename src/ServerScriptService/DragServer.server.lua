@@ -139,7 +139,7 @@ local function GetNearestAnchor(Player: Player, Target: Instance): (Instance?, n
 	if not NearestCart then return nil, nil end
 	
 	-- Find nearest anchor on that cart
-	local NearestAnchor, AxleNumber = CartAssembly.findNearestWheelAnchor(
+	local NearestAnchor, _ = CartAssembly.findNearestWheelAnchor(
 		NearestCart, 
 		Root.Position, 
 		SNAP_RADIUS
@@ -348,25 +348,24 @@ local function StartDragging(Player: Player, Target: Instance): ()
 		AlignOrientation.Responsiveness = AdjustedResponsiveness
 		AlignOrientation.Enabled = true
 
-		local UpdateConnection: RBXScriptConnection = RunService.Heartbeat:Connect(function()
-			if Data.CFrameValue then
-				local TargetCFrame: CFrame = Data.CFrameValue.Value
-				AlignPosition.Position = TargetCFrame.Position
-				AlignOrientation.CFrame = TargetCFrame
-			end
-		end)
-
-		local ProximityUpdateConnection do
-			ProximityUpdateConnection = RunService.Heartbeat:Connect(function()
+		local UpdateConnection: RBXScriptConnection do 
+			UpdateConnection = RunService.Heartbeat:Connect(function()
 				if not Target.Parent or ObjectStateManager.GetState(Target) ~= "BeingDragged" then
-					ProximityUpdateConnection:Disconnect()
+					UpdateConnection:Disconnect()
 					return
 				end
 				
+				-- Update align position/orientation
+				if Data.CFrameValue then
+					local TargetCFrame: CFrame = Data.CFrameValue.Value
+					AlignPosition.Position = TargetCFrame.Position
+					AlignOrientation.CFrame = TargetCFrame
+				end
+				
+				-- Update proximity-based snap type
 				local _, AnchorDistance = GetNearestAnchor(Player, Target)
 				local GridDistance = GetNearestGridDistance(Target)
 				
-				-- Set attribute for client visual feedback
 				if AnchorDistance and GridDistance then
 					if AnchorDistance < GridDistance then
 						Target:SetAttribute("ClosestSnapType", "Anchor")
@@ -381,9 +380,9 @@ local function StartDragging(Player: Player, Target: Instance): ()
 					Target:SetAttribute("ClosestSnapType", nil)
 				end
 			end)
-		end 
 
-		Data.DraggedParts[Target] = UpdateConnection
+			Data.DraggedParts[Target] = UpdateConnection
+		end
 	end
 end
 
