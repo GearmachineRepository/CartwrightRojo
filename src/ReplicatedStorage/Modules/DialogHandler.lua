@@ -217,10 +217,14 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 
 	for _, Choice in ipairs(CurrentNode.Choices) do
 		if Choice.Text == ChoiceText then
-			-- NEW: Play skill check sound based on result
 			if Choice.SkillCheckSuccess ~= nil then
 				local SoundName = Choice.SkillCheckSuccess and "SkillCheckSuccess" or "SkillCheckFailure"
 				PlaySkillCheckSoundRemote:FireClient(Player, SoundName)
+
+				if Choice.SkillCheckId then
+					local DialogDataManager = require(ModulesFolder:WaitForChild("DialogDataManager"))
+					DialogDataManager.SetSkillCheckCompleted(Player, Choice.SkillCheckId)
+				end
 			end
 
 			if typeof(Choice.Command) == "function" then

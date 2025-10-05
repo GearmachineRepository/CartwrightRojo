@@ -7,6 +7,7 @@ local SkillCheckEditor = require(script.Parent.Parent.Editors.SkillCheckEditor)
 local ConditionEditor = require(script.Parent.Parent.Editors.ConditionEditor)
 local CommandEditor = require(script.Parent.Parent.Editors.CommandEditor)
 local FlagsEditor = require(script.Parent.Parent.Editors.FlagsEditor)
+local QuestTurnInEditor = require(script.Parent.Parent.Editors.QuestTurnInEditor)
 
 type DialogNode = DialogTree.DialogNode
 
@@ -68,20 +69,67 @@ function EditorPanel.Refresh(
 		return
 	end
 
-	Components.CreateLabel("Dialog Text:", EditorScroll, 1)
+	Components.CreateLabel("Default Dialog Text:", EditorScroll, 1)
 	Components.CreateTextBox(SelectedNode.Text, EditorScroll, 2, true, function(NewText)
 		SelectedNode.Text = NewText
 		OnRefresh()
 	end)
 
-	Components.CreateLabel("Choices:", EditorScroll, 3)
+	local _, GreetingsContent = Components.CreateCollapsibleSection(
+		"Conditional Greetings",
+		EditorScroll,
+		3,
+		true
+	)
+
+	if not SelectedNode.Greetings then
+		SelectedNode.Greetings = {}
+	end
+
+	for Index, Greeting in ipairs(SelectedNode.Greetings) do
+		local GreetingContainer = Components.CreateContainer(GreetingsContent, Index)
+
+		Components.CreateLabel("Condition Type:", GreetingContainer, 1)
+		Components.CreateDropdown(
+			{"HasQuest", "CompletedQuest", "DialogFlag"},
+			Greeting.ConditionType,
+			GreetingContainer,
+			2,
+			function(NewType)
+				Greeting.ConditionType = NewType
+				OnRefresh()
+			end
+		)
+
+		Components.CreateLabel("Condition Value:", GreetingContainer, 3)
+		Components.CreateTextBox(Greeting.ConditionValue, GreetingContainer, 4, false, function(NewValue)
+			Greeting.ConditionValue = NewValue
+		end)
+
+		Components.CreateLabel("Greeting Text:", GreetingContainer, 5)
+		Components.CreateTextBox(Greeting.GreetingText, GreetingContainer, 6, true, function(NewText)
+			Greeting.GreetingText = NewText
+		end)
+
+		Components.CreateButton("Delete Greeting", GreetingContainer, 100, Constants.COLORS.Danger, function()
+			DialogTree.RemoveGreeting(SelectedNode, Index)
+			OnRefresh()
+		end)
+	end
+
+	Components.CreateButton("+ Add Greeting", GreetingsContent, 1000, Constants.COLORS.Accent, function()
+		DialogTree.AddGreeting(SelectedNode, "HasQuest", "QuestID", "Greeting text...")
+		OnRefresh()
+	end)
+
+	Components.CreateLabel("Choices:", EditorScroll, 4)
 
 	if not SelectedNode.Choices then
 		SelectedNode.Choices = {}
 	end
 
 	for Index, Choice in ipairs(SelectedNode.Choices) do
-		local BaseOrder = 3 + Index * 100
+		local BaseOrder = 4 + Index * 100
 
 		local _, ChoiceContent = Components.CreateCollapsibleSection(
 			"Choice " .. tostring(Index) .. ": " .. Choice.ButtonText:sub(1, 30),
@@ -90,7 +138,6 @@ function EditorPanel.Refresh(
 			false
 		)
 
-		-- Conditions
 		local _, ConditionsContent = Components.CreateCollapsibleSection(
 			"Conditions",
 			ChoiceContent,
@@ -99,7 +146,6 @@ function EditorPanel.Refresh(
 		)
 		ConditionEditor.Render(Choice, ConditionsContent, 1, OnRefresh)
 
-		-- Skill Check Toggle
 		Components.CreateToggleButton(
 			"Skill Check",
 			Choice.SkillCheck ~= nil,
@@ -115,8 +161,33 @@ function EditorPanel.Refresh(
 			end
 		)
 
-		-- Choice Editor
-		if Choice.SkillCheck then
+		Components.CreateToggleButton(
+			"Quest Turn-In",
+			Choice.QuestTurnIn ~= nil,
+			ChoiceContent,
+			2.5,
+			function(IsToggled)
+				if IsToggled then
+					DialogTree.ConvertToQuestTurnIn(Choice, "QuestID")
+				else
+					DialogTree.ConvertToSimpleChoice(Choice)
+				end
+				OnRefresh()
+			end
+		)
+
+		if Choice.QuestTurnIn then
+			QuestTurnInEditor.Render(
+				Choice,
+				Index,
+				ChoiceContent,
+				3,
+				function()
+					DialogTree.RemoveChoice(SelectedNode, Index)
+					OnRefresh()
+				end
+			)
+		elseif Choice.SkillCheck then
 			SkillCheckEditor.Render(
 				Choice,
 				Index,
@@ -142,7 +213,6 @@ function EditorPanel.Refresh(
 			)
 		end
 
-		-- Flags
 		local _, FlagsContent = Components.CreateCollapsibleSection(
 			"Flags",
 			ChoiceContent,
@@ -151,7 +221,6 @@ function EditorPanel.Refresh(
 		)
 		FlagsEditor.Render(Choice, FlagsContent, 1, OnRefresh)
 
-		-- Commands
 		local _, CommandContent = Components.CreateCollapsibleSection(
 			"Commands",
 			ChoiceContent,

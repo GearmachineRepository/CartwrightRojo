@@ -4,13 +4,21 @@ local DialogTree = {}
 export type DialogNode = {
 	Id: string,
 	Text: string,
-	Choices: {DialogChoice}?
+	Choices: {DialogChoice}?,
+	Greetings: {ConditionalGreeting}?
+}
+
+export type ConditionalGreeting = {
+	ConditionType: string,
+	ConditionValue: string,
+	GreetingText: string
 }
 
 export type DialogChoice = {
 	ButtonText: string,
 	ResponseNode: DialogNode?,
 	SkillCheck: SkillCheckData?,
+	QuestTurnIn: QuestTurnInData?,
 	Conditions: {ConditionData}?,
 	Command: string?,
 	SetFlags: {string}?
@@ -29,11 +37,17 @@ export type SkillCheckData = {
 	FailureNode: DialogNode?
 }
 
+export type QuestTurnInData = {
+	QuestId: string,
+	ResponseText: string
+}
+
 function DialogTree.CreateNode(Id: string, Text: string): DialogNode
 	return {
 		Id = Id,
 		Text = Text,
-		Choices = {}
+		Choices = {},
+		Greetings = {}
 	}
 end
 
@@ -56,6 +70,16 @@ function DialogTree.CreateSkillCheck(ButtonText: string, Skill: string, Difficul
 	}
 end
 
+function DialogTree.CreateQuestTurnIn(ButtonText: string, QuestId: string): DialogChoice
+	return {
+		ButtonText = ButtonText,
+		QuestTurnIn = {
+			QuestId = QuestId,
+			ResponseText = "Thank you! Here's your reward."
+		}
+	}
+end
+
 function DialogTree.AddChoice(Node: DialogNode, Choice: DialogChoice)
 	if not Node.Choices then
 		Node.Choices = {}
@@ -69,8 +93,26 @@ function DialogTree.RemoveChoice(Node: DialogNode, Index: number)
 	end
 end
 
+function DialogTree.AddGreeting(Node: DialogNode, ConditionType: string, ConditionValue: string, GreetingText: string)
+	if not Node.Greetings then
+		Node.Greetings = {}
+	end
+	table.insert(Node.Greetings, {
+		ConditionType = ConditionType,
+		ConditionValue = ConditionValue,
+		GreetingText = GreetingText
+	})
+end
+
+function DialogTree.RemoveGreeting(Node: DialogNode, Index: number)
+	if Node.Greetings then
+		table.remove(Node.Greetings, Index)
+	end
+end
+
 function DialogTree.ConvertToSkillCheck(Choice: DialogChoice, Skill: string, Difficulty: number)
 	Choice.ResponseNode = nil
+	Choice.QuestTurnIn = nil
 	Choice.SkillCheck = {
 		Skill = Skill,
 		Difficulty = Difficulty,
@@ -79,8 +121,18 @@ function DialogTree.ConvertToSkillCheck(Choice: DialogChoice, Skill: string, Dif
 	}
 end
 
+function DialogTree.ConvertToQuestTurnIn(Choice: DialogChoice, QuestId: string)
+	Choice.ResponseNode = nil
+	Choice.SkillCheck = nil
+	Choice.QuestTurnIn = {
+		QuestId = QuestId,
+		ResponseText = "Thank you! Here's your reward."
+	}
+end
+
 function DialogTree.ConvertToSimpleChoice(Choice: DialogChoice)
 	Choice.SkillCheck = nil
+	Choice.QuestTurnIn = nil
 	Choice.ResponseNode = DialogTree.CreateNode("response", "Response text...")
 end
 

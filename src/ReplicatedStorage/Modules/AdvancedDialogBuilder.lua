@@ -4,6 +4,7 @@ local AdvancedDialogBuilder = {}
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local DialogConditions = require(Modules:WaitForChild("DialogConditions"))
+local DialogDataManager = require(Modules:WaitForChild("DialogDataManager"))
 
 export type Condition = DialogConditions.Condition
 
@@ -46,7 +47,7 @@ function AdvancedDialogBuilder.FilterChoices(Player: Player, Choices: {Condition
 		if IsValid and Choice.SkillCheck then
 			local CheckFlag = "SkillCheck_" .. Choice.SkillCheck.Skill .. "_" .. Choice.Text:gsub("%W", "")
 
-			if Choice.SkillCheck.OneTime and Player:GetAttribute(CheckFlag) then
+			if Choice.SkillCheck.OneTime and DialogDataManager.HasCompletedSkillCheck(Player, CheckFlag) then
 				IsValid = false
 			else
 				local SkillValue = Player:GetAttribute("Skill_" .. Choice.SkillCheck.Skill) or 0
@@ -78,7 +79,8 @@ function AdvancedDialogBuilder.FilterChoices(Player: Player, Choices: {Condition
 					),
 					Response = ResponseToUse,
 					Command = Choice.Command,
-					SkillCheckSuccess = Success
+					SkillCheckSuccess = Success,
+					SkillCheckId = CheckFlag
 				})
 			end
 		elseif IsValid then

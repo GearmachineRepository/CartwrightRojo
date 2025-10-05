@@ -3,6 +3,7 @@ local DialogConditions = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
+local DialogDataManager = require(Modules:WaitForChild("DialogDataManager"))
 local QuestManager = require(Modules:WaitForChild("QuestManager"))
 
 export type Condition = {
@@ -11,79 +12,49 @@ export type Condition = {
 	Negate: boolean?
 }
 
-local ConditionChecks = {}
+function DialogConditions.Check(Player: Player, Condition: Condition): boolean
+	local Result = false
 
-function ConditionChecks.HasQuest(Player: Player, QuestId: string): boolean
-	return QuestManager.HasActiveQuest(Player, QuestId)
-end
+	if Condition.Type == "DialogFlag" then
+		Result = DialogDataManager.HasDialogFlag(Player, Condition.Value)
+	elseif Condition.Type == "HasQuest" then
+		Result = QuestManager.HasActiveQuest(Player, Condition.Value)
+	elseif Condition.Type == "CompletedQuest" then
+		Result = QuestManager.HasCompletedQuest(Player, Condition.Value)
+	elseif Condition.Type == "CanTurnInQuest" then
+		Result = QuestManager.CanTurnIn(Player, Condition.Value)
+	elseif Condition.Type == "HasReputation" then
+		if type(Condition.Value) == "table" then
+			local Faction = Condition.Value.Faction
+			local MinRep = Condition.Value.Min or 0
+			local CurrentRep = Player:GetAttribute("Reputation_" .. Faction) or 0
+			Result = CurrentRep >= MinRep
+		end
+	elseif Condition.Type == "HasSkill" then
+		if type(Condition.Value) == "table" then
+			local Skill = Condition.Value.Skill
+			local MinLevel = Condition.Value.Min or 0
+			local CurrentLevel = Player:GetAttribute("Skill_" .. Skill) or 0
+			Result = CurrentLevel >= MinLevel
+		end
+	elseif Condition.Type == "HasItem" then
+		local Backpack = Player:FindFirstChild("Backpack")
+		if Backpack then
+			Result = Backpack:FindFirstChild(Condition.Value) ~= nil
+		end
+	elseif Condition.Type == "HasAttribute" then
+		if type(Condition.Value) == "table" then
+			local AttributeName = Condition.Value.Name
+			local RequiredValue = Condition.Value.Value
+			local CurrentValue = Player:GetAttribute(AttributeName)
 
-function ConditionChecks.CompletedQuest(Player: Player, QuestId: string): boolean
-	return QuestManager.HasCompletedQuest(Player, QuestId)
-end
-
-function ConditionChecks.CanTurnInQuest(Player: Player, QuestId: string): boolean
-	local Quest = QuestManager.GetActiveQuest(Player, QuestId)
-	if not Quest then return false end
-
-	for _, Objective in ipairs(Quest.Objectives) do
-		if not Objective.Completed then
-			return false
+			if RequiredValue ~= nil then
+				Result = CurrentValue == RequiredValue
+			else
+				Result = CurrentValue ~= nil
+			end
 		end
 	end
-
-	return true
-end
-
-function ConditionChecks.HasReputation(Player: Player, Data: {Faction: string, Min: number}): boolean
-	local Rep = Player:GetAttribute("Reputation_" .. Data.Faction) or 0
-	return Rep >= Data.Min
-end
-
-function ConditionChecks.HasAttribute(Player: Player, Data: {Name: string, Min: number}): boolean
-	local Value = Player:GetAttribute(Data.Name) or 0
-	return Value >= Data.Min
-end
-
-function ConditionChecks.HasItem(Player: Player, ItemId: string): boolean
-	local Backpack = Player:FindFirstChild("Backpack")
-	if Backpack and Backpack:FindFirstChild(ItemId) then
-		return true
-	end
-
-	local Character = Player.Character
-	if Character and Character:FindFirstChild(ItemId) then
-		return true
-	end
-
-	return false
-end
-
-function ConditionChecks.Level(Player: Player, MinLevel: number): boolean
-	local Level = Player:GetAttribute("Level") or 1
-	return Level >= MinLevel
-end
-
-function ConditionChecks.HasSkill(Player: Player, Data: {Skill: string, Min: number}): boolean
-	local SkillValue = Player:GetAttribute("Skill_" .. Data.Skill) or 0
-	return SkillValue >= Data.Min
-end
-
-function ConditionChecks.DialogFlag(Player: Player, FlagName: string): boolean
-	return Player:GetAttribute("DialogFlag_" .. FlagName) == true
-end
-
-function ConditionChecks.Custom(Player: Player, CheckFunction: (Player) -> boolean): boolean
-	return CheckFunction(Player)
-end
-
-function DialogConditions.Check(Player: Player, Condition: Condition): boolean
-	local CheckFunc = ConditionChecks[Condition.Type]
-	if not CheckFunc then
-		warn("[DialogConditions] Unknown condition type:", Condition.Type)
-		return false
-	end
-
-	local Result = CheckFunc(Player, Condition.Value)
 
 	if Condition.Negate then
 		return not Result
@@ -92,7 +63,7 @@ function DialogConditions.Check(Player: Player, Condition: Condition): boolean
 	return Result
 end
 
-function DialogConditions.CheckAll(Player: Player, Conditions: {Condition}?): boolean
+function DialogConditions.CheckAll(Player: Player, Conditions: {Condition}): boolean
 	if not Conditions or #Conditions == 0 then
 		return true
 	end
@@ -121,7 +92,7 @@ function DialogConditions.CheckAny(Player: Player, Conditions: {Condition}): boo
 end
 
 function DialogConditions.SetFlag(Player: Player, FlagName: string, Value: boolean?): ()
-	Player:SetAttribute("DialogFlag_" .. FlagName, Value ~= false)
+	DialogDataManager.SetDialogFlag(Player, FlagName, Value ~= false)
 end
 
 return DialogConditions

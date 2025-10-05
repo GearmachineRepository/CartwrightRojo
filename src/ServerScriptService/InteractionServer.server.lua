@@ -78,6 +78,11 @@ local function OnInteract(Player: Player, Object: Instance): ()
 	end
 
 	local CurrentState = Object:GetAttribute("CurrentState") or "StateA"
+
+	if ObjectConfig.Type == "NPC" then
+		CurrentState = "StateA"
+	end
+
 	local StateConfig = ObjectConfig[CurrentState]
 
 	if not StateConfig or not StateConfig.Function then

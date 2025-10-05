@@ -2,6 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local AdvancedDialogBuilder = require(Modules:WaitForChild("AdvancedDialogBuilder"))
+local DialogDataManager = require(Modules:WaitForChild("DialogDataManager"))
 
 export type Skills =
 	"Perception" |
@@ -62,7 +63,7 @@ function Advanced.CreateSkillCheck(Options: {
 
 				local CheckFlag = "SkillCheck_" .. Options.Skill .. "_" .. Options.ButtonText:gsub("%W", "")
 				if Options.OneTime ~= false then
-					Player:SetAttribute(CheckFlag, true)
+					DialogDataManager.SetSkillCheckCompleted(Player, CheckFlag)
 				end
 
 				if Success and Options.SuccessCommand then

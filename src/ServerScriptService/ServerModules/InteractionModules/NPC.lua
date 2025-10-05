@@ -15,7 +15,7 @@ local NPC = {}
 local PlayerCooldowns: {[Player]: number} = {}
 local INTERACTION_COOLDOWN = 1.0
 
-local function SetNpcCooldown(Player: Player, _: Player, ToggleDelay: boolean?): ()
+local function SetNpcCooldown(Player: Player, ToggleDelay: boolean?): ()
 	local CooldownKey = "DialogCooldown"
 	Player:SetAttribute(CooldownKey, true)
 
@@ -46,24 +46,28 @@ function NPC.StateAFunction(Player: Player, NpcModel: Instance, Config: any): ()
 		})
 	end
 
-	NpcModel:SetAttribute("CurrentState", "StateB")
+	-- DO NOT SET CurrentState - NPCs stay in StateA for all players
 
 	StartDialogRemote:FireClient(Player, NpcModel)
 
 	DialogHandler.Start(NpcModel, Player, function()
-		NpcModel:SetAttribute("CurrentState", "StateA")
+		-- DO NOT SET CurrentState - NPCs stay in StateA for all players
 		PlayerCooldowns[Player] = tick()
-		SetNpcCooldown(Player, Player)
+		SetNpcCooldown(Player)
 	end)
 end
 
 StopDialogRemote.OnServerEvent:Connect(function(Player: Player, NpcModel: Model)
 	if NpcModel and NpcModel:IsA("Model") then
-		NpcModel:SetAttribute("CurrentState", "StateA")
+		-- DO NOT SET CurrentState - NPCs stay in StateA for all players
 		DialogHandler.EndDialog(Player)
 		PlayerCooldowns[Player] = tick()
-		SetNpcCooldown(Player, Player, true)
+		SetNpcCooldown(Player, true)
 	end
+end)
+
+game:GetService("Players").PlayerRemoving:Connect(function(Player: Player)
+	PlayerCooldowns[Player] = nil
 end)
 
 return NPC
