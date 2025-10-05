@@ -9,14 +9,14 @@ local SprintKey = Enum.KeyCode.LeftShift
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
-	if input.KeyCode == SprintKey then
+	if input.KeyCode == SprintKey or input.KeyCode == Enum.KeyCode.ButtonL3 then
 		StartSprint:FireServer()
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input, processed)
 	if processed then return end
-	if input.KeyCode == SprintKey then
+	if input.KeyCode == SprintKey or input.KeyCode == Enum.KeyCode.ButtonL3 then
 		StopSprint:FireServer()
 	end
 end)

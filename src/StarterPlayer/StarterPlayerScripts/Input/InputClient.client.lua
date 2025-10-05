@@ -76,8 +76,8 @@ local function CreateBillboardUI(): BillboardGui
 end
 
 local function GetInteractionPosition(): Vector3
-	if not Player.Character then 
-		return Vector3.new(0, 0, 0) 
+	if not Player.Character then
+		return Vector3.new(0, 0, 0)
 	end
 
 	local Head: BasePart? = Player.Character:FindFirstChild("Head") :: BasePart
@@ -431,12 +431,12 @@ local function Initialize(): ()
 	CurrentPlatform = PlatformManager.GetPlatform() or "PC"
 
 	CreateBillboardUI()
-	
+
 	local DisconnectPlatform = PlatformManager.OnPlatformChanged(OnPlatformChanged)
 	if DisconnectPlatform then
 		CharacterMaid:GiveTask(DisconnectPlatform)
 	end
-	
+
 	CharacterMaid:GiveTask(RunService.Heartbeat:Connect(UpdateInteractionPrompt))
 	CharacterMaid:GiveTask(UserInputService.InputBegan:Connect(OnInteractionInput))
 	CharacterMaid:GiveTask(UserInputService.InputEnded:Connect(OnInteractionInputEnded))

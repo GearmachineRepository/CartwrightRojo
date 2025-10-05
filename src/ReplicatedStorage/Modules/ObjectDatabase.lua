@@ -169,6 +169,22 @@ ObjectDatabase.Objects = {
 			Function = "StateAFunction"
 		}
 	},
+	["Fisherman"] = {
+		Type = "NPC",
+		InteractionSound = "rbxassetid://9118598470",
+		StateA = {
+			Text = "Talk - {INTERACT}",
+			Function = "StateAFunction"
+		}
+	},
+	["ShowCase"] = {
+		Type = "NPC",
+		InteractionSound = "rbxassetid://9118598470",
+		StateA = {
+			Text = "Talk - {INTERACT}",
+			Function = "StateAFunction"
+		}
+	}
 }
 
 -- Get object configuration

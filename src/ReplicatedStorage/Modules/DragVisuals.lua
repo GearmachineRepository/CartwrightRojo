@@ -11,8 +11,8 @@ local CartAssembly = require(Modules:WaitForChild("CartAssembly"))
 
 local Player = Players.LocalPlayer
 
-local HIGHLIGHT_COLOR = Color3.fromRGB(182, 209, 224)
-local HIGHLIGHT_FILL_TRANSPARENCY = 0.5
+local HIGHLIGHT_COLOR = Color3.fromRGB(135, 213, 255)
+local HIGHLIGHT_FILL_TRANSPARENCY = 0.825
 local HIGHLIGHT_OUTLINE_TRANSPARENCY = 0
 local FADE_TIME = 0.15
 
