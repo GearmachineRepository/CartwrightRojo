@@ -1,31 +1,17 @@
 --!strict
---[[
-	DIALOG HELPERS - ADVANCED
-
-	Advanced helper functions for Disco Elysium-style narrative dialogs.
-	These helpers wrap AdvancedDialogBuilder functionality in a simpler API.
-
-	Usage:
-	local DialogHelpers = require(Modules:WaitForChild("DialogHelpers"))
-	table.insert(Choices, DialogHelpers.Advanced.CreateSkillCheck({...}))
-
-	NOTE: These are separate from basic helpers to avoid accidental complexity.
-	Only use these when you need skill checks, conditions, or advanced features!
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local AdvancedDialogBuilder = require(Modules:WaitForChild("AdvancedDialogBuilder"))
 
 export type Skills =
-	"Perception" |    -- Notice details
-	"Empathy" |       -- Understand emotions
-	"Logic" |         -- Deduce/reason
-	"Authority" |     -- Intimidate/command
-	"Rhetoric" |      -- Persuade/argue
-	"Composure" |     -- Stay calm
-	"Endurance" |     -- Physical toughness
-	"Streetwise"      -- Street knowledge
+	"Perception" |
+	"Empathy" |
+	"Logic" |
+	"Authority" |
+	"Rhetoric" |
+	"Composure" |
+	"Endurance" |
+	"Streetwise"
 
 local Advanced = {}
 
@@ -73,6 +59,11 @@ function Advanced.CreateSkillCheck(Options: {
 				local SkillValue = Player:GetAttribute("Skill_" .. Options.Skill) or 0
 				local Roll = math.random(1, 20)
 				local Success = (Roll + SkillValue) >= Options.Difficulty
+
+				local CheckFlag = "SkillCheck_" .. Options.Skill .. "_" .. Options.ButtonText:gsub("%W", "")
+				if Options.OneTime ~= false then
+					Player:SetAttribute(CheckFlag, true)
+				end
 
 				if Success and Options.SuccessCommand then
 					Options.SuccessCommand(Player)

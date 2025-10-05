@@ -44,18 +44,14 @@ function AdvancedDialogBuilder.FilterChoices(Player: Player, Choices: {Condition
 		end
 
 		if IsValid and Choice.SkillCheck then
-			-- Check if already used (one-time check)
 			local CheckFlag = "SkillCheck_" .. Choice.SkillCheck.Skill .. "_" .. Choice.Text:gsub("%W", "")
+
 			if Choice.SkillCheck.OneTime and Player:GetAttribute(CheckFlag) then
 				IsValid = false
 			else
 				local SkillValue = Player:GetAttribute("Skill_" .. Choice.SkillCheck.Skill) or 0
 				local Roll = math.random(1, 20)
 				local Success = (Roll + SkillValue) >= Choice.SkillCheck.Difficulty
-
-				if Choice.SkillCheck.OneTime then
-					Player:SetAttribute(CheckFlag, true)
-				end
 
 				local BaseChance = (SkillValue + 10.5 - Choice.SkillCheck.Difficulty) / 20 * 100
 				local Chance = math.clamp(math.floor(BaseChance), 5, 95)
@@ -127,7 +123,9 @@ function AdvancedDialogBuilder.CreateChoice(Text: string, ResponseNode: DialogNo
 	Conditions: {Condition}?,
 	RequireAll: boolean?,
 	Command: ((Player) -> ())?,
-	SkillCheck: {Skill: string, Difficulty: number}?
+	SkillCheck: {Skill: string, Difficulty: number, OneTime: boolean?}?,
+	SuccessResponse: DialogNode?,
+	FailureResponse: DialogNode?
 }?): ConditionalChoice
 	return {
 		Text = Text,
@@ -135,7 +133,9 @@ function AdvancedDialogBuilder.CreateChoice(Text: string, ResponseNode: DialogNo
 		Conditions = Options and Options.Conditions,
 		RequireAll = Options and Options.RequireAll,
 		Command = Options and Options.Command,
-		SkillCheck = Options and Options.SkillCheck
+		SkillCheck = Options and Options.SkillCheck,
+		SuccessResponse = Options and Options.SuccessResponse,
+		FailureResponse = Options and Options.FailureResponse
 	}
 end
 

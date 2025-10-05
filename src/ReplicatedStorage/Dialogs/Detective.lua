@@ -73,7 +73,7 @@ return function(Player: Player)
 			)
 		},
 		FailureResponse = "He glances at you briefly. \"I'm fine. Just thinking about the case.\"",
-		FailureChoices = {}
+		FailureChoices = {},
 	}))
 
 	-- Logic deduction (flag-gated)
