@@ -7,6 +7,7 @@ local ObjectValidator = require(script.Parent:WaitForChild("ObjectValidator"))
 local MAX_WHEEL_SIZE_RATIO = 1.3
 
 function CartAssembly.getWagon(Cart: Model): Model?
+	if not Cart or not Cart:IsA("Model") then return nil end
 	local Wagon = Cart:FindFirstChild("Wagon")
 	return (Wagon and Wagon:IsA("Model")) and Wagon or nil
 end

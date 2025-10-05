@@ -14,6 +14,7 @@ local ObjectDatabase = require(Modules:WaitForChild("ObjectDatabase"))
 local GeneralUtil = require(Modules:WaitForChild("GeneralUtil"))
 local ObjectValidator = require(Modules:WaitForChild("ObjectValidator"))
 local Maid = require(Modules:WaitForChild("Maid"))
+local State = require(Modules:WaitForChild("State"))
 
 local INTERACTION_TAG: string = "Interactable"
 local INTERACTION_DISTANCE: number = GeneralUtil.SNAP_DISTANCE
@@ -283,6 +284,13 @@ local function UpdateInteractionPrompt(): ()
 		LastRate = tick()
 	end
 
+	if not State.Can_Speak(Player) then
+		if CurrentBillboard then
+			CurrentBillboard.Enabled = false
+		end
+		return
+	end
+
 	local NewNearest = FindNearestInteractable()
 
 	if NewNearest ~= NearestInteractable then
@@ -301,6 +309,7 @@ local function UpdateInteractionPrompt(): ()
 			if not PromptLabel then return end
 
 			CurrentBillboard.Parent = NearestInteractable
+
 			local InteractionText = GetInteractionText(NearestInteractable)
 			if InteractionText then
 				PromptLabel.Text = InteractionText
@@ -325,6 +334,23 @@ local function UpdateInteractionPrompt(): ()
 			PromptLabel.Text = InteractionText
 		elseif not InteractionText then
 			CurrentBillboard.Enabled = false
+		end
+	elseif NearestInteractable and CurrentBillboard then
+		if CurrentBillboard then
+			CurrentBillboard.Enabled = true
+		end
+	end
+
+	if CurrentBillboard then -- Apply cooldown "..." prompt if applicable
+		local CooldownKey = "DialogCooldown"
+		local BillboardFrame = CurrentBillboard:FindFirstChild("Frame")
+		if not BillboardFrame then return end
+		PromptLabel = BillboardFrame:FindFirstChild("PromptLabel") :: TextLabel
+		if not PromptLabel then return end
+
+		if Player:GetAttribute(CooldownKey) then
+			PromptLabel.Text = "..."
+			return
 		end
 	end
 end

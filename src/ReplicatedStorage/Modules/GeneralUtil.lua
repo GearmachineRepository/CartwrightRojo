@@ -9,7 +9,7 @@ GlobalNumbers.OWNERSHIP_TIMEOUT = 30
 GlobalNumbers.DRAG_NETWORK_DELAY = 0.35
 
 -- Inventory Constants
-GlobalNumbers.MAX_INVENTORY_SLOTS = 3
+GlobalNumbers.MAX_INVENTORY_SLOTS = 5
 GlobalNumbers.BASE_WALKSPEED = 16
 GlobalNumbers.INVENTORY_WEIGHT_PER_SPEED = 5
 GlobalNumbers.CART_WEIGHT_PER_SPEED = 10
@@ -60,15 +60,15 @@ function GlobalNumbers.MapRange(Value: number, InMin: number, InMax: number, Out
 end
 
 function GlobalNumbers.GetAverage(Values: {number}): number
-	if #Values == 0 then 
-		return 0 
+	if #Values == 0 then
+		return 0
 	end
-	
+
 	local Sum = 0
 	for _, Value in pairs(Values) do
 		Sum += Value
 	end
-	
+
 	return Sum / #Values
 end
 

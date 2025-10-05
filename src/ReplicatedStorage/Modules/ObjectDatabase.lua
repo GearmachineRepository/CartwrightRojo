@@ -177,14 +177,28 @@ ObjectDatabase.Objects = {
 			Function = "StateAFunction"
 		}
 	},
-	["ShowCase"] = {
+	["Detective"] = {
 		Type = "NPC",
 		InteractionSound = "rbxassetid://9118598470",
 		StateA = {
 			Text = "Talk - {INTERACT}",
 			Function = "StateAFunction"
 		}
-	}
+	},
+	["Treasure Chest"] = {
+		Type = "Item",
+		GridFootprint = Vector2.new(3, 4),
+		Weight = 12,
+		InteractionSound = "rbxassetid://9114618924",
+		StateA = {
+			Text = "Pickup - {INTERACT}",
+			Function = "StateAFunction"
+		},
+		StateB = {
+			Text = "Pickup - {INTERACT}",
+			Function = "StateBFunction"
+		},
+	},
 }
 
 -- Get object configuration
