@@ -22,6 +22,10 @@ local WidgetInfo = DockWidgetPluginGuiInfo.new(
 	700
 )
 
+local Version = 1.31
+
+warn("YarnSpitter V" ..  tostring(Version))
+
 local Widget = plugin:CreateDockWidgetPluginGui("DialogTreeEditor", WidgetInfo)
 Widget.Title = "YarnSpitter Editor Window"
 
@@ -39,15 +43,17 @@ local TreeScrollFrame: ScrollingFrame
 local EditorScroll: ScrollingFrame
 
 local function UpdateWindowTitle()
-	Widget.Title = "Dialog Tree Editor - " .. CurrentFileName
+	Widget.Title = "YarnSpitter Editor - " .. CurrentFileName
 end
+
+local SelectNode
 
 local function RefreshAll()
 	TreeView.Refresh(TreeScrollFrame, CurrentTree, SelectedNode, SelectNode)
 	EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode)
 end
 
-function SelectNode(Node: DialogNode)
+SelectNode = function(Node: DialogNode)
 	SelectedNode = Node
 	RefreshAll()
 end
@@ -154,7 +160,7 @@ local function OnNameChanged(NewName: string)
 	end
 end
 
-local TopBar, FileNameBox = Toolbar.Create(MainFrame, CreateNewTree, SaveTree, LoadTree, GenerateCode, OnNameChanged)
+local _, FileNameBox = Toolbar.Create(MainFrame, CreateNewTree, SaveTree, LoadTree, GenerateCode, OnNameChanged)
 NameBox = FileNameBox
 TreeScrollFrame = TreeView.Create(MainFrame)
 EditorScroll = EditorPanel.Create(MainFrame)
@@ -162,5 +168,3 @@ EditorScroll = EditorPanel.Create(MainFrame)
 Button.Click:Connect(function()
 	Widget.Enabled = not Widget.Enabled
 end)
-
-print("[Dialog Tree Plugin] Loaded successfully!")

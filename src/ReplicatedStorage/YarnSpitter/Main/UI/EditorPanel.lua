@@ -38,7 +38,7 @@ function EditorPanel.Create(Parent: Instance): ScrollingFrame
 	EditorPadding.Parent = EditorScroll
 
 	EditorLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		EditorScroll.CanvasSize = UDim2.new(0, 0, 0, EditorLayout.AbsoluteContentSize.Y + Constants.SIZES.Padding * 2)
+		EditorScroll.CanvasSize = UDim2.fromOffset(0, EditorLayout.AbsoluteContentSize.Y + Constants.SIZES.Padding * 2)
 	end)
 
 	return EditorScroll
@@ -83,7 +83,7 @@ function EditorPanel.Refresh(
 	for Index, Choice in ipairs(SelectedNode.Choices) do
 		local BaseOrder = 3 + Index * 100
 
-		local ChoiceSection, ChoiceContent = Components.CreateCollapsibleSection(
+		local _, ChoiceContent = Components.CreateCollapsibleSection(
 			"Choice " .. tostring(Index) .. ": " .. Choice.ButtonText:sub(1, 30),
 			EditorScroll,
 			BaseOrder,
@@ -91,8 +91,8 @@ function EditorPanel.Refresh(
 		)
 
 		-- Conditions
-		local ConditionsSection, ConditionsContent = Components.CreateCollapsibleSection(
-			"🔒 Conditions",
+		local _, ConditionsContent = Components.CreateCollapsibleSection(
+			"Conditions",
 			ChoiceContent,
 			1,
 			true
@@ -143,8 +143,8 @@ function EditorPanel.Refresh(
 		end
 
 		-- Flags
-		local FlagsSection, FlagsContent = Components.CreateCollapsibleSection(
-			"🏁 Flags",
+		local _, FlagsContent = Components.CreateCollapsibleSection(
+			"Flags",
 			ChoiceContent,
 			4,
 			true
@@ -152,8 +152,8 @@ function EditorPanel.Refresh(
 		FlagsEditor.Render(Choice, FlagsContent, 1, OnRefresh)
 
 		-- Commands
-		local CommandSection, CommandContent = Components.CreateCollapsibleSection(
-			"⚡ Commands",
+		local _, CommandContent = Components.CreateCollapsibleSection(
+			"Commands",
 			ChoiceContent,
 			5,
 			true

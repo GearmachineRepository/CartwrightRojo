@@ -1,6 +1,6 @@
 --!strict
 local Components = require(script.Parent.Parent.UI.Components)
-local Constants = require(script.Parent.Parent.Constants)
+--local Constants = require(script.Parent.Parent.Constants)
 local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 
 type DialogChoice = DialogTree.DialogChoice
@@ -8,12 +8,12 @@ type DialogChoice = DialogTree.DialogChoice
 local QuestEditor = {}
 
 function QuestEditor.Render(
-	Choice: DialogChoice,
-	Index: number,
+	_: DialogChoice, -- Choice
+	_: number, -- Index
 	Parent: Instance,
 	Order: number,
-	OnDelete: () -> (),
-	OnNavigate: (DialogTree.DialogNode) -> ()
+	_: () -> (),  -- OnDelete
+	_: (DialogTree.DialogNode) -> ()  -- OnNavigate
 ): Frame
 	local Container = Components.CreateContainer(Parent, Order)
 

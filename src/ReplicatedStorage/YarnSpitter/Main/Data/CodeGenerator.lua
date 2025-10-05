@@ -22,7 +22,7 @@ return function(Player: Player)
 
 	if Tree.Choices then
 		for _, Choice in ipairs(Tree.Choices) do
-			Code = Code .. GenerateChoiceCode(Choice, 1)
+			Code = Code .. CodeGenerator.GenerateChoiceCode(Choice, 1)
 		end
 	end
 
@@ -40,33 +40,33 @@ end
 	return Code
 end
 
-function GenerateChoiceCode(Choice: DialogChoice, Depth: number): string
-	local Indent = string.rep("\t", Depth)
+function CodeGenerator.GenerateChoiceCode(Choice: DialogChoice, Depth: number): string
+	local _ = string.rep("\t", Depth) -- Indent
 
 	local HasConditions = Choice.Conditions and #Choice.Conditions > 0
 	local HasSkillCheck = Choice.SkillCheck ~= nil
 	local HasSubChoices = Choice.ResponseNode and Choice.ResponseNode.Choices and #Choice.ResponseNode.Choices > 0
 
 	if HasSkillCheck and HasConditions then
-		return GenerateConditionalSkillCheck(Choice, Depth)
+		return CodeGenerator.GenerateConditionalSkillCheck(Choice, Depth)
 	end
 
 	if HasSkillCheck then
-		return GenerateSkillCheck(Choice, Depth)
+		return CodeGenerator.GenerateSkillCheck(Choice, Depth)
 	end
 
 	if HasConditions then
-		return GenerateConditionalChoice(Choice, Depth)
+		return CodeGenerator.GenerateConditionalChoice(Choice, Depth)
 	end
 
 	if HasSubChoices then
-		return GenerateBranchingChoice(Choice, Depth)
+		return CodeGenerator.GenerateBranchingChoice(Choice, Depth)
 	end
 
-	return GenerateSimpleChoice(Choice, Depth)
+	return CodeGenerator.GenerateSimpleChoice(Choice, Depth)
 end
 
-function GenerateSkillCheck(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateSkillCheck(Choice: DialogChoice, Depth: number): string
 	if not Choice.SkillCheck then return "" end
 
 	local Indent = string.rep("\t", Depth)
@@ -80,13 +80,13 @@ function GenerateSkillCheck(Choice: DialogChoice, Depth: number): string
 		Code = Code .. Indent .. "\tSuccessChoices = {\n"
 		if Choice.SkillCheck.SuccessNode.Choices and #Choice.SkillCheck.SuccessNode.Choices > 0 then
 			for _, SubChoice in ipairs(Choice.SkillCheck.SuccessNode.Choices) do
-				Code = Code .. GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
+				Code = Code .. CodeGenerator.GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
 			end
 		end
 		Code = Code .. Indent .. "\t},\n"
 
 		if Choice.SetFlags and #Choice.SetFlags > 0 then
-			Code = Code .. Indent .. "\tSuccessFlags = {" .. GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+			Code = Code .. Indent .. "\tSuccessFlags = {" .. CodeGenerator.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
 		end
 	end
 
@@ -95,7 +95,7 @@ function GenerateSkillCheck(Choice: DialogChoice, Depth: number): string
 		Code = Code .. Indent .. "\tFailureChoices = {\n"
 		if Choice.SkillCheck.FailureNode.Choices and #Choice.SkillCheck.FailureNode.Choices > 0 then
 			for _, SubChoice in ipairs(Choice.SkillCheck.FailureNode.Choices) do
-				Code = Code .. GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
+				Code = Code .. CodeGenerator.GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
 			end
 		end
 		Code = Code .. Indent .. "\t},\n"
@@ -111,7 +111,7 @@ function GenerateSkillCheck(Choice: DialogChoice, Depth: number): string
 	return Code
 end
 
-function GenerateConditionalChoice(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateConditionalChoice(Choice: DialogChoice, Depth: number): string
 	if not Choice.Conditions then return "" end
 
 	local Indent = string.rep("\t", Depth)
@@ -124,20 +124,20 @@ function GenerateConditionalChoice(Choice: DialogChoice, Depth: number): string
 
 	Code = Code .. Indent .. "\tConditions = {\n"
 	for _, Condition in ipairs(Choice.Conditions) do
-		Code = Code .. GenerateCondition(Condition, Depth + 2)
+		Code = Code .. CodeGenerator.GenerateCondition(Condition, Depth + 2)
 	end
 	Code = Code .. Indent .. "\t},\n"
 
 	if Choice.ResponseNode and Choice.ResponseNode.Choices and #Choice.ResponseNode.Choices > 0 then
 		Code = Code .. Indent .. "\tSubChoices = {\n"
 		for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
-			Code = Code .. GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
+			Code = Code .. CodeGenerator.GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
 		end
 		Code = Code .. Indent .. "\t},\n"
 	end
 
 	if Choice.SetFlags and #Choice.SetFlags > 0 then
-		Code = Code .. Indent .. "\tSetFlags = {" .. GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+		Code = Code .. Indent .. "\tSetFlags = {" .. CodeGenerator.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
 	end
 
 	if Choice.Command and Choice.Command ~= "" then
@@ -150,24 +150,26 @@ function GenerateConditionalChoice(Choice: DialogChoice, Depth: number): string
 	return Code
 end
 
-function GenerateConditionalSkillCheck(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateConditionalSkillCheck(Choice: DialogChoice, Depth: number): string
 	local Indent = string.rep("\t", Depth)
 	local Code = Indent .. "if "
 
 	if Choice.Conditions then
 		for i, Condition in ipairs(Choice.Conditions) do
-			if i > 1 then Code = Code .. " and " end
-			Code = Code .. GenerateConditionCheck(Condition)
+			if i > 1 then
+				Code = Code .. " and "
+			end
+			Code = Code .. CodeGenerator.GenerateConditionCheck(Condition)
 		end
 	end
 
 	Code = Code .. " then\n"
-	Code = Code .. GenerateSkillCheck(Choice, Depth + 1)
+	Code = Code .. CodeGenerator.GenerateSkillCheck(Choice, Depth + 1)
 	Code = Code .. Indent .. "end\n\n"
 	return Code
 end
 
-function GenerateBranchingChoice(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateBranchingChoice(Choice: DialogChoice, Depth: number): string
 	local Indent = string.rep("\t", Depth)
 	local Code = Indent .. "table.insert(Choices, DialogHelpers.CreateBranchingChoice(\n"
 	Code = Code .. Indent .. "\t\"" .. Choice.ButtonText:gsub('"', '\\"') .. "\",\n"
@@ -178,7 +180,7 @@ function GenerateBranchingChoice(Choice: DialogChoice, Depth: number): string
 
 		if Choice.ResponseNode.Choices then
 			for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
-				Code = Code .. GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
+				Code = Code .. CodeGenerator.GenerateNestedChoiceWithSubChoices(SubChoice, Depth + 2)
 			end
 		end
 
@@ -197,7 +199,7 @@ function GenerateBranchingChoice(Choice: DialogChoice, Depth: number): string
 	return Code
 end
 
-function GenerateSimpleChoice(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateSimpleChoice(Choice: DialogChoice, Depth: number): string
 	local Indent = string.rep("\t", Depth)
 	local Code = Indent .. "table.insert(Choices, DialogHelpers.CreateSimpleChoice(\n"
 	Code = Code .. Indent .. "\t\"" .. Choice.ButtonText:gsub('"', '\\"') .. "\",\n"
@@ -220,7 +222,7 @@ function GenerateSimpleChoice(Choice: DialogChoice, Depth: number): string
 	return Code
 end
 
-function GenerateNestedChoiceWithSubChoices(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateNestedChoiceWithSubChoices(Choice: DialogChoice, Depth: number): string
 	local Indent = string.rep("\t", Depth)
 
 	if Choice.ResponseNode and Choice.ResponseNode.Choices and #Choice.ResponseNode.Choices > 0 then
@@ -230,7 +232,7 @@ function GenerateNestedChoiceWithSubChoices(Choice: DialogChoice, Depth: number)
 		Code = Code .. Indent .. "\t{\n"
 
 		for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
-			Code = Code .. GenerateNestedChoice(SubChoice, Depth + 2)
+			Code = Code .. CodeGenerator.GenerateNestedChoice(SubChoice, Depth + 2)
 		end
 
 		Code = Code .. Indent .. "\t},\n"
@@ -238,11 +240,11 @@ function GenerateNestedChoiceWithSubChoices(Choice: DialogChoice, Depth: number)
 		Code = Code .. Indent .. "),\n"
 		return Code
 	else
-		return GenerateNestedChoice(Choice, Depth)
+		return CodeGenerator.GenerateNestedChoice(Choice, Depth)
 	end
 end
 
-function GenerateNestedChoice(Choice: DialogChoice, Depth: number): string
+function CodeGenerator.GenerateNestedChoice(Choice: DialogChoice, Depth: number): string
 	local Indent = string.rep("\t", Depth)
 	local Code = Indent .. "DialogHelpers.CreateSimpleChoice(\n"
 	Code = Code .. Indent .. "\t\"" .. Choice.ButtonText:gsub('"', '\\"') .. "\",\n"
@@ -259,7 +261,7 @@ function GenerateNestedChoice(Choice: DialogChoice, Depth: number): string
 	return Code
 end
 
-function GenerateCondition(Condition: DialogTree.ConditionData, Depth: number): string
+function CodeGenerator.GenerateCondition(Condition: DialogTree.ConditionData, Depth: number): string
 	local Indent = string.rep("\t", Depth)
 	local Code = Indent .. "{Type = \"" .. Condition.Type .. "\", Value = "
 
@@ -282,7 +284,7 @@ function GenerateCondition(Condition: DialogTree.ConditionData, Depth: number): 
 	return Code
 end
 
-function GenerateConditionCheck(Condition: DialogTree.ConditionData): string
+function CodeGenerator.GenerateConditionCheck(Condition: DialogTree.ConditionData): string
 	if Condition.Type == "DialogFlag" then
 		return 'DialogConditions.Check(Player, {Type = "DialogFlag", Value = "' .. Condition.Value .. '"})'
 	elseif Condition.Type == "HasQuest" then
@@ -294,10 +296,12 @@ function GenerateConditionCheck(Condition: DialogTree.ConditionData): string
 	end
 end
 
-function GenerateFlagsArray(Flags: {string}): string
+function CodeGenerator.GenerateFlagsArray(Flags: {string}): string
 	local FlagsStr = ""
 	for i, Flag in ipairs(Flags) do
-		if i > 1 then FlagsStr = FlagsStr .. ", " end
+		if i > 1 then
+			FlagsStr = FlagsStr .. ", "
+		end
 		FlagsStr = FlagsStr .. '"' .. Flag .. '"'
 	end
 	return FlagsStr
