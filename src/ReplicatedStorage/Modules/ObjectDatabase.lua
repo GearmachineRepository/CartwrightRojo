@@ -171,7 +171,7 @@ ObjectDatabase.Objects = {
 	},
 	["Fisherman"] = {
 		Type = "NPC",
-		InteractionSound = "rbxassetid://9118598470",
+		InteractionSound = "rbxassetid://6895079853",
 		StateA = {
 			Text = "Talk - {INTERACT}",
 			Function = "StateAFunction"
@@ -179,7 +179,7 @@ ObjectDatabase.Objects = {
 	},
 	["Detective"] = {
 		Type = "NPC",
-		InteractionSound = "rbxassetid://9118598470",
+		InteractionSound = "rbxassetid://6895079853",
 		StateA = {
 			Text = "Talk - {INTERACT}",
 			Function = "StateAFunction"
@@ -198,6 +198,22 @@ ObjectDatabase.Objects = {
 			Text = "Pickup - {INTERACT}",
 			Function = "StateBFunction"
 		},
+	},
+	["BrotherOne"] = {
+		Type = "NPC",
+		InteractionSound = "rbxassetid://6895079853",
+		StateA = {
+			Text = "Talk - {INTERACT}",
+			Function = "StateAFunction"
+		}
+	},
+	["BrotherTwo"] = {
+		Type = "NPC",
+		InteractionSound = "rbxassetid://6895079853",
+		StateA = {
+			Text = "Talk - {INTERACT}",
+			Function = "StateAFunction"
+		}
 	},
 }
 

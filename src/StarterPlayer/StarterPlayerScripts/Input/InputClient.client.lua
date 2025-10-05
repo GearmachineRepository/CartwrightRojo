@@ -341,7 +341,7 @@ local function UpdateInteractionPrompt(): ()
 		end
 	end
 
-	if CurrentBillboard then -- Apply cooldown "..." prompt if applicable
+	if CurrentBillboard and NewNearest and NewNearest:HasTag("NPC") then -- Apply dialog cooldown "..." prompt if applicable
 		local CooldownKey = "DialogCooldown"
 		local BillboardFrame = CurrentBillboard:FindFirstChild("Frame")
 		if not BillboardFrame then return end

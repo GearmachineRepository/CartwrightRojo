@@ -21,6 +21,17 @@ export type QuestTurnIn = {
 	RewardText: string?
 }
 
+export type QuestOffer = {
+	QuestId: string,
+	ButtonText: string,
+	IntroText: string,
+	DetailText: string?,
+	RewardText: string?,
+	LocationText: string?,
+	AcceptText: string?,
+	DeclineText: string?
+}
+
 function DialogBuilder.HasActiveQuest(Player: Player, QuestId: string): boolean
 	return QuestManager.HasActiveQuest(Player, QuestId)
 end
@@ -87,6 +98,107 @@ function DialogBuilder.CreateQuestOfferNode(QuestId: string, OfferText: string, 
 					Text = "No problem. Come back if you change your mind."
 				}
 			}
+		}
+	}
+end
+
+-- NEW: BuildQuestOffer - Creates flexible quest offer with multiple info options
+function DialogBuilder.BuildQuestOffer(Offer: QuestOffer): {Text: string, Response: DialogNode}
+	local AcceptText = Offer.AcceptText or "Thank you! Good luck!"
+	local DeclineText = Offer.DeclineText or "Come back if you change your mind."
+
+	-- Helper to create accept/decline choices
+	local function CreateAcceptDeclineChoices()
+		return {
+			{
+				Text = "I'll do it",
+				Response = {
+					Id = "accept_" .. Offer.QuestId,
+					Text = AcceptText
+				},
+				Command = function(Plr: Player)
+					QuestManager.GiveQuest(Plr, Offer.QuestId)
+				end
+			},
+			{
+				Text = "Not interested",
+				Response = {
+					Id = "decline_" .. Offer.QuestId,
+					Text = DeclineText
+				}
+			}
+		}
+	end
+
+	-- Build the information choices (Tell me more, What's the reward, etc.)
+	local InfoChoices = {}
+
+	-- Always include "Tell me more" if DetailText is provided
+	if Offer.DetailText then
+		table.insert(InfoChoices, {
+			Text = "Tell me more",
+			Response = {
+				Id = "details_" .. Offer.QuestId,
+				Text = Offer.DetailText,
+				Choices = CreateAcceptDeclineChoices()
+			}
+		})
+	end
+
+	-- Optional: "What's the reward?" option
+	if Offer.RewardText then
+		table.insert(InfoChoices, {
+			Text = "What's in it for me?",
+			Response = {
+				Id = "reward_" .. Offer.QuestId,
+				Text = Offer.RewardText,
+				Choices = CreateAcceptDeclineChoices()
+			}
+		})
+	end
+
+	-- Optional: "Where do I go?" option
+	if Offer.LocationText then
+		table.insert(InfoChoices, {
+			Text = "Where do I go?",
+			Response = {
+				Id = "location_" .. Offer.QuestId,
+				Text = Offer.LocationText,
+				Choices = CreateAcceptDeclineChoices()
+			}
+		})
+	end
+
+	-- If no detail text, allow immediate accept/decline
+	if not Offer.DetailText then
+		table.insert(InfoChoices, {
+			Text = "Sure, I'll help",
+			Response = {
+				Id = "accept_immediate_" .. Offer.QuestId,
+				Text = AcceptText
+			},
+			Command = function(Plr: Player)
+				QuestManager.GiveQuest(Plr, Offer.QuestId)
+			end
+		})
+	end
+
+	-- Always allow immediate decline
+	table.insert(InfoChoices, {
+		Text = "Maybe later",
+		Response = {
+			Id = "decline_early_" .. Offer.QuestId,
+			Text = DeclineText
+		}
+	})
+
+	-- Return the full quest offer node
+	return {
+		Text = Offer.ButtonText,
+		Response = {
+			Id = "intro_" .. Offer.QuestId,
+			Text = Offer.IntroText,
+			Choices = InfoChoices
 		}
 	}
 end

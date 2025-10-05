@@ -24,7 +24,7 @@ local QuestFrames: {[string]: Frame} = {}
 local QuestCompassImages: {[ImageLabel]: {Target: Vector3, QuestId: string}} = {}
 
 local TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local COMPASS_IMAGE = "rbxassetid://0"
+local COMPASS_IMAGE = "rbxassetid://138007024966757"
 
 local function FindTargetPosition(ObjectiveType: string, TargetId: string): Vector3?
 	if ObjectiveType == "Deliver" or ObjectiveType == "TalkTo" then
@@ -50,7 +50,7 @@ local function CreateMiniCompass(Parent: Frame, TargetPosition: Vector3, QuestId
 	local CompassImage = Instance.new("ImageLabel")
 	CompassImage.Name = "MiniCompass"
 	CompassImage.Size = UDim2.fromOffset(16, 16)
-	CompassImage.Position = UDim2.new(0, 0, 0.5, -8)
+	CompassImage.Position = UDim2.fromScale(0, 0.5)
 	CompassImage.BackgroundTransparency = 1
 	CompassImage.Image = COMPASS_IMAGE
 	CompassImage.AnchorPoint = Vector2.new(0, 0.5)
