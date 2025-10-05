@@ -64,15 +64,20 @@ local function ColorizeSkillCheckButton(Button: Instance, Text: string)
 		if Frame and Frame:FindFirstChild("ImageButton") then
 			Frame.ImageLabel.ImageColor3 = SKILL_COLORS[SkillName]
 		end
+
+		local NumberLabel = Frame:FindFirstChild("TextLabel", true)
+		if NumberLabel then
+			NumberLabel.TextColor3 = SKILL_COLORS[SkillName]
+		end
 	end
 end
 
 local function CreateSkillParticleTemplate(SkillColor: Color3): Frame
 	local ParticleTemplate = Instance.new("Frame")
 	ParticleTemplate.Name = "SkillParticle"
-	ParticleTemplate.Size = UDim2.fromOffset(4, 4)
+	ParticleTemplate.Size = UDim2.fromScale(0.15, 0.15)
 	ParticleTemplate.BackgroundColor3 = SkillColor
-	ParticleTemplate.BackgroundTransparency = 0  -- Set initial value
+	ParticleTemplate.BackgroundTransparency = .5
 	ParticleTemplate.BorderSizePixel = 0
 	ParticleTemplate.Visible = false
 	ParticleTemplate.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -81,37 +86,56 @@ local function CreateSkillParticleTemplate(SkillColor: Color3): Frame
 	Corner.CornerRadius = UDim.new(1, 0)
 	Corner.Parent = ParticleTemplate
 
+	local AspectRatio = Instance.new("UIAspectRatioConstraint")
+	AspectRatio.AspectRatio = 1
+	AspectRatio.Parent = ParticleTemplate
+
 	return ParticleTemplate
 end
 
 local function AddSkillParticles(Button: Instance, SkillName: string)
 	local Frame = Button:FindFirstChild("Frame")
-	if not Frame then return end
-
-	local ImageButton = Frame:FindFirstChild("ImageButton")
-	if not ImageButton then return end
+	if not Frame then
+		warn("[AddSkillParticles] No Frame found in button")
+		return
+	end
 
 	local ParticleColor = SKILL_PARTICLE_COLORS[SkillName]
-	if not ParticleColor then return end
+	if not ParticleColor then
+		warn("[AddSkillParticles] No particle color for skill:", SkillName)
+		return
+	end
 
-	local ParticleEmitter = Emitter.newEmitter(ImageButton)
+	local ParticleContainer = Instance.new("Frame")
+	ParticleContainer.Name = "ParticleContainer"
+	ParticleContainer.Size = UDim2.fromScale(1, 1)
+	ParticleContainer.Position = UDim2.fromScale(0, 0)
+	ParticleContainer.BackgroundTransparency = 1
+	ParticleContainer.ClipsDescendants = false
+	ParticleContainer.ZIndex = 5
+	ParticleContainer.Parent = Frame
+
+	local ParticleEmitter = Emitter.newEmitter(ParticleContainer)
 	local ParticleTemplate = CreateSkillParticleTemplate(ParticleColor)
+
+	ParticleTemplate.Parent = ParticleContainer
+
+	ParticleEmitter.EmitShape = "area"
 
 	ParticleEmitter
 		:SetEmitterParticle(ParticleTemplate)
-		:SetEmitterRate(3)
-		:SetSpeed(20, 40)
-		:SetLifetime(1, 2)
-		:SetSpreadAngle(0, 360)
-		:SetRotationSpeed(-0.5, 0.5)
-		:SetDrag(1)
+		:SetEmitterRate(5)
+		:SetSpeed(50, 100)
+		:SetLifetime(1.5, 2.5)
+		:SetSpreadAngle(-30, 30)
+		:SetRotationSpeed(-1, 1)
+		:SetDrag(0.5)
+		:SetAcceleration(Vector2.new(80, 0))
 		:SetScale(NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0, 0.5),
+			NumberSequenceKeypoint.new(0.3, 1),
 			NumberSequenceKeypoint.new(1, 0)
 		}))
-
-	-- Try without BackgroundTransparency transition first
-	-- Once this works, we can add it back
 
 	ActiveParticleEmitters[Button] = ParticleEmitter
 end
