@@ -17,6 +17,7 @@ local StartDialogRemote = DialogEvents:WaitForChild("StartDialog") :: RemoteEven
 local StopDialogRemote = DialogEvents:WaitForChild("StopDialog") :: RemoteEvent
 local ShowDialogRemote = DialogEvents:WaitForChild("ShowDialog") :: RemoteEvent
 local DialogChoiceRemote = DialogEvents:WaitForChild("DialogChoice") :: RemoteEvent
+local PlaySkillCheckSoundRemote = DialogEvents:WaitForChild("PlaySkillCheckSound") :: RemoteEvent
 
 local TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local USE_BLUR = false
@@ -78,6 +79,17 @@ end
 StartDialogRemote.OnClientEvent:Connect(function(NpcModel: Model)
 	if NpcModel and NpcModel:IsA("Model") then
 		StartDialog(NpcModel)
+	end
+end)
+
+PlaySkillCheckSoundRemote.OnClientEvent:Connect(function(SoundName: string)
+	local SoundEffects = game:GetService("SoundService"):WaitForChild("Sound Effects")
+	local Sound = SoundEffects:FindFirstChild(SoundName)
+
+	if Sound then
+		Sound:Play()
+	else
+		warn("[DialogClient] Skill check sound not found:", SoundName)
 	end
 end)
 

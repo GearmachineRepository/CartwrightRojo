@@ -10,10 +10,12 @@ export type Condition = DialogConditions.Condition
 export type ConditionalChoice = {
 	Text: string,
 	Response: DialogNode,
+	SuccessResponse: DialogNode?,
+	FailureResponse: DialogNode?,
 	Command: ((Player) -> ())?,
 	Conditions: {Condition}?,
 	RequireAll: boolean?,
-	SkillCheck: {Skill: string, Difficulty: number, SuccessText: string?, FailureText: string?}?
+	SkillCheck: {Skill: string, Difficulty: number, SuccessText: string?, FailureText: string?, OneTime: boolean?}?
 }
 
 export type DialogNode = {
@@ -27,7 +29,7 @@ export type DialogNode = {
 	OnEnter: ((Player) -> ())?
 }
 
-function AdvancedDialogBuilder.FilterChoices(Player: Player, Choices: {ConditionalChoice}): {{Text: string, Response: any, Command: any}}
+function AdvancedDialogBuilder.FilterChoices(Player: Player, Choices: {ConditionalChoice}): {{Text: string, Response: any, Command: any, SkillCheckSuccess: boolean?}}
 	local ValidChoices = {}
 
 	for _, Choice in ipairs(Choices) do
@@ -42,25 +44,47 @@ function AdvancedDialogBuilder.FilterChoices(Player: Player, Choices: {Condition
 		end
 
 		if IsValid and Choice.SkillCheck then
-			local SkillValue = Player:GetAttribute("Skill_" .. Choice.SkillCheck.Skill) or 0
-			local Success = math.random(1, 20) + SkillValue >= Choice.SkillCheck.Difficulty
+			-- Check if already used (one-time check)
+			local CheckFlag = "SkillCheck_" .. Choice.SkillCheck.Skill .. "_" .. Choice.Text:gsub("%W", "")
+			if Choice.SkillCheck.OneTime and Player:GetAttribute(CheckFlag) then
+				IsValid = false
+			else
+				local SkillValue = Player:GetAttribute("Skill_" .. Choice.SkillCheck.Skill) or 0
+				local Roll = math.random(1, 20)
+				local Success = (Roll + SkillValue) >= Choice.SkillCheck.Difficulty
 
-			local DisplayText = Choice.Text
-			if Choice.SkillCheck.SuccessText and Success then
-				DisplayText = Choice.SkillCheck.SuccessText
-			elseif Choice.SkillCheck.FailureText and not Success then
-				DisplayText = Choice.SkillCheck.FailureText
+				if Choice.SkillCheck.OneTime then
+					Player:SetAttribute(CheckFlag, true)
+				end
+
+				local BaseChance = (SkillValue + 10.5 - Choice.SkillCheck.Difficulty) / 20 * 100
+				local Chance = math.clamp(math.floor(BaseChance), 5, 95)
+
+				local DisplayText = Choice.Text
+
+				local ResponseToUse = Choice.Response
+				if Success and Choice.SuccessResponse then
+					ResponseToUse = Choice.SuccessResponse
+				elseif not Success and Choice.FailureResponse then
+					ResponseToUse = Choice.FailureResponse
+				end
+
+				if not ResponseToUse or not ResponseToUse.Text then
+					ResponseToUse = Choice.Response
+				end
+
+				table.insert(ValidChoices, {
+					Text = string.format("[%s %d] %s (%d%%)",
+						Choice.SkillCheck.Skill,
+						Choice.SkillCheck.Difficulty,
+						DisplayText,
+						Chance
+					),
+					Response = ResponseToUse,
+					Command = Choice.Command,
+					SkillCheckSuccess = Success
+				})
 			end
-
-			table.insert(ValidChoices, {
-				Text = string.format("[%s %d] %s",
-					Choice.SkillCheck.Skill,
-					Choice.SkillCheck.Difficulty,
-					DisplayText
-				),
-				Response = Choice.Response,
-				Command = Choice.Command
-			})
 		elseif IsValid then
 			table.insert(ValidChoices, {
 				Text = Choice.Text,

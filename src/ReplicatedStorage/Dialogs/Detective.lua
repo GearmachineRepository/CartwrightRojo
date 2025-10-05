@@ -2,193 +2,156 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local DialogBuilder = require(Modules:WaitForChild("AdvancedDialogBuilder"))
+local DialogHelpers = require(Modules:WaitForChild("DialogHelpers"))
 local DialogConditions = require(Modules:WaitForChild("DialogConditions"))
+local QuestManager = require(Modules:WaitForChild("QuestManager"))
 
 return function(Player: Player)
-	local IntroNode = {
-		Id = "intro",
-		Text = "A grizzled detective looks up from his notes. His eyes are weary but sharp.",
-		SetFlags = {"MetDetective"},
-		Choices = {
-			DialogBuilder.CreateChoice(
-				"I need information about the murder.",
-				{
-					Id = "murder_info",
-					Text = "What do you know about the victim?",
-					Choices = {
-						DialogBuilder.CreateChoice(
-							"[Perception] Notice something off about his story",
-							{
-								Id = "perception_success",
-								Text = "His eyes dart to the left. He's hiding something.",
-								SetFlags = {"DetectiveLying"}
-							},
-							{
-								SkillCheck = {Skill = "Perception", Difficulty = 12}
-							}
-						),
-						DialogBuilder.CreateChoice(
-							"Thanks for the information",
-							{
-								Id = "end_murder_talk",
-								Text = "Good luck with your investigation."
-							}
-						)
-					}
-				},
-				{
-					Conditions = {
-						{Type = "HasQuest", Value = "MurderInvestigation"}
-					}
-				}
-			),
-
-			DialogBuilder.CreateChoice(
-				"[Authority] You WILL answer my questions.",
-				{
-					Id = "authority_success",
-					Text = "The detective straightens up, intimidated. 'Fine, fine. What do you want to know?'",
-					SetFlags = {"IntimidatedDetective"}
-				},
-				{
-					SkillCheck = {Skill = "Authority", Difficulty = 14}
-				}
-			),
-
-			DialogBuilder.CreateChoice(
-				"[Empathy] You look troubled. Want to talk about it?",
-				{
-					Id = "empathy_success",
-					Text = "He sighs deeply. 'It's this case... it reminds me of my daughter.'",
-					Choices = {
-						DialogBuilder.CreateChoice(
-							"Tell me about your daughter",
-							{
-								Id = "daughter_story",
-								Text = "Years ago, she went missing. Never found her. That's why I became a detective.",
-								SetFlags = {"LearnedDaughterStory"}
-							}
-						),
-						DialogBuilder.CreateChoice(
-							"I'm sorry to hear that",
-							{
-								Id = "condolences",
-								Text = "Thank you. Not many people understand."
-							}
-						)
-					}
-				},
-				{
-					SkillCheck = {Skill = "Empathy", Difficulty = 10}
-				}
-			),
-
-			DialogBuilder.CreateChoice(
-				"I heard you knew the victim personally",
-				{
-					Id = "personal_connection",
-					Text = "His face goes pale. 'Where did you hear that?'",
-					Choices = {
-						DialogBuilder.CreateChoice(
-							"[Logic] Piece together the evidence",
-							{
-								Id = "logic_deduction",
-								Text = "The photographs in his office, the letter in the victim's pocket... You were partners.",
-								SetFlags = {"SolvedConnection"}
-							},
-							{
-								SkillCheck = {Skill = "Logic", Difficulty = 16}
-							}
-						),
-						DialogBuilder.CreateChoice(
-							"Just a hunch",
-							{
-								Id = "hunch",
-								Text = "He relaxes slightly. 'You're fishing. I didn't know him.'"
-							}
-						)
-					}
-				},
-				{
-					Conditions = {
-						{Type = "DialogFlag", Value = "DetectiveLying"}
-					}
-				}
-			),
-
-			DialogBuilder.CreateChoice(
-				"About your daughter...",
-				{
-					Id = "daughter_followup",
-					Text = "His expression softens. 'You remembered.'",
-					Choices = {
-						DialogBuilder.CreateChoice(
-							"[Suggest] Maybe I can help find her",
-							{
-								Id = "offer_help",
-								Text = "Really? After all these years... I'd be grateful.",
-								GiveQuest = "FindDaughter"
-							},
-							{
-								Conditions = {
-									{Type = "HasReputation", Value = {Faction = "Police", Min = 50}}
-								}
-							}
-						),
-						DialogBuilder.CreateChoice(
-							"I hope you find her someday",
-							{
-								Id = "daughter_hope",
-								Text = "Thank you. That means a lot."
-							}
-						),
-						DialogBuilder.CreateChoice(
-							"I should go",
-							{
-								Id = "leave_daughter_talk",
-								Text = "Of course. Take care."
-							}
-						)
-					}
-				},
-				{
-					Conditions = {
-						{Type = "DialogFlag", Value = "LearnedDaughterStory"}
-					}
-				}
-			),
-
-			DialogBuilder.CreateChoice(
-				"I solved the case!",
-				{
-					Id = "case_solved",
-					Text = "You did? Show me what you've found.",
-					TurnInQuest = "MurderInvestigation"
-				},
-				{
-					Conditions = {
-						{Type = "CanTurnInQuest", Value = "MurderInvestigation"}
-					}
-				}
-			),
-
-			DialogBuilder.CreateChoice(
-				"Goodbye",
-				{
-					Id = "goodbye",
-					Text = "Stay safe out there."
-				}
-			)
-		}
-	}
-
-	local GreetAgainNode = {
-		Id = "greet_again",
-		Text = "The detective nods in recognition. 'Back again?'",
-		Choices = IntroNode.Choices
-	}
-
 	local HasMet = DialogConditions.Check(Player, {Type = "DialogFlag", Value = "MetDetective"})
 
-	return DialogBuilder.ProcessNode(Player, HasMet and GreetAgainNode or IntroNode)
+	local Greeting = DialogHelpers.GetConditionalGreeting({
+		{HasMet, "The detective nods in recognition. \"Back again?\""}
+	}, "A grizzled detective looks up from his notes. His eyes are weary but sharp.")
+
+	local Choices = {}
+
+	-- Murder investigation path (quest-gated)
+	table.insert(Choices, DialogHelpers.Advanced.CreateConditionalChoice({
+		ButtonText = "I need information about the murder.",
+		ResponseText = "\"What do you know about the victim?\"",
+		Conditions = {
+			{Type = "HasQuest", Value = "MurderInvestigation"}
+		},
+		SubChoices = {
+			DialogHelpers.Advanced.CreateSkillCheck({
+				Skill = "Perception",
+				Difficulty = 12,
+				ButtonText = "Notice something off about his story",
+				SuccessResponse = "His eyes dart to the left. He's hiding something.",
+				SuccessFlags = {"DetectiveLying"},
+				FailureResponse = "You watch him carefully, but nothing seems out of the ordinary."
+			}),
+
+			DialogHelpers.CreateSimpleChoice(
+				"Thanks for the information",
+				"\"Good luck with your investigation.\"",
+				"end_murder_talk"
+			)
+		}
+	}))
+
+	-- Authority intimidation check
+	table.insert(Choices, DialogHelpers.Advanced.CreateSkillCheck({
+		Skill = "Authority",
+		Difficulty = 14,
+		ButtonText = "You WILL answer my questions.",
+		SuccessResponse = "The detective straightens up, intimidated. \"Fine, fine. What do you want to know?\"",
+		SuccessFlags = {"IntimidatedDetective"},
+		FailureResponse = "He glares at you. \"I don't respond well to threats. Get out of my office.\""
+	}))
+
+	-- Empathy emotional connection
+	table.insert(Choices, DialogHelpers.Advanced.CreateSkillCheck({
+		Skill = "Empathy",
+		Difficulty = 10,
+		ButtonText = "You look troubled. Want to talk about it?",
+		SuccessResponse = "He sighs deeply. \"It's this case... it reminds me of my daughter.\"",
+		SuccessChoices = {
+			DialogHelpers.CreateSimpleChoice(
+				"Tell me about your daughter",
+				"\"Years ago, she went missing. Never found her. That's why I became a detective.\"",
+				"daughter_story",
+				function(Plr: Player)
+					DialogConditions.SetFlag(Plr, "LearnedDaughterStory", true)
+				end
+			),
+
+			DialogHelpers.CreateSimpleChoice(
+				"I'm sorry to hear that",
+				"\"Thank you. Not many people understand.\"",
+				"condolences"
+			)
+		},
+		FailureResponse = "He glances at you briefly. \"I'm fine. Just thinking about the case.\"",
+		FailureChoices = {}
+	}))
+
+	-- Logic deduction (flag-gated)
+	table.insert(Choices, DialogHelpers.Advanced.CreateFlagGatedChoice({
+		ButtonText = "I heard you knew the victim personally",
+		ResponseText = "His face goes pale. \"Where did you hear that?\"",
+		RequiredFlag = "DetectiveLying",
+		SubChoices = {
+			DialogHelpers.Advanced.CreateSkillCheck({
+				Skill = "Logic",
+				Difficulty = 16,
+				ButtonText = "Piece together the evidence",
+				SuccessResponse = "\"The photographs in his office, the letter in the victim's pocket... You were partners.\"",
+				SuccessFlags = {"SolvedConnection"},
+				FailureResponse = "You try to connect the dots, but the evidence doesn't quite add up in your mind."
+			}),
+
+			DialogHelpers.CreateSimpleChoice(
+				"Just a hunch",
+				"He relaxes slightly. \"You're fishing. I didn't know him.\"",
+				"hunch"
+			)
+		}
+	}))
+
+	-- Daughter follow-up (flag-gated)
+	table.insert(Choices, DialogHelpers.Advanced.CreateFlagGatedChoice({
+		ButtonText = "About your daughter...",
+		ResponseText = "His expression softens. \"You remembered.\"",
+		RequiredFlag = "LearnedDaughterStory",
+		SubChoices = {
+			DialogHelpers.Advanced.CreateReputationGatedChoice({
+				ButtonText = "Maybe I can help find her",
+				ResponseText = "\"Really? After all these years... I'd be grateful.\"",
+				Faction = "Police",
+				MinRep = 50,
+				Command = function(Plr: Player)
+					QuestManager.GiveQuest(Plr, "FindDaughter")
+				end
+			}),
+
+			DialogHelpers.CreateSimpleChoice(
+				"I hope you find her someday",
+				"\"Thank you. That means a lot.\"",
+				"daughter_hope"
+			),
+
+			DialogHelpers.CreateSimpleChoice(
+				"I should go",
+				"\"Of course. Take care.\"",
+				"leave_daughter_talk"
+			)
+		}
+	}))
+
+	-- Quest turn-in
+	table.insert(Choices, DialogHelpers.Advanced.CreateQuestGatedChoice({
+		ButtonText = "I solved the case!",
+		ResponseText = "\"You did? Show me what you've found.\"",
+		RequiredQuest = "MurderInvestigation",
+		CanTurnIn = true,
+		Command = function(Plr: Player)
+			QuestManager.TurnInQuest(Plr, "MurderInvestigation")
+		end
+	}))
+
+	-- Goodbye
+	table.insert(Choices, DialogHelpers.CreateSimpleChoice(
+		"Goodbye",
+		"\"Stay safe out there.\"",
+		"goodbye"
+	))
+
+	local DialogTree = DialogHelpers.CreateDialogStart(Greeting, Choices)
+
+	if not HasMet then
+		DialogConditions.SetFlag(Player, "MetDetective", true)
+	end
+
+	return DialogBuilder.ProcessNode(Player, DialogTree)
 end

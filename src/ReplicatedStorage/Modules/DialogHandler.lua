@@ -12,6 +12,7 @@ local Events = ReplicatedStorage:WaitForChild("Events")
 local DialogEvents = Events:WaitForChild("DialogEvents")
 local GuiEvents = Events:WaitForChild("GuiEvents")
 
+local PlaySkillCheckSoundRemote = DialogEvents:WaitForChild("PlaySkillCheckSound") :: RemoteEvent
 local ShowDialogRemote = DialogEvents:WaitForChild("ShowDialog") :: RemoteEvent
 local DialogChoiceRemote = DialogEvents:WaitForChild("DialogChoice") :: RemoteEvent
 local OpenGuiRemote = GuiEvents:WaitForChild("OpenGui") :: RemoteEvent
@@ -216,6 +217,12 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 
 	for _, Choice in ipairs(CurrentNode.Choices) do
 		if Choice.Text == ChoiceText then
+			-- NEW: Play skill check sound based on result
+			if Choice.SkillCheckSuccess ~= nil then
+				local SoundName = Choice.SkillCheckSuccess and "SkillCheckSuccess" or "SkillCheckFailure"
+				PlaySkillCheckSoundRemote:FireClient(Player, SoundName)
+			end
+
 			if typeof(Choice.Command) == "function" then
 				pcall(function()
 					Choice.Command(Player)

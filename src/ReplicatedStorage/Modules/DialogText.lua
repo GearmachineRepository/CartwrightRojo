@@ -1,7 +1,12 @@
 --!strict
 local DialogText = {}
 
-local UI = game.ReplicatedStorage:WaitForChild("UI")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local Emitter = require(Modules:WaitForChild("Emitter"))
+
+local UI = ReplicatedStorage:WaitForChild("UI")
 local DialogUI = UI:WaitForChild("DialogUI")
 local OptionUI = UI:WaitForChild("OptionsUI")
 
@@ -14,7 +19,102 @@ local SoundEffects = SoundService:WaitForChild("Sound Effects")
 local ResponseSound = SoundEffects:WaitForChild("ResponseText")
 local DefaultNpcSound = SoundEffects:WaitForChild("NPCText")
 
+local ActiveParticleEmitters = {}
+
 local FADE_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+local SKILL_COLORS = {
+	Perception = Color3.fromRGB(100, 200, 255),   -- Blue
+	Empathy = Color3.fromRGB(255, 150, 200),      -- Pink
+	Logic = Color3.fromRGB(200, 255, 150),        -- Green
+	Authority = Color3.fromRGB(255, 100, 100),    -- Red
+	Rhetoric = Color3.fromRGB(255, 200, 100),     -- Orange
+	Composure = Color3.fromRGB(150, 150, 255),    -- Purple
+	Endurance = Color3.fromRGB(200, 150, 100),    -- Brown
+	Streetwise = Color3.fromRGB(150, 255, 150)    -- Lime
+}
+
+local SKILL_PARTICLE_COLORS = {
+	Perception = Color3.fromRGB(100, 200, 255),
+	Empathy = Color3.fromRGB(255, 150, 200),
+	Logic = Color3.fromRGB(200, 255, 150),
+	Authority = Color3.fromRGB(255, 100, 100),
+	Rhetoric = Color3.fromRGB(255, 200, 100),
+	Composure = Color3.fromRGB(150, 150, 255),
+	Endurance = Color3.fromRGB(200, 150, 100),
+	Streetwise = Color3.fromRGB(150, 255, 150)
+}
+
+local function StripSkillCheckInfo(Text: string): string
+	-- Remove [Skill Difficulty] prefix
+	Text = Text:gsub("%[%w+%s+%d+%]%s*", "")
+	-- Remove (X%) suffix
+	Text = Text:gsub("%s*%(%d+%%%)", "")
+	return Text
+end
+
+local function GetSkillFromText(Text: string): string?
+	local SkillName = Text:match("%[(%w+)%s+%d+%]")
+	return SkillName
+end
+
+local function ColorizeSkillCheckButton(Button: Instance, Text: string)
+	local SkillName = GetSkillFromText(Text)
+	if SkillName and SKILL_COLORS[SkillName] then
+		local Frame = Button:FindFirstChild("Frame")
+		if Frame and Frame:FindFirstChild("ImageButton") then
+			Frame.ImageLabel.ImageColor3 = SKILL_COLORS[SkillName]
+		end
+	end
+end
+
+local function CreateSkillParticleTemplate(SkillColor: Color3): Frame
+	local ParticleTemplate = Instance.new("Frame")
+	ParticleTemplate.Name = "SkillParticle"
+	ParticleTemplate.Size = UDim2.fromOffset(4, 4)
+	ParticleTemplate.BackgroundColor3 = SkillColor
+	ParticleTemplate.BackgroundTransparency = 0  -- Set initial value
+	ParticleTemplate.BorderSizePixel = 0
+	ParticleTemplate.Visible = false
+	ParticleTemplate.AnchorPoint = Vector2.new(0.5, 0.5)
+
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(1, 0)
+	Corner.Parent = ParticleTemplate
+
+	return ParticleTemplate
+end
+
+local function AddSkillParticles(Button: Instance, SkillName: string)
+	local Frame = Button:FindFirstChild("Frame")
+	if not Frame then return end
+
+	local ImageButton = Frame:FindFirstChild("ImageButton")
+	if not ImageButton then return end
+
+	local ParticleColor = SKILL_PARTICLE_COLORS[SkillName]
+	if not ParticleColor then return end
+
+	local ParticleEmitter = Emitter.newEmitter(ImageButton)
+	local ParticleTemplate = CreateSkillParticleTemplate(ParticleColor)
+
+	ParticleEmitter
+		:SetEmitterParticle(ParticleTemplate)
+		:SetEmitterRate(3)
+		:SetSpeed(20, 40)
+		:SetLifetime(1, 2)
+		:SetSpreadAngle(0, 360)
+		:SetRotationSpeed(-0.5, 0.5)
+		:SetDrag(1)
+		:SetScale(NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0)
+		}))
+
+	-- Try without BackgroundTransparency transition first
+	-- Once this works, we can add it back
+
+	ActiveParticleEmitters[Button] = ParticleEmitter
+end
 
 local function StripTags(Text: string): string
 	return Text:gsub("<.->", "")
@@ -98,6 +198,13 @@ function DialogText.ShowChoices(Player: Player, Options: {string}): {Instance}
 		Option.Frame.Frame.TextLabel.Text = "#" .. tostring(Index)
 		Option.Frame.Frame.Text_Element:SetAttribute("Text", Text)
 
+		ColorizeSkillCheckButton(Option, Text)
+
+		local SkillName = GetSkillFromText(Text)
+		if SkillName then
+			AddSkillParticles(Option, SkillName)
+		end
+
 		local Padding = Option.Frame.Frame.Text_Element:FindFirstChild("UIPadding")
 		local Tween = TweenService:Create(Padding, TweenInfo.new(0.5, Enum.EasingStyle.Sine), {
 			PaddingLeft = UDim.new(0, 0)
@@ -160,6 +267,12 @@ function DialogText.RemovePlayerSideFrame(Player: Player): ()
 	if Gui then
 		for _, Child in ipairs(Gui:GetChildren()) do
 			if Child.Name ~= "UIListLayout" then
+				-- Clear particles but don't destroy emitter
+				if ActiveParticleEmitters[Child] then
+					ActiveParticleEmitters[Child]:ClearParticles()
+					ActiveParticleEmitters[Child]:SetEmitterParticle(nil)
+					ActiveParticleEmitters[Child] = nil
+				end
 				Child:Destroy()
 			end
 		end
@@ -168,19 +281,27 @@ function DialogText.RemovePlayerSideFrame(Player: Player): ()
 end
 
 function DialogText.PlayerResponse(PlayerModel: Model, Message: string, EnableScripts: boolean): BillboardGui?
-	if not Message then return nil end
+	-- Strip skill check info from player's spoken dialog
+	local CleanMessage = StripSkillCheckInfo(Message)
 
-	if PlayerModel:FindFirstChild("Head") then
-		for _, Gui in ipairs(PlayerModel.Head:GetChildren()) do
-			if Gui:IsA("BillboardGui") and Gui.Name == DialogUI.Name then
-				Gui:Destroy()
+	if not PlayerModel or not PlayerModel:FindFirstChild("Head") then
+		return nil
+	end
+
+	local Gui = PlayerModel.Head:FindFirstChild(DialogUI.Name) :: BillboardGui?
+
+	if not Gui then
+		Gui = DialogUI:Clone()
+		Gui.Parent = PlayerModel.Head
+	elseif EnableScripts then
+		for _, Child in ipairs(Gui:GetDescendants()) do
+			if Child:IsA("Script") or Child:IsA("LocalScript") then
+				Child:Destroy()
 			end
 		end
 	end
 
-	local Gui = DialogUI:Clone()
-	Gui.Parent = PlayerModel.Head
-	Gui.TextLabel.Text = Message
+	Gui.TextLabel.Text = CleanMessage  -- Use cleaned message
 	TypewriterEffect(Gui.TextLabel, false)
 
 	if EnableScripts then

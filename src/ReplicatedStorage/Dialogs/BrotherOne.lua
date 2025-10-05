@@ -2,6 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local DialogBuilder = require(Modules:WaitForChild("DialogBuilder"))
+local DialogHelpers = require(Modules:WaitForChild("DialogHelpers"))
 
 return function(Player: Player)
 	local HasCheckQuest = DialogBuilder.HasActiveQuest(Player, "CheckOnBrotherTwo")
@@ -9,14 +10,11 @@ return function(Player: Player)
 	local CompletedCheck = DialogBuilder.HasCompletedQuest(Player, "CheckOnBrotherTwo")
 	local CompletedLetter = DialogBuilder.HasCompletedQuest(Player, "BrothersLetter")
 
-	local Greeting = "I haven't heard from my brother in ages."
-	if HasCheckQuest or HasLetterQuest then
-		Greeting = "Did you check on my brother yet?"
-	elseif CompletedLetter then
-		Greeting = "Thanks again for bringing me that letter!"
-	elseif CompletedCheck then
-		Greeting = "How's my brother?"
-	end
+	local Greeting = DialogHelpers.GetConditionalGreeting({
+		{HasCheckQuest or HasLetterQuest, "Did you check on my brother yet?"},
+		{CompletedLetter, "Thanks again for bringing me that letter!"},
+		{CompletedCheck, "How's my brother?"}
+	}, "I haven't heard from my brother in ages.")
 
 	local Choices = {}
 
@@ -28,7 +26,6 @@ return function(Player: Player)
 		}
 	})
 
-	-- Use BuildQuestOffer for flexible quest offering
 	if not HasCheckQuest and not CompletedCheck and not HasLetterQuest and not CompletedLetter then
 		table.insert(Choices, DialogBuilder.BuildQuestOffer({
 			QuestId = "CheckOnBrotherTwo",
@@ -42,51 +39,33 @@ return function(Player: Player)
 	end
 
 	if CompletedCheck and not HasLetterQuest and not CompletedLetter then
-		table.insert(Choices, {
-			Text = "Your brother is doing good!",
-			Response = {
-				Id = "letter_check",
-				Text = "Thank you. By any chance, did he mention a letter?",
-				Choices = {
+		table.insert(Choices, DialogHelpers.CreateBranchingChoice(
+			"Your brother is doing good!",
+			"Thank you. By any chance, did he mention a letter?",
+			{
+				DialogHelpers.CreateSimpleChoice(
+					"Not that I know of.",
+					"Well, if you see him again, ask him about a letter.",
+					"no_letter"
+				),
+				DialogHelpers.CreateNestedChoice(
+					"Yeah, he did.",
+					"Well, if you see him again, could you bring back that letter?",
 					{
-						Text = "Not that I know of.",
-						Response = {
-							Id = "no_letter",
-							Text = "Well, if you see him again, ask him about a letter."
-						}
+						DialogHelpers.CreateSimpleChoice(
+							"Sure thing.",
+							"Thank you.",
+							"letter_commitment"
+						)
 					},
-					{
-						Text = "Yeah, he did.",
-						Response = {
-							Id = "yes_letter",
-							Text = "Well, if you see him again, could you bring back that letter?",
-							Choices = {
-								{
-									Text = "Sure thing.",
-									Response = {
-										Id = "letter_commitment",
-										Text = "Thank you."
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		})
+					"yes_letter"
+				)
+			},
+			"letter_check"
+		))
 	end
 
-	table.insert(Choices, {
-		Text = "Goodbye",
-		Response = {
-			Id = "goodbye",
-			Text = "Take care!"
-		}
-	})
+	table.insert(Choices, DialogHelpers.CreateSimpleChoice("Goodbye", "Take care!", "goodbye"))
 
-	return {
-		Id = "start",
-		Text = Greeting,
-		Choices = Choices
-	}
+	return DialogHelpers.CreateDialogStart(Greeting, Choices)
 end

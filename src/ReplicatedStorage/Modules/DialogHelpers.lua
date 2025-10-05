@@ -1,23 +1,7 @@
 --!strict
---[[
-	DIALOG HELPERS LIBRARY
-
-	A collection of helper functions to make dialog creation easier.
-	These tools handle common dialog patterns so you don't have to write nested tables.
-
-	Usage:
-	local DialogHelpers = require(Modules:WaitForChild("DialogHelpers"))
-	table.insert(Choices, DialogHelpers.BuildShopDialog({...}))
-]]
 
 local DialogHelpers = {}
 
---local ReplicatedStorage = game:GetService("ReplicatedStorage")
---local Modules = ReplicatedStorage:WaitForChild("Modules")
--- local QuestManager = require(Modules:WaitForChild("QuestManager"))
--- local DialogConditions = require(Modules:WaitForChild("DialogConditions"))
-
--- Helper to create simple response nodes
 local function CreateSimpleResponse(Id: string, Text: string)
 	return {
 		Id = Id,
@@ -25,14 +9,11 @@ local function CreateSimpleResponse(Id: string, Text: string)
 	}
 end
 
--- ═══════════════════════════════════════════════════════════
--- 1. BuildConversationChain
--- Creates a linear back-and-forth conversation
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildConversationChain(Options: {
 	ButtonText: string,
 	Chain: {{Player: string, NPC: string}},
-	FinalText: string?
+	FinalText: string?,
+	Command: ((Player) -> ())?
 }): {Text: string, Response: any}
 
 	local function BuildChainRecursive(Index: number)
@@ -56,7 +37,6 @@ function DialogHelpers.BuildConversationChain(Options: {
 	local FirstChoice = BuildChainRecursive(1)
 
 	if Options.FinalText and FirstChoice then
-		-- Add a final "Goodbye" at the end
 		local function AddFinalNode(Node)
 			if Node.Response.Choices then
 				AddFinalNode(Node.Response.Choices[1])
@@ -72,7 +52,7 @@ function DialogHelpers.BuildConversationChain(Options: {
 		AddFinalNode(FirstChoice)
 	end
 
-	return {
+	local Choice = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "conversation_start",
@@ -80,20 +60,23 @@ function DialogHelpers.BuildConversationChain(Options: {
 			Choices = #Options.Chain > 1 and {BuildChainRecursive(2)} or nil
 		}
 	}
+
+	if Options.Command then
+		Choice.Command = Options.Command
+	end
+
+	return Choice
 end
 
--- ═══════════════════════════════════════════════════════════
--- 2. BuildShopDialog
--- Standardized shop interaction
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildShopDialog(Options: {
 	ButtonText: string,
 	ShopName: string?,
 	IntroText: string,
-	GuiName: string
+	GuiName: string,
+	Command: ((Player) -> ())?
 }): {Text: string, Response: any}
 
-	return {
+	local Choice = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "shop_" .. (Options.ShopName or "default"),
@@ -101,26 +84,35 @@ function DialogHelpers.BuildShopDialog(Options: {
 			OpenGui = Options.GuiName
 		}
 	}
+
+	if Options.Command then
+		Choice.Command = Options.Command
+	end
+
+	return Choice
 end
 
--- ═══════════════════════════════════════════════════════════
--- 3. BuildInfoBranch
--- Multiple questions the player can ask
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildInfoBranch(Options: {
 	ButtonText: string,
 	IntroText: string,
-	Questions: {{Question: string, Answer: string}},
-	ExitText: string?
+	Questions: {{Question: string, Answer: string, Command: ((Player) -> ())?}},
+	ExitText: string?,
+	Command: ((Player) -> ())?
 }): {Text: string, Response: any}
 
 	local QuestionChoices = {}
 
 	for Index, QA in ipairs(Options.Questions) do
-		table.insert(QuestionChoices, {
+		local QuestionChoice = {
 			Text = QA.Question,
 			Response = CreateSimpleResponse("info_" .. tostring(Index), QA.Answer)
-		})
+		}
+
+		if QA.Command then
+			QuestionChoice.Command = QA.Command
+		end
+
+		table.insert(QuestionChoices, QuestionChoice)
 	end
 
 	if Options.ExitText then
@@ -130,7 +122,7 @@ function DialogHelpers.BuildInfoBranch(Options: {
 		})
 	end
 
-	return {
+	local Choice = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "info_branch",
@@ -138,19 +130,22 @@ function DialogHelpers.BuildInfoBranch(Options: {
 			Choices = QuestionChoices
 		}
 	}
+
+	if Options.Command then
+		Choice.Command = Options.Command
+	end
+
+	return Choice
 end
 
--- ═══════════════════════════════════════════════════════════
--- 4. BuildGiveItem
--- Simple item giving
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildGiveItem(Options: {
 	ButtonText: string,
 	AskText: string?,
 	ResponseText: string,
 	ItemName: string,
 	ItemLocation: Instance?,
-	Amount: number?
+	Amount: number?,
+	Command: ((Player) -> ())?
 }): {Text: string, Response: any}
 
 	local ItemLoc = Options.ItemLocation or game.ServerStorage.Items
@@ -171,23 +166,23 @@ function DialogHelpers.BuildGiveItem(Options: {
 					warn("[DialogHelpers] Item not found: " .. Options.ItemName)
 				end
 			end
+
+			if Options.Command then
+				Options.Command(Player)
+			end
 		end
 	}
 end
 
--- ═══════════════════════════════════════════════════════════
--- 5. BuildFlagCheck
--- Show dialog only if flag is set
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildFlagCheck(Options: {
 	FlagName: string,
 	ButtonText: string,
 	ResponseText: string,
 	AlternativeText: string?,
-	ShowIfTrue: boolean?
-}): {Text: string, Response: any}?
+	ShowIfTrue: boolean?,
+	Command: ((Player) -> ())?
+}): (Player: Player) -> {Text: string, Response: any}?
 
-	-- This returns a function that the dialog can call to conditionally add
 	return function(Player: Player)
 		local HasFlag = Player:GetAttribute("DialogFlag_" .. Options.FlagName) == true
 		local ShouldShow = Options.ShowIfTrue == false and not HasFlag or HasFlag
@@ -202,23 +197,26 @@ function DialogHelpers.BuildFlagCheck(Options: {
 			return nil
 		end
 
-		return {
+		local Choice = {
 			Text = Options.ButtonText,
 			Response = CreateSimpleResponse("flag_check", Options.ResponseText)
 		}
+
+		if Options.Command then
+			Choice.Command = Options.Command
+		end
+
+		return Choice
 	end
 end
 
--- ═══════════════════════════════════════════════════════════
--- 6. BuildMultiChoiceQuiz
--- For riddles, passwords, knowledge checks
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildMultiChoiceQuiz(Options: {
 	ButtonText: string,
 	Question: string,
 	Choices: {{Text: string, Correct: boolean, Response: string}},
 	OnSuccess: ((Player) -> ())?,
-	OnFailure: ((Player) -> ())?
+	OnFailure: ((Player) -> ())?,
+	Command: ((Player) -> ())?
 }): {Text: string, Response: any}
 
 	local QuizChoices = {}
@@ -231,7 +229,7 @@ function DialogHelpers.BuildMultiChoiceQuiz(Options: {
 		})
 	end
 
-	return {
+	local QuizChoice = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "quiz_question",
@@ -239,12 +237,14 @@ function DialogHelpers.BuildMultiChoiceQuiz(Options: {
 			Choices = QuizChoices
 		}
 	}
+
+	if Options.Command then
+		QuizChoice.Command = Options.Command
+	end
+
+	return QuizChoice
 end
 
--- ═══════════════════════════════════════════════════════════
--- 7. BuildTradeOffer
--- Simple item-for-item trading
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildTradeOffer(Options: {
 	ButtonText: string,
 	RequestText: string,
@@ -254,68 +254,49 @@ function DialogHelpers.BuildTradeOffer(Options: {
 	GiveAmount: number?,
 	SuccessText: string,
 	FailureText: string,
-	ItemLocation: Instance?
+	ItemLocation: Instance?,
+	Command: ((Player) -> ())?
 }): {Text: string, Response: any}
 
 	local ItemLoc = Options.ItemLocation or game.ServerStorage.Items
-	local GiveAmt = Options.GiveAmount or 1
+	local GiveAmount = Options.GiveAmount or 1
 
-	return {
+	local Choice = {
 		Text = Options.ButtonText,
 		Response = {
-			Id = "trade_check",
+			Id = "trade_offer",
 			Text = Options.RequestText,
 			Choices = {
 				{
 					Text = "I have them",
 					Response = CreateSimpleResponse("trade_attempt", ""),
 					Command = function(Player: Player)
-						local Backpack = Player:FindFirstChild("Backpack")
-						local Character = Player.Character
-						local Count = 0
-
-						if Backpack then
-							for _, Item in ipairs(Backpack:GetChildren()) do
-								if Item.Name == Options.RequiredItem then
-									Count = Count + 1
-								end
+						local HasItems = 0
+						for _, Item in pairs(Player.Backpack:GetChildren()) do
+							if Item.Name == Options.RequiredItem then
+								HasItems = HasItems + 1
 							end
 						end
 
-						if Character then
-							for _, Item in ipairs(Character:GetChildren()) do
-								if Item.Name == Options.RequiredItem then
-									Count = Count + 1
-								end
-							end
-						end
-
-						if Count >= Options.RequiredAmount then
-							-- Remove required items
+						if HasItems >= Options.RequiredAmount then
 							local Removed = 0
-							while Removed < Options.RequiredAmount do
-								local Item = Backpack and Backpack:FindFirstChild(Options.RequiredItem)
-								if not Item and Character then
-									Item = Character:FindFirstChild(Options.RequiredItem)
-								end
-								if Item then
+							for _, Item in pairs(Player.Backpack:GetChildren()) do
+								if Item.Name == Options.RequiredItem and Removed < Options.RequiredAmount then
 									Item:Destroy()
 									Removed = Removed + 1
-								else
-									break
 								end
 							end
 
-							-- Give reward items
-							for _ = 1, GiveAmt do
-								local RewardItem = ItemLoc:FindFirstChild(Options.GiveItem)
-								if RewardItem then
-									RewardItem:Clone().Parent = Player.Backpack
+							for _ = 1, GiveAmount do
+								local GiveItemInstance = ItemLoc:FindFirstChild(Options.GiveItem)
+								if GiveItemInstance then
+									GiveItemInstance:Clone().Parent = Player.Backpack
 								end
 							end
 
-							-- Show success message via chat or notification
-							print("[Trade] " .. Player.Name .. " traded successfully")
+							if Options.Command then
+								Options.Command(Player)
+							end
 						end
 					end
 				},
@@ -326,19 +307,18 @@ function DialogHelpers.BuildTradeOffer(Options: {
 			}
 		}
 	}
+
+	return Choice
 end
 
--- ═══════════════════════════════════════════════════════════
--- 8. BuildReputationGate
--- Content locked behind reputation
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildReputationGate(Options: {
 	Faction: string,
 	MinRep: number,
 	ButtonText: string,
 	LockedText: string,
-	UnlockedContent: {Text: string, Response: any}
-}): {Text: string, Response: any}
+	UnlockedContent: {Text: string, Response: any},
+	Command: ((Player) -> ())?
+}): (Player: Player) -> {Text: string, Response: any}
 
 	return function(Player: Player)
 		local Rep = Player:GetAttribute("Reputation_" .. Options.Faction) or 0
@@ -350,27 +330,30 @@ function DialogHelpers.BuildReputationGate(Options: {
 			}
 		end
 
-		return {
+		local Choice = {
 			Text = Options.ButtonText,
 			Response = Options.UnlockedContent.Response
 		}
+
+		if Options.Command then
+			Choice.Command = Options.Command
+		end
+
+		return Choice
 	end
 end
 
--- ═══════════════════════════════════════════════════════════
--- 9. BuildRandomDialog
--- Randomly vary responses for ambient NPCs
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildRandomDialog(Options: {
 	ButtonText: string,
 	Responses: {string},
-	FollowUp: {{Text: string, Response: any}}?
-}): {Text: string, Response: any}
+	FollowUp: {{Text: string, Response: any}}?,
+	Command: ((Player) -> ())?
+}): (Player: Player) -> {Text: string, Response: any}
 
 	return function(_: Player)
 		local RandomResponse = Options.Responses[math.random(1, #Options.Responses)]
 
-		return {
+		local Choice = {
 			Text = Options.ButtonText,
 			Response = {
 				Id = "random_dialog",
@@ -378,17 +361,20 @@ function DialogHelpers.BuildRandomDialog(Options: {
 				Choices = Options.FollowUp
 			}
 		}
+
+		if Options.Command then
+			Choice.Command = Options.Command
+		end
+
+		return Choice
 	end
 end
 
--- ═══════════════════════════════════════════════════════════
--- 10. BuildSimpleGreeting
--- Quick ambient NPC with random greetings
--- ═══════════════════════════════════════════════════════════
 function DialogHelpers.BuildSimpleGreeting(Options: {
 	Greetings: {string},
-	Farewells: {string}?
-}): ()
+	Farewells: {string}?,
+	Command: ((Player) -> ())?
+}): any
 
 	local Greeting = Options.Greetings[math.random(1, #Options.Greetings)]
 	local Farewell = "Goodbye!"
@@ -397,16 +383,98 @@ function DialogHelpers.BuildSimpleGreeting(Options: {
 		Farewell = Options.Farewells[math.random(1, #Options.Farewells)]
 	end
 
+	local GoodbyeChoice = {
+		Text = "Goodbye",
+		Response = CreateSimpleResponse("farewell", Farewell)
+	}
+
+	if Options.Command then
+		GoodbyeChoice.Command = Options.Command
+	end
+
 	return {
 		Id = "start",
 		Text = Greeting,
-		Choices = {
-			{
-				Text = "Goodbye",
-				Response = CreateSimpleResponse("farewell", Farewell)
-			}
-		}
+		Choices = {GoodbyeChoice}
 	}
 end
+
+function DialogHelpers.GetConditionalGreeting(Conditions: {{any}}, DefaultGreeting: string): string
+	for _, Condition in ipairs(Conditions) do
+		if Condition[1] then
+			return Condition[2]
+		end
+	end
+	return DefaultGreeting
+end
+
+function DialogHelpers.CreateSimpleChoice(Text: string, ResponseText: string, Id: string?, Command: ((Player) -> ())?): {Text: string, Response: any}
+	local Choice = {
+		Text = Text,
+		Response = CreateSimpleResponse(Id or "simple_choice", ResponseText)
+	}
+
+	if Command then
+		Choice.Command = Command
+	end
+
+	return Choice
+end
+
+function DialogHelpers.CreateBranchingChoice(
+	ButtonText: string,
+	InitialResponse: string,
+	SubChoices: {{Text: string, Response: any}},
+	Id: string?,
+	Command: ((Player) -> ())?
+): {Text: string, Response: any}
+	local Choice = {
+		Text = ButtonText,
+		Response = {
+			Id = Id or "branching_choice",
+			Text = InitialResponse,
+			Choices = SubChoices
+		}
+	}
+
+	if Command then
+		Choice.Command = Command
+	end
+
+	return Choice
+end
+
+function DialogHelpers.CreateNestedChoice(
+	ButtonText: string,
+	ResponseText: string,
+	NestedChoices: {{Text: string, Response: any}},
+	Id: string?,
+	Command: ((Player) -> ())?
+): {Text: string, Response: any}
+	local Choice = {
+		Text = ButtonText,
+		Response = {
+			Id = Id or "nested_choice",
+			Text = ResponseText,
+			Choices = NestedChoices
+		}
+	}
+
+	if Command then
+		Choice.Command = Command
+	end
+
+	return Choice
+end
+
+function DialogHelpers.CreateDialogStart(GreetingText: string, Choices: {{Text: string, Response: any}}): {Id: string, Text: string, Choices: any}
+	return {
+		Id = "start",
+		Text = GreetingText,
+		Choices = Choices
+	}
+end
+
+DialogHelpers.Advanced = require(script.Parent:WaitForChild("AdvancedDialogHelper"))
 
 return DialogHelpers

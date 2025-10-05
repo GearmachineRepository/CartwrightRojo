@@ -151,7 +151,7 @@ local function CreateQuestFrame(Quest: Quest): Frame
 	Title.Parent = QuestFrame
 
 	if Quest.ReadyToTurnIn then
-		Title.Text = "[TURN IN] " .. Quest.Title
+		Title.Text = Quest.Title --"[TURN IN] " .. Quest.Title
 		Title.TextColor3 = Color3.fromRGB(100, 255, 255)
 	else
 		Title.Text = Quest.Title
@@ -269,7 +269,7 @@ local function UpdateQuestFrame(QuestId: string, Objectives: {QuestObjective}, R
 
 	if ReadyToTurnIn and TurnInNpc then
 		if Title then
-			Title.Text = "[TURN IN] " .. Title.Text:gsub("%[TURN IN%] ", "")
+			Title.Text = Title.Text:gsub("%[TURN IN%] ", "") --"[TURN IN] " .. Title.Text:gsub("%[TURN IN%] ", "")
 			Title.TextColor3 = Color3.fromRGB(100, 255, 255)
 		end
 
