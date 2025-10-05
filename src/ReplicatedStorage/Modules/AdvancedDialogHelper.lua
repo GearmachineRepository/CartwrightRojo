@@ -31,19 +31,31 @@ function Advanced.CreateSkillCheck(Options: {
 	OneTime: boolean?
 }): any
 
-	local SuccessNode = {
+	local SuccessNode: any = {
 		Id = "skill_success_" .. Options.Skill:lower(),
-		Text = Options.SuccessResponse,
-		Choices = Options.SuccessChoices,
-		SetFlags = Options.SuccessFlags
+		Text = Options.SuccessResponse
 	}
 
-	local FailureNode = {
+	if Options.SuccessChoices then
+		SuccessNode.Choices = Options.SuccessChoices
+	end
+
+	if Options.SuccessFlags then
+		SuccessNode.SetFlags = Options.SuccessFlags
+	end
+
+	local FailureNode: any = {
 		Id = "skill_failure_" .. Options.Skill:lower(),
-		Text = Options.FailureResponse,
-		Choices = Options.FailureChoices,
-		SetFlags = Options.FailureFlags
+		Text = Options.FailureResponse
 	}
+
+	if Options.FailureChoices then
+		FailureNode.Choices = Options.FailureChoices
+	end
+
+	if Options.FailureFlags then
+		FailureNode.SetFlags = Options.FailureFlags
+	end
 
 	return AdvancedDialogBuilder.CreateChoice(
 		Options.ButtonText,

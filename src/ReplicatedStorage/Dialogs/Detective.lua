@@ -1,7 +1,7 @@
 --!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
-local DialogBuilder = require(Modules:WaitForChild("AdvancedDialogBuilder"))
+local AdvancedDialogBuilder = require(Modules:WaitForChild("AdvancedDialogBuilder"))
 local DialogHelpers = require(Modules:WaitForChild("DialogHelpers"))
 local DialogConditions = require(Modules:WaitForChild("DialogConditions"))
 local QuestManager = require(Modules:WaitForChild("QuestManager"))
@@ -72,8 +72,7 @@ return function(Player: Player)
 				"condolences"
 			)
 		},
-		FailureResponse = "He glances at you briefly. \"I'm fine. Just thinking about the case.\"",
-		FailureChoices = {},
+		FailureResponse = "He glances at you briefly. \"I'm fine. Just thinking about the case.\""
 	}))
 
 	-- Logic deduction (flag-gated)
@@ -153,5 +152,6 @@ return function(Player: Player)
 		DialogConditions.SetFlag(Player, "MetDetective", true)
 	end
 
-	return DialogBuilder.ProcessNode(Player, DialogTree)
+	warn(DialogTree)
+	return AdvancedDialogBuilder.ProcessNode(Player, DialogTree)
 end

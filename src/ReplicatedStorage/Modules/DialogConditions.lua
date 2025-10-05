@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local DialogDataManager = require(Modules:WaitForChild("DialogDataManager"))
 local QuestManager = require(Modules:WaitForChild("QuestManager"))
+local DialogBuilder = require(Modules:WaitForChild("DialogBuilder"))
 
 export type Condition = {
 	Type: string,
@@ -22,7 +23,7 @@ function DialogConditions.Check(Player: Player, Condition: Condition): boolean
 	elseif Condition.Type == "CompletedQuest" then
 		Result = QuestManager.HasCompletedQuest(Player, Condition.Value)
 	elseif Condition.Type == "CanTurnInQuest" then
-		Result = QuestManager.CanTurnIn(Player, Condition.Value)
+		Result = DialogBuilder.CanTurnInQuest(Player, Condition.Value)
 	elseif Condition.Type == "HasReputation" then
 		if type(Condition.Value) == "table" then
 			local Faction = Condition.Value.Faction
