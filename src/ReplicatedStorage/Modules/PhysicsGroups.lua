@@ -3,6 +3,7 @@
 
 local PhysicsService = game:GetService("PhysicsService")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 
 local PhysicsGroupModule = {}
 
@@ -10,7 +11,7 @@ type CollisionRules = {[number]: {[number]: string | boolean}}
 type Rule = {[number]: string | boolean}
 
 local PhysicsGroups: {[number]: string} = {
-	[1] = "Dragging", 
+	[1] = "Dragging",
 	[2] = "Characters",
 	[3] = "Static"
 }
@@ -36,9 +37,18 @@ if RunService:IsServer() then
 	end
 end
 
+local function IsNPC(instance: Instance): boolean
+	local model = instance:IsA("Model") and instance or instance:FindFirstAncestorOfClass("Model")
+	if not model then return false end
+
+	-- Use either attribute or tag
+	return model:GetAttribute("IsNPC") == true or CollectionService:HasTag(model, "NPC")
+end
+
+
 function PhysicsGroupModule.SetToGroup(InstanceToSet: Instance, GroupName: string): ()
-	if not InstanceToSet then 
-		return 
+	if not InstanceToSet then
+		return
 	end
 
 	if InstanceToSet:IsA("BasePart") then
@@ -58,8 +68,8 @@ function PhysicsGroupModule.SetToGroup(InstanceToSet: Instance, GroupName: strin
 end
 
 function PhysicsGroupModule.SetProperty(InstanceToSet: Instance, Property: string, Value: any): ()
-	if not InstanceToSet then 
-		return 
+	if not InstanceToSet or IsNPC(InstanceToSet) then
+		return
 	end
 
 	if InstanceToSet:IsA("BasePart") then
@@ -75,6 +85,10 @@ function PhysicsGroupModule.SetProperty(InstanceToSet: Instance, Property: strin
 	end
 
 	for _, Descendant: Instance in pairs(InstanceToSet:GetDescendants()) do
+		if IsNPC(Descendant) then
+			continue
+		end
+
 		if Descendant:IsA("BasePart") then
 			pcall(function()
 				local Part: BasePart = Descendant :: BasePart
@@ -87,5 +101,6 @@ function PhysicsGroupModule.SetProperty(InstanceToSet: Instance, Property: strin
 		end
 	end
 end
+
 
 return PhysicsGroupModule

@@ -28,6 +28,7 @@ local Events: Folder = ReplicatedStorage:WaitForChild("Events")
 local DragEvents: Folder = Events:WaitForChild("DragEvents") :: Folder
 local UpdateCameraPositionRemote: RemoteEvent = DragEvents:WaitForChild("UpdateCameraPosition") :: RemoteEvent
 local DragObjectRemote: RemoteEvent = DragEvents:WaitForChild("DragObject") :: RemoteEvent
+local DragBindable: BindableEvent = DragEvents:WaitForChild("SetObjectDragState") :: BindableEvent
 
 type MaidType = typeof(Maid.new())
 type PlayerData = {[Player]: {
@@ -503,6 +504,14 @@ DragObjectRemote.OnServerEvent:Connect(function(Player: Player, Part: Instance?,
 		StartDragging(Player, Part)
 	else
 		StopDragging(Player, Part)
+	end
+end)
+
+DragBindable.Event:Connect(function(Player: Players, Object: Instance, State: boolean)
+	if Player and Object then
+		if not State then
+			StopDragging(Player, Object)
+		end
 	end
 end)
 

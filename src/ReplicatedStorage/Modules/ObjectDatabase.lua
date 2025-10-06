@@ -199,6 +199,20 @@ ObjectDatabase.Objects = {
 			Function = "StateBFunction"
 		},
 	},
+	["Mimic"] = {
+		Type = "Enemy",
+		GridFootprint = Vector2.new(3, 4),
+		Weight = 12,
+		InteractionSound = "rbxassetid://9114618924",
+		StateA = {
+			Text = "Pickup - {INTERACT}",
+			Function = "StateAFunction"
+		},
+		StateB = {
+			Text = "Pickup - {INTERACT}",
+			Function = "StateBFunction"
+		},
+	},
 	["BrotherOne"] = {
 		Type = "NPC",
 		InteractionSound = "rbxassetid://6895079853",

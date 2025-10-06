@@ -2,18 +2,25 @@
 
 local DialogHelpers = {}
 
-local function CreateSimpleResponse(Id: string, Text: string)
-	return {
+local function CreateSimpleResponse(Id: string, Text: string, SetFlags: {string}?)
+	local Response: any = {
 		Id = Id,
 		Text = Text
 	}
+
+	if SetFlags and #SetFlags > 0 then
+		Response.SetFlags = SetFlags
+	end
+
+	return Response
 end
 
 function DialogHelpers.BuildConversationChain(Options: {
 	ButtonText: string,
 	Chain: {{Player: string, NPC: string}},
 	FinalText: string?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): {Text: string, Response: any}
 
 	local function BuildChainRecursive(Index: number)
@@ -52,7 +59,7 @@ function DialogHelpers.BuildConversationChain(Options: {
 		AddFinalNode(FirstChoice)
 	end
 
-	local Choice = {
+	local Choice: any = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "conversation_start",
@@ -65,6 +72,10 @@ function DialogHelpers.BuildConversationChain(Options: {
 		Choice.Command = Options.Command
 	end
 
+	if Options.SetFlags and #Options.SetFlags > 0 then
+		Choice.Response.SetFlags = Options.SetFlags
+	end
+
 	return Choice
 end
 
@@ -73,10 +84,11 @@ function DialogHelpers.BuildShopDialog(Options: {
 	ShopName: string?,
 	IntroText: string,
 	GuiName: string,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): {Text: string, Response: any}
 
-	local Choice = {
+	local Choice: any = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "shop_" .. (Options.ShopName or "default"),
@@ -89,23 +101,28 @@ function DialogHelpers.BuildShopDialog(Options: {
 		Choice.Command = Options.Command
 	end
 
+	if Options.SetFlags and #Options.SetFlags > 0 then
+		Choice.Response.SetFlags = Options.SetFlags
+	end
+
 	return Choice
 end
 
 function DialogHelpers.BuildInfoBranch(Options: {
 	ButtonText: string,
 	IntroText: string,
-	Questions: {{Question: string, Answer: string, Command: ((Player) -> ())?}},
+	Questions: {{Question: string, Answer: string, Command: ((Player) -> ())?, SetFlags: {string}?}},
 	ExitText: string?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): {Text: string, Response: any}
 
 	local QuestionChoices = {}
 
 	for Index, QA in ipairs(Options.Questions) do
-		local QuestionChoice = {
+		local QuestionChoice: any = {
 			Text = QA.Question,
-			Response = CreateSimpleResponse("info_" .. tostring(Index), QA.Answer)
+			Response = CreateSimpleResponse("info_" .. tostring(Index), QA.Answer, QA.SetFlags)
 		}
 
 		if QA.Command then
@@ -122,7 +139,7 @@ function DialogHelpers.BuildInfoBranch(Options: {
 		})
 	end
 
-	local Choice = {
+	local Choice: any = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "info_branch",
@@ -135,6 +152,10 @@ function DialogHelpers.BuildInfoBranch(Options: {
 		Choice.Command = Options.Command
 	end
 
+	if Options.SetFlags and #Options.SetFlags > 0 then
+		Choice.Response.SetFlags = Options.SetFlags
+	end
+
 	return Choice
 end
 
@@ -145,18 +166,25 @@ function DialogHelpers.BuildGiveItem(Options: {
 	ItemName: string,
 	ItemLocation: Instance?,
 	Amount: number?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): {Text: string, Response: any}
 
 	local ItemLoc = Options.ItemLocation or game.ServerStorage.Items
 	local ItemAmount = Options.Amount or 1
 
+	local Response: any = {
+		Id = "give_item_" .. Options.ItemName,
+		Text = Options.ResponseText
+	}
+
+	if Options.SetFlags and #Options.SetFlags > 0 then
+		Response.SetFlags = Options.SetFlags
+	end
+
 	return {
 		Text = Options.ButtonText,
-		Response = {
-			Id = "give_item_" .. Options.ItemName,
-			Text = Options.ResponseText
-		},
+		Response = Response,
 		Command = function(Player: Player)
 			for _ = 1, ItemAmount do
 				local Item = ItemLoc:FindFirstChild(Options.ItemName)
@@ -180,7 +208,8 @@ function DialogHelpers.BuildFlagCheck(Options: {
 	ResponseText: string,
 	AlternativeText: string?,
 	ShowIfTrue: boolean?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): (Player: Player) -> {Text: string, Response: any}?
 
 	return function(Player: Player)
@@ -197,9 +226,9 @@ function DialogHelpers.BuildFlagCheck(Options: {
 			return nil
 		end
 
-		local Choice = {
+		local Choice: any = {
 			Text = Options.ButtonText,
-			Response = CreateSimpleResponse("flag_check", Options.ResponseText)
+			Response = CreateSimpleResponse("flag_check", Options.ResponseText, Options.SetFlags)
 		}
 
 		if Options.Command then
@@ -213,10 +242,11 @@ end
 function DialogHelpers.BuildMultiChoiceQuiz(Options: {
 	ButtonText: string,
 	Question: string,
-	Choices: {{Text: string, Correct: boolean, Response: string}},
+	Choices: {{Text: string, Correct: boolean, Response: string, SetFlags: {string}?}},
 	OnSuccess: ((Player) -> ())?,
 	OnFailure: ((Player) -> ())?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): {Text: string, Response: any}
 
 	local QuizChoices = {}
@@ -224,12 +254,12 @@ function DialogHelpers.BuildMultiChoiceQuiz(Options: {
 	for Index, Choice in ipairs(Options.Choices) do
 		table.insert(QuizChoices, {
 			Text = Choice.Text,
-			Response = CreateSimpleResponse("quiz_" .. tostring(Index), Choice.Response),
+			Response = CreateSimpleResponse("quiz_" .. tostring(Index), Choice.Response, Choice.SetFlags),
 			Command = Choice.Correct and Options.OnSuccess or Options.OnFailure
 		})
 	end
 
-	local QuizChoice = {
+	local QuizChoice: any = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "quiz_question",
@@ -240,6 +270,10 @@ function DialogHelpers.BuildMultiChoiceQuiz(Options: {
 
 	if Options.Command then
 		QuizChoice.Command = Options.Command
+	end
+
+	if Options.SetFlags and #Options.SetFlags > 0 then
+		QuizChoice.Response.SetFlags = Options.SetFlags
 	end
 
 	return QuizChoice
@@ -255,13 +289,14 @@ function DialogHelpers.BuildTradeOffer(Options: {
 	SuccessText: string,
 	FailureText: string,
 	ItemLocation: Instance?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): {Text: string, Response: any}
 
 	local ItemLoc = Options.ItemLocation or game.ServerStorage.Items
 	local GiveAmount = Options.GiveAmount or 1
 
-	local Choice = {
+	local Choice: any = {
 		Text = Options.ButtonText,
 		Response = {
 			Id = "trade_offer",
@@ -308,6 +343,10 @@ function DialogHelpers.BuildTradeOffer(Options: {
 		}
 	}
 
+	if Options.SetFlags and #Options.SetFlags > 0 then
+		Choice.Response.SetFlags = Options.SetFlags
+	end
+
 	return Choice
 end
 
@@ -317,7 +356,8 @@ function DialogHelpers.BuildReputationGate(Options: {
 	ButtonText: string,
 	LockedText: string,
 	UnlockedContent: {Text: string, Response: any},
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): (Player: Player) -> {Text: string, Response: any}
 
 	return function(Player: Player)
@@ -330,13 +370,17 @@ function DialogHelpers.BuildReputationGate(Options: {
 			}
 		end
 
-		local Choice = {
+		local Choice: any = {
 			Text = Options.ButtonText,
 			Response = Options.UnlockedContent.Response
 		}
 
 		if Options.Command then
 			Choice.Command = Options.Command
+		end
+
+		if Options.SetFlags and #Options.SetFlags > 0 then
+			Choice.Response.SetFlags = Options.SetFlags
 		end
 
 		return Choice
@@ -347,13 +391,14 @@ function DialogHelpers.BuildRandomDialog(Options: {
 	ButtonText: string,
 	Responses: {string},
 	FollowUp: {{Text: string, Response: any}}?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): (Player: Player) -> {Text: string, Response: any}
 
 	return function(_: Player)
 		local RandomResponse = Options.Responses[math.random(1, #Options.Responses)]
 
-		local Choice = {
+		local Choice: any = {
 			Text = Options.ButtonText,
 			Response = {
 				Id = "random_dialog",
@@ -366,6 +411,10 @@ function DialogHelpers.BuildRandomDialog(Options: {
 			Choice.Command = Options.Command
 		end
 
+		if Options.SetFlags and #Options.SetFlags > 0 then
+			Choice.Response.SetFlags = Options.SetFlags
+		end
+
 		return Choice
 	end
 end
@@ -373,7 +422,8 @@ end
 function DialogHelpers.BuildSimpleGreeting(Options: {
 	Greetings: {string},
 	Farewells: {string}?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 }): any
 
 	local Greeting = Options.Greetings[math.random(1, #Options.Greetings)]
@@ -383,9 +433,9 @@ function DialogHelpers.BuildSimpleGreeting(Options: {
 		Farewell = Options.Farewells[math.random(1, #Options.Farewells)]
 	end
 
-	local GoodbyeChoice = {
+	local GoodbyeChoice: any = {
 		Text = "Goodbye",
-		Response = CreateSimpleResponse("farewell", Farewell)
+		Response = CreateSimpleResponse("farewell", Farewell, Options.SetFlags)
 	}
 
 	if Options.Command then
@@ -408,10 +458,16 @@ function DialogHelpers.GetConditionalGreeting(Conditions: {{any}}, DefaultGreeti
 	return DefaultGreeting
 end
 
-function DialogHelpers.CreateSimpleChoice(Text: string, ResponseText: string, Id: string?, Command: ((Player) -> ())?): {Text: string, Response: any}
-	local Choice = {
+function DialogHelpers.CreateSimpleChoice(
+	Text: string,
+	ResponseText: string,
+	Id: string?,
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
+): {Text: string, Response: any}
+	local Choice: any = {
 		Text = Text,
-		Response = CreateSimpleResponse(Id or "simple_choice", ResponseText)
+		Response = CreateSimpleResponse(Id or "simple_choice", ResponseText, SetFlags)
 	}
 
 	if Command then
@@ -426,9 +482,10 @@ function DialogHelpers.CreateBranchingChoice(
 	InitialResponse: string,
 	SubChoices: {{Text: string, Response: any}},
 	Id: string?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 ): {Text: string, Response: any}
-	local Choice = {
+	local Choice: any = {
 		Text = ButtonText,
 		Response = {
 			Id = Id or "branching_choice",
@@ -441,6 +498,10 @@ function DialogHelpers.CreateBranchingChoice(
 		Choice.Command = Command
 	end
 
+	if SetFlags and #SetFlags > 0 then
+		Choice.Response.SetFlags = SetFlags
+	end
+
 	return Choice
 end
 
@@ -449,9 +510,10 @@ function DialogHelpers.CreateNestedChoice(
 	ResponseText: string,
 	NestedChoices: {{Text: string, Response: any}},
 	Id: string?,
-	Command: ((Player) -> ())?
+	Command: ((Player) -> ())?,
+	SetFlags: {string}?
 ): {Text: string, Response: any}
-	local Choice = {
+	local Choice: any = {
 		Text = ButtonText,
 		Response = {
 			Id = Id or "nested_choice",
@@ -462,6 +524,10 @@ function DialogHelpers.CreateNestedChoice(
 
 	if Command then
 		Choice.Command = Command
+	end
+
+	if SetFlags and #SetFlags > 0 then
+		Choice.Response.SetFlags = SetFlags
 	end
 
 	return Choice

@@ -13,7 +13,9 @@ function SimpleChoiceGenerator.Generate(Choice: any, Depth: number): string
 		Code = Code .. Indent .. "\t\"" .. Choice.ResponseNode.Id .. "\""
 
 		if Choice.Command and Choice.Command ~= "" then
-			Code = Code .. ",\n" .. Helpers.GenerateCommandFunction(Choice.Command, Depth + 1)
+			Code = Code .. ",\n" .. Indent .. "\tfunction(Plr: Player)\n"
+			Code = Code .. Indent .. "\t\t" .. Choice.Command:gsub("\n", "\n" .. Indent .. "\t\t") .. "\n"
+			Code = Code .. Indent .. "\tend"
 		end
 	else
 		Code = Code .. Indent .. "\t\"...\",\n"
