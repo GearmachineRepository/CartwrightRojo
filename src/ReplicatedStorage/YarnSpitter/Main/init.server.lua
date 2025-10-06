@@ -7,6 +7,7 @@ local TreeView = require(script.UI.TreeView)
 local EditorPanel = require(script.UI.EditorPanel)
 local Toolbar = require(script.UI.Toolbar)
 local ResizableDivider = require(script.UI.ResizableDivider)
+local Prompt = require(script.UI.Prompt)
 
 type DialogNode = DialogTree.DialogNode
 
@@ -23,7 +24,7 @@ local WidgetInfo = DockWidgetPluginGuiInfo.new(
 	700
 )
 
-local Version = 1.52
+local Version = 1.32
 
 warn("YarnSpitter V" ..  tostring(Version))
 
@@ -60,14 +61,26 @@ SelectNode = function(Node: DialogNode)
 end
 
 local function CreateNewTree()
-	CurrentTree = DialogTree.CreateNode("start", "Enter greeting text here...")
-	SelectedNode = CurrentTree
-	CurrentFileName = "UntitledDialog"
-	if NameBox then
-		NameBox.Text = CurrentFileName
-	end
-	UpdateWindowTitle()
-	RefreshAll()
+	Prompt.CreateTextInput(
+		Widget,
+		"Create New Dialog Tree",
+		"Enter dialog name...",
+		"UntitledDialog",
+		function(TreeName: string)
+			if TreeName == "" then
+				TreeName = "UntitledDialog"
+			end
+
+			CurrentTree = DialogTree.CreateNode("start", "Enter greeting text here...")
+			SelectedNode = CurrentTree
+			CurrentFileName = TreeName
+			if NameBox then
+				NameBox.Text = CurrentFileName
+			end
+			UpdateWindowTitle()
+			RefreshAll()
+		end
+	)
 end
 
 local function SaveTree()
@@ -110,24 +123,28 @@ local function LoadTree()
 		return
 	end
 
-	print("[YarnSpitter] Available dialogs:", table.concat(Modules, ", "))
-	print("[YarnSpitter] Loading first available:", Modules[1])
-
-	local ModuleToLoad = DialogsFolder:FindFirstChild(Modules[1])
-	if ModuleToLoad then
-		local LoadedTree = Serializer.LoadFromModule(ModuleToLoad)
-		if LoadedTree then
-			CurrentTree = LoadedTree
-			SelectedNode = CurrentTree
-			CurrentFileName = ModuleToLoad.Name
-			if NameBox then
-				NameBox.Text = CurrentFileName
+	Prompt.CreateSelection(
+		Widget,
+		"Load Dialog Tree",
+		Modules,
+		function(SelectedName: string)
+			local ModuleToLoad = DialogsFolder:FindFirstChild(SelectedName)
+			if ModuleToLoad then
+				local LoadedTree = Serializer.LoadFromModule(ModuleToLoad)
+				if LoadedTree then
+					CurrentTree = LoadedTree
+					SelectedNode = CurrentTree
+					CurrentFileName = ModuleToLoad.Name
+					if NameBox then
+						NameBox.Text = CurrentFileName
+					end
+					UpdateWindowTitle()
+					RefreshAll()
+					print("[YarnSpitter] Loaded tree:", CurrentFileName)
+				end
 			end
-			UpdateWindowTitle()
-			RefreshAll()
-			print("[YarnSpitter] Loaded tree:", CurrentFileName)
 		end
-	end
+	)
 end
 
 local function GenerateCode()

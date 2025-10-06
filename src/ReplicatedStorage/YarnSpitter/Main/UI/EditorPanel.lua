@@ -2,12 +2,7 @@
 local Constants = require(script.Parent.Parent.Constants)
 local Components = require(script.Parent.Components)
 local DialogTree = require(script.Parent.Parent.Data.DialogTree)
-local SimpleChoiceEditor = require(script.Parent.Parent.Editors.SimpleChoiceEditor)
-local SkillCheckEditor = require(script.Parent.Parent.Editors.SkillCheckEditor)
-local ConditionEditor = require(script.Parent.Parent.Editors.ConditionEditor)
-local CommandEditor = require(script.Parent.Parent.Editors.CommandEditor)
-local FlagsEditor = require(script.Parent.Parent.Editors.FlagsEditor)
-local QuestTurnInEditor = require(script.Parent.Parent.Editors.QuestTurnInEditor)
+local ChoiceEditor = require(script.Parent.Parent.Editors.ChoiceEditor)
 
 type DialogNode = DialogTree.DialogNode
 
@@ -137,107 +132,36 @@ function EditorPanel.Refresh(
 		SelectedNode.Choices = {}
 	end
 
+	local ChoicesContainer = Instance.new("Frame")
+	ChoicesContainer.Name = "ChoicesContainer"
+	ChoicesContainer.Size = UDim2.new(1, 0, 0, 100)
+	ChoicesContainer.BackgroundTransparency = 1
+	ChoicesContainer.LayoutOrder = 5
+	ChoicesContainer.Parent = EditorScroll
+
+	local ChoicesLayout = Instance.new("UIListLayout")
+	ChoicesLayout.Padding = UDim.new(0, 12)
+	ChoicesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ChoicesLayout.Parent = ChoicesContainer
+
 	for Index, Choice in ipairs(SelectedNode.Choices) do
-		local BaseOrder = 4 + Index * 100
-
-		local _, ChoiceContent = Components.CreateCollapsibleSection(
-			"Choice " .. tostring(Index) .. ": " .. Choice.ButtonText:sub(1, 30),
-			EditorScroll,
-			BaseOrder,
-			false
-		)
-
-		local _, ConditionsContent = Components.CreateCollapsibleSection(
-			"Conditions",
-			ChoiceContent,
-			1,
-			true
-		)
-		ConditionEditor.Render(Choice, ConditionsContent, 1, OnRefresh)
-
-		Components.CreateToggleButton(
-			"Skill Check",
-			Choice.SkillCheck ~= nil,
-			ChoiceContent,
-			2,
-			function(IsToggled: boolean)
-				if IsToggled then
-					DialogTree.ConvertToSkillCheck(Choice, "Perception", 10)
-				else
-					DialogTree.ConvertToSimpleChoice(Choice)
-				end
+		ChoiceEditor.Render(
+			Choice,
+			Index,
+			ChoicesContainer,
+			Index,
+			function()
+				DialogTree.RemoveChoice(SelectedNode, Index)
 				OnRefresh()
-			end
+			end,
+			OnNavigate,
+			OnRefresh
 		)
-
-		Components.CreateToggleButton(
-			"Quest Turn-In",
-			Choice.QuestTurnIn ~= nil,
-			ChoiceContent,
-			2.5,
-			function(IsToggled: boolean)
-				if IsToggled then
-					DialogTree.ConvertToQuestTurnIn(Choice, "QuestID")
-				else
-					DialogTree.ConvertToSimpleChoice(Choice)
-				end
-				OnRefresh()
-			end
-		)
-
-		if Choice.QuestTurnIn then
-			QuestTurnInEditor.Render(
-				Choice,
-				Index,
-				ChoiceContent,
-				3,
-				function()
-					DialogTree.RemoveChoice(SelectedNode, Index)
-					OnRefresh()
-				end
-			)
-		elseif Choice.SkillCheck then
-			SkillCheckEditor.Render(
-				Choice,
-				Index,
-				ChoiceContent,
-				3,
-				function()
-					DialogTree.RemoveChoice(SelectedNode, Index)
-					OnRefresh()
-				end,
-				OnNavigate
-			)
-		else
-			SimpleChoiceEditor.Render(
-				Choice,
-				Index,
-				ChoiceContent,
-				3,
-				function()
-					DialogTree.RemoveChoice(SelectedNode, Index)
-					OnRefresh()
-				end,
-				OnNavigate
-			)
-		end
-
-		local _, FlagsContent = Components.CreateCollapsibleSection(
-			"Flags",
-			ChoiceContent,
-			4,
-			true
-		)
-		FlagsEditor.Render(Choice, FlagsContent, 1, OnRefresh)
-
-		local _, CommandContent = Components.CreateCollapsibleSection(
-			"Commands",
-			ChoiceContent,
-			5,
-			true
-		)
-		CommandEditor.Render(Choice, CommandContent, 1)
 	end
+
+	ChoicesLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		ChoicesContainer.Size = UDim2.new(1, 0, 0, ChoicesLayout.AbsoluteContentSize.Y)
+	end)
 
 	Components.CreateButton("+ Add Choice", EditorScroll, 1000, Constants.COLORS.Primary, function()
 		DialogTree.AddChoice(SelectedNode, DialogTree.CreateChoice("New choice"))
