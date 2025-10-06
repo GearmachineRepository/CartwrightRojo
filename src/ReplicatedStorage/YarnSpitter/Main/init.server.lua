@@ -6,6 +6,7 @@ local Serializer = require(script.Data.Serializer)
 local TreeView = require(script.UI.TreeView)
 local EditorPanel = require(script.UI.EditorPanel)
 local Toolbar = require(script.UI.Toolbar)
+local ResizableDivider = require(script.UI.ResizableDivider)
 
 type DialogNode = DialogTree.DialogNode
 
@@ -22,7 +23,7 @@ local WidgetInfo = DockWidgetPluginGuiInfo.new(
 	700
 )
 
-local Version = 1.31
+local Version = 1.52
 
 warn("YarnSpitter V" ..  tostring(Version))
 
@@ -71,7 +72,7 @@ end
 
 local function SaveTree()
 	if not CurrentTree then
-		warn("[Dialog Tree Plugin] No tree to save!")
+		warn("[YarnSpitter] No tree to save!")
 		return
 	end
 
@@ -85,7 +86,7 @@ local function SaveTree()
 	local SavedModule = Serializer.SaveToModule(CurrentTree, CurrentFileName)
 	if SavedModule then
 		SavedModule.Parent = DialogsFolder
-		print("[Dialog Tree Plugin] Saved tree as:", CurrentFileName)
+		print("[YarnSpitter] Saved tree as:", CurrentFileName)
 		UpdateWindowTitle()
 	end
 end
@@ -93,7 +94,7 @@ end
 local function LoadTree()
 	local DialogsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Dialogs")
 	if not DialogsFolder then
-		warn("[Dialog Tree Plugin] No Dialogs folder found!")
+		warn("[YarnSpitter] No Dialogs folder found!")
 		return
 	end
 
@@ -105,12 +106,12 @@ local function LoadTree()
 	end
 
 	if #Modules == 0 then
-		warn("[Dialog Tree Plugin] No saved dialog trees found!")
+		warn("[YarnSpitter] No saved dialog trees found!")
 		return
 	end
 
-	print("[Dialog Tree Plugin] Available dialogs:", table.concat(Modules, ", "))
-	print("[Dialog Tree Plugin] Loading first available:", Modules[1])
+	print("[YarnSpitter] Available dialogs:", table.concat(Modules, ", "))
+	print("[YarnSpitter] Loading first available:", Modules[1])
 
 	local ModuleToLoad = DialogsFolder:FindFirstChild(Modules[1])
 	if ModuleToLoad then
@@ -124,14 +125,14 @@ local function LoadTree()
 			end
 			UpdateWindowTitle()
 			RefreshAll()
-			print("[Dialog Tree Plugin] Loaded tree:", CurrentFileName)
+			print("[YarnSpitter] Loaded tree:", CurrentFileName)
 		end
 	end
 end
 
 local function GenerateCode()
 	if not CurrentTree then
-		warn("[Dialog Tree Plugin] No tree to generate!")
+		warn("[YarnSpitter] No tree to generate!")
 		return
 	end
 
@@ -146,10 +147,10 @@ local function GenerateCode()
 	end)
 
 	if Success then
-		print("[Dialog Tree Plugin] Generated dialog script successfully!")
+		print("[YarnSpitter] Generated dialog script successfully!")
 		UpdateWindowTitle()
 	else
-		warn("[Dialog Tree Plugin] Failed to create module:", Result)
+		warn("[YarnSpitter] Failed to create module:", Result)
 	end
 end
 
@@ -160,10 +161,16 @@ local function OnNameChanged(NewName: string)
 	end
 end
 
+local function OnDividerMoved(NewPosition: number)
+	TreeView.UpdateSize(NewPosition)
+	EditorPanel.UpdateSize(NewPosition)
+end
+
 local _, FileNameBox = Toolbar.Create(MainFrame, CreateNewTree, SaveTree, LoadTree, GenerateCode, OnNameChanged)
 NameBox = FileNameBox
 TreeScrollFrame = TreeView.Create(MainFrame)
 EditorScroll = EditorPanel.Create(MainFrame)
+ResizableDivider.Create(MainFrame, OnDividerMoved)
 
 Button.Click:Connect(function()
 	Widget.Enabled = not Widget.Enabled

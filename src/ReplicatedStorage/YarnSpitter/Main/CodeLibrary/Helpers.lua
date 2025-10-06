@@ -7,7 +7,12 @@ function Helpers.GetIndent(Depth: number): string
 end
 
 function Helpers.EscapeString(Text: string): string
-	return Text:gsub('"', '\\"')
+	local Escaped = Text:gsub("\\", "\\\\")
+	Escaped = Escaped:gsub('"', '\\"')
+	Escaped = Escaped:gsub("\n", "\\n")
+	Escaped = Escaped:gsub("\r", "\\r")
+	Escaped = Escaped:gsub("\t", "\\t")
+	return Escaped
 end
 
 function Helpers.GenerateCondition(Condition: any, Depth: number): string

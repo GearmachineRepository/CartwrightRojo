@@ -10,8 +10,10 @@ local TreeView = {}
 
 local TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
+local TreeScrollFrame: ScrollingFrame
+
 function TreeView.Create(Parent: Instance): ScrollingFrame
-	local TreeScrollFrame = Instance.new("ScrollingFrame")
+	TreeScrollFrame = Instance.new("ScrollingFrame")
 	TreeScrollFrame.Size = UDim2.new(Constants.SIZES.TreeViewWidth, -10, 1, -Constants.SIZES.TopBarHeight - 10)
 	TreeScrollFrame.Position = UDim2.fromOffset(10, Constants.SIZES.TopBarHeight + 5)
 	TreeScrollFrame.BackgroundColor3 = Constants.COLORS.BackgroundLight
@@ -51,24 +53,13 @@ function TreeView.Create(Parent: Instance): ScrollingFrame
 	return TreeScrollFrame
 end
 
-function TreeView.Refresh(
-	TreeScrollFrame: ScrollingFrame,
-	RootNode: DialogNode?,
-	SelectedNode: DialogNode?,
-	OnNodeSelected: (DialogNode) -> ()
-)
-	for _, Child in ipairs(TreeScrollFrame:GetChildren()) do
-		if Child:IsA("Frame") then
-			Child:Destroy()
-		end
+function TreeView.UpdateSize(DividerPosition: number)
+	if TreeScrollFrame then
+		TreeScrollFrame.Size = UDim2.new(DividerPosition, -10, 1, -Constants.SIZES.TopBarHeight - 10)
 	end
-
-	if not RootNode then return end
-
-	RenderNode(RootNode, TreeScrollFrame, 0, "", SelectedNode, OnNodeSelected)
 end
 
-function RenderNode(
+local function RenderNode(
 	Node: DialogNode,
 	Parent: Instance,
 	Depth: number,
@@ -170,6 +161,25 @@ function RenderNode(
 			end
 		end
 	end
+end
+
+function TreeView.Refresh(
+	TreeScrollFrameParam: ScrollingFrame,
+	RootNode: DialogNode?,
+	SelectedNode: DialogNode?,
+	OnNodeSelected: (DialogNode) -> ()
+)
+	for _, Child in ipairs(TreeScrollFrameParam:GetChildren()) do
+		if Child:IsA("Frame") then
+			Child:Destroy()
+		end
+	end
+
+	if not RootNode then
+		return
+	end
+
+	RenderNode(RootNode, TreeScrollFrameParam, 0, "", SelectedNode, OnNodeSelected)
 end
 
 return TreeView

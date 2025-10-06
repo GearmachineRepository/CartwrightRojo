@@ -12,10 +12,24 @@ function SimpleChoiceGenerator.Generate(Choice: any, Depth: number): string
 		Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ResponseNode.Text) .. "\",\n"
 		Code = Code .. Indent .. "\t\"" .. Choice.ResponseNode.Id .. "\""
 
-		if Choice.Command and Choice.Command ~= "" then
-			Code = Code .. ",\n" .. Indent .. "\tfunction(Plr: Player)\n"
-			Code = Code .. Indent .. "\t\t" .. Choice.Command:gsub("\n", "\n" .. Indent .. "\t\t") .. "\n"
-			Code = Code .. Indent .. "\tend"
+		local HasFlags = Choice.SetFlags and #Choice.SetFlags > 0
+		local HasCommand = Choice.Command and Choice.Command ~= ""
+
+		if HasFlags or HasCommand then
+			Code = Code .. ",\n"
+
+			if HasCommand then
+				Code = Code .. Indent .. "\tfunction(Plr: Player)\n"
+				Code = Code .. Indent .. "\t\t" .. Choice.Command:gsub("\n", "\n" .. Indent .. "\t\t") .. "\n"
+				Code = Code .. Indent .. "\tend"
+			else
+				Code = Code .. Indent .. "\tnil"
+			end
+
+			if HasFlags then
+				Code = Code .. ",\n"
+				Code = Code .. Indent .. "\t{" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "}"
+			end
 		end
 	else
 		Code = Code .. Indent .. "\t\"...\",\n"

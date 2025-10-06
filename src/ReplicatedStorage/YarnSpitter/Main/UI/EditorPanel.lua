@@ -13,10 +13,12 @@ type DialogNode = DialogTree.DialogNode
 
 local EditorPanel = {}
 
+local EditorFrame: Frame
+
 function EditorPanel.Create(Parent: Instance): ScrollingFrame
-	local EditorFrame = Instance.new("Frame")
-	EditorFrame.Size = UDim2.new(Constants.SIZES.EditorWidth, -10, 1, -45)
-	EditorFrame.Position = UDim2.new(Constants.SIZES.TreeViewWidth, 5, 0, 45)
+	EditorFrame = Instance.new("Frame")
+	EditorFrame.Size = UDim2.new(Constants.SIZES.EditorWidth, -10, 1, -Constants.SIZES.TopBarHeight - 10)
+	EditorFrame.Position = UDim2.new(Constants.SIZES.TreeViewWidth, 5, 0, Constants.SIZES.TopBarHeight + 5)
 	EditorFrame.BackgroundColor3 = Constants.COLORS.BackgroundLight
 	EditorFrame.BorderSizePixel = 0
 	EditorFrame.Parent = Parent
@@ -45,6 +47,13 @@ function EditorPanel.Create(Parent: Instance): ScrollingFrame
 	return EditorScroll
 end
 
+function EditorPanel.UpdateSize(DividerPosition: number)
+	if EditorFrame then
+		EditorFrame.Size = UDim2.new(1 - DividerPosition, -10, 1, -Constants.SIZES.TopBarHeight - 10)
+		EditorFrame.Position = UDim2.new(DividerPosition, 5, 0, Constants.SIZES.TopBarHeight + 5)
+	end
+end
+
 function EditorPanel.Refresh(
 	EditorScroll: ScrollingFrame,
 	SelectedNode: DialogNode?,
@@ -70,7 +79,7 @@ function EditorPanel.Refresh(
 	end
 
 	Components.CreateLabel("Default Dialog Text:", EditorScroll, 1)
-	Components.CreateTextBox(SelectedNode.Text, EditorScroll, 2, true, function(NewText)
+	Components.CreateTextBox(SelectedNode.Text, EditorScroll, 2, true, function(NewText: string)
 		SelectedNode.Text = NewText
 		OnRefresh()
 	end)
@@ -95,19 +104,19 @@ function EditorPanel.Refresh(
 			Greeting.ConditionType,
 			GreetingContainer,
 			2,
-			function(NewType)
+			function(NewType: string)
 				Greeting.ConditionType = NewType
 				OnRefresh()
 			end
 		)
 
 		Components.CreateLabel("Condition Value:", GreetingContainer, 3)
-		Components.CreateTextBox(Greeting.ConditionValue, GreetingContainer, 4, false, function(NewValue)
+		Components.CreateTextBox(Greeting.ConditionValue, GreetingContainer, 4, false, function(NewValue: string)
 			Greeting.ConditionValue = NewValue
 		end)
 
 		Components.CreateLabel("Greeting Text:", GreetingContainer, 5)
-		Components.CreateTextBox(Greeting.GreetingText, GreetingContainer, 6, true, function(NewText)
+		Components.CreateTextBox(Greeting.GreetingText, GreetingContainer, 6, true, function(NewText: string)
 			Greeting.GreetingText = NewText
 		end)
 
@@ -151,7 +160,7 @@ function EditorPanel.Refresh(
 			Choice.SkillCheck ~= nil,
 			ChoiceContent,
 			2,
-			function(IsToggled)
+			function(IsToggled: boolean)
 				if IsToggled then
 					DialogTree.ConvertToSkillCheck(Choice, "Perception", 10)
 				else
@@ -166,7 +175,7 @@ function EditorPanel.Refresh(
 			Choice.QuestTurnIn ~= nil,
 			ChoiceContent,
 			2.5,
-			function(IsToggled)
+			function(IsToggled: boolean)
 				if IsToggled then
 					DialogTree.ConvertToQuestTurnIn(Choice, "QuestID")
 				else
