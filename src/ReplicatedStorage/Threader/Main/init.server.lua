@@ -5,14 +5,16 @@ local CodeGenerator = require(script.Data.CodeGenerator)
 local Serializer = require(script.Data.Serializer)
 local TreeView = require(script.UI.TreeView)
 local EditorPanel = require(script.UI.EditorPanel)
-local Toolbar = require(script.UI.Toolbar)
+local GraphEditor = require(script.UI.GraphEditor)
+local ViewManager = require(script.UI.ViewManager)
+local DropdownMenu = require(script.UI.DropdownMenu)
 local ResizableDivider = require(script.UI.ResizableDivider)
 local Prompt = require(script.UI.Prompt)
 
 type DialogNode = DialogTree.DialogNode
 
-local ToolbarButton = plugin:CreateToolbar("YarnSpitter")
-local Button = ToolbarButton:CreateButton("Open Editor", "Create and edit dialog trees using YarnSpitter", "rbxassetid://124231195330391")
+local ToolbarButton = plugin:CreateToolbar("Threader")
+local Button = ToolbarButton:CreateButton("Open Editor", "Create and edit dialog trees using Threader", "rbxassetid://124231195330391")
 
 local WidgetInfo = DockWidgetPluginGuiInfo.new(
 	Enum.InitialDockState.Float,
@@ -24,17 +26,16 @@ local WidgetInfo = DockWidgetPluginGuiInfo.new(
 	700
 )
 
-local Version = 1.32
+local Version = 2.10
 
-warn("YarnSpitter V" ..  tostring(Version))
+warn("Threader V" ..  tostring(Version))
 
 local Widget = plugin:CreateDockWidgetPluginGui("DialogTreeEditor", WidgetInfo)
-Widget.Title = "YarnSpitter Editor Window"
+Widget.Title = "Threader Editor Window"
 
 local CurrentTree: DialogNode? = nil
 local SelectedNode: DialogNode? = nil
 local CurrentFileName: string = "UntitledDialog"
-local NameBox: TextBox = nil
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.fromScale(1, 1)
@@ -43,16 +44,26 @@ MainFrame.Parent = Widget
 
 local TreeScrollFrame: ScrollingFrame
 local EditorScroll: ScrollingFrame
+local GraphContainer: Frame
+
+local Mouse = plugin:GetMouse()
 
 local function UpdateWindowTitle()
-	Widget.Title = "YarnSpitter Editor - " .. CurrentFileName
+	Widget.Title = "Threading - [" .. CurrentFileName .. "]"
 end
 
 local SelectNode
 
 local function RefreshAll()
-	TreeView.Refresh(TreeScrollFrame, CurrentTree, SelectedNode, SelectNode)
-	EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode)
+	local CurrentView = ViewManager.GetCurrentView()
+
+	if CurrentView == "Editor" then
+		TreeView.Refresh(TreeScrollFrame, CurrentTree, SelectedNode, SelectNode)
+		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode)
+	elseif CurrentView == "Graph" then
+		GraphEditor.Refresh(CurrentTree, SelectedNode, SelectNode)
+		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode)
+	end
 end
 
 SelectNode = function(Node: DialogNode)
@@ -74,9 +85,6 @@ local function CreateNewTree()
 			CurrentTree = DialogTree.CreateNode("start", "Enter greeting text here...")
 			SelectedNode = CurrentTree
 			CurrentFileName = TreeName
-			if NameBox then
-				NameBox.Text = CurrentFileName
-			end
 			UpdateWindowTitle()
 			RefreshAll()
 		end
@@ -135,13 +143,25 @@ local function LoadTree()
 					CurrentTree = LoadedTree
 					SelectedNode = CurrentTree
 					CurrentFileName = ModuleToLoad.Name
-					if NameBox then
-						NameBox.Text = CurrentFileName
-					end
 					UpdateWindowTitle()
 					RefreshAll()
 					print("[YarnSpitter] Loaded tree:", CurrentFileName)
 				end
+			end
+		end
+	)
+end
+
+local function RenameTree()
+	Prompt.CreateTextInput(
+		Widget,
+		"Rename Dialog Tree",
+		"Enter new name...",
+		CurrentFileName,
+		function(NewName: string)
+			if NewName ~= "" then
+				CurrentFileName = NewName
+				UpdateWindowTitle()
 			end
 		end
 	)
@@ -171,23 +191,50 @@ local function GenerateCode()
 	end
 end
 
-local function OnNameChanged(NewName: string)
-	if NewName ~= "" then
-		CurrentFileName = NewName
-		UpdateWindowTitle()
-	end
+local function SwitchToEditorView()
+	ViewManager.SwitchToView("Editor")
+	RefreshAll()
+end
+
+local function SwitchToGraphView()
+	ViewManager.SwitchToView("Graph")
+	RefreshAll()
 end
 
 local function OnDividerMoved(NewPosition: number)
 	TreeView.UpdateSize(NewPosition)
 	EditorPanel.UpdateSize(NewPosition)
+	ViewManager.UpdateCollapseButtonPosition()
 end
 
-local _, FileNameBox = Toolbar.Create(MainFrame, CreateNewTree, SaveTree, LoadTree, GenerateCode, OnNameChanged)
-NameBox = FileNameBox
+local FileMenuItems = {
+	{Text = "New", OnClick = CreateNewTree},
+	{Text = "Load", OnClick = LoadTree},
+	{Text = "Save", OnClick = SaveTree},
+	{Text = "Rename", OnClick = RenameTree},
+	{Separator = true},
+	{Text = "Generate Code", OnClick = GenerateCode}
+}
+
+local ViewMenuItems = {
+	{Text = "Editor View", OnClick = SwitchToEditorView},
+	{Text = "Graph View", OnClick = SwitchToGraphView}
+}
+
+local Menus = {
+	{Name = "File", Items = FileMenuItems},
+	{Name = "View", Items = ViewMenuItems}
+}
+
+DropdownMenu.CreateMenuBar(MainFrame, Menus)
 TreeScrollFrame = TreeView.Create(MainFrame)
 EditorScroll = EditorPanel.Create(MainFrame)
-ResizableDivider.Create(MainFrame, OnDividerMoved)
+GraphContainer = GraphEditor.Create(MainFrame, Mouse, Widget)
+local Divider = ResizableDivider.Create(MainFrame, OnDividerMoved)
+
+local EditorPanelFrame = EditorScroll:FindFirstAncestorOfClass("Frame")
+ViewManager.Initialize(TreeScrollFrame, EditorPanelFrame, GraphContainer, MainFrame, Divider)
+ViewManager.CreateCollapseButton(EditorPanelFrame)
 
 Button.Click:Connect(function()
 	Widget.Enabled = not Widget.Enabled

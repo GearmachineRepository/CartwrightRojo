@@ -8,6 +8,23 @@ type DialogNode = DialogTree.DialogNode
 
 local EditorPanel = {}
 
+local function ElevateEditorZ(EditorFrame: Frame, EditorScroll: ScrollingFrame)
+	EditorFrame.ZIndex = 100
+	EditorScroll.ZIndex = 101
+
+	for _, obj in ipairs(EditorScroll:GetDescendants()) do
+		if obj:IsA("GuiObject") then
+			obj.ZIndex = 102
+		end
+	end
+
+	EditorScroll.DescendantAdded:Connect(function(obj)
+		if obj:IsA("GuiObject") then
+			obj.ZIndex = 102
+		end
+	end)
+end
+
 local EditorFrame: Frame
 
 function EditorPanel.Create(Parent: Instance): ScrollingFrame
@@ -38,6 +55,8 @@ function EditorPanel.Create(Parent: Instance): ScrollingFrame
 	EditorLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		EditorScroll.CanvasSize = UDim2.fromOffset(0, EditorLayout.AbsoluteContentSize.Y + Constants.SIZES.Padding * 2)
 	end)
+
+	ElevateEditorZ(EditorFrame, EditorScroll)
 
 	return EditorScroll
 end
@@ -167,6 +186,8 @@ function EditorPanel.Refresh(
 		DialogTree.AddChoice(SelectedNode, DialogTree.CreateChoice("New choice"))
 		OnRefresh()
 	end)
+
+	ElevateEditorZ(EditorScroll.Parent :: Frame, EditorScroll)
 end
 
 return EditorPanel
