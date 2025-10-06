@@ -9,7 +9,7 @@ local TWEEN_INFO = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirectio
 local MIN_PANEL_WIDTH = 200
 local DIVIDER_WIDTH = 4
 
-local CurrentDividerPosition: number = 0.25
+local CurrentDividerPosition: number = 0.5525
 
 type UpdateCallback = (number) -> ()
 

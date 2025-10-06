@@ -79,10 +79,10 @@ function Toolbar.Create(Parent: Instance, OnNewTree: () -> (), OnSave: () -> (),
 		return Button
 	end
 
-	CreateToolbarButton("📄 New", Constants.COLORS.Primary, OnNewTree)
-	CreateToolbarButton("💾 Save", Constants.COLORS.Accent, OnSave)
-	CreateToolbarButton("📂 Load", Constants.COLORS.Accent, OnLoad)
-	CreateToolbarButton("⚡ Generate", Constants.COLORS.Success, OnGenerateCode)
+	CreateToolbarButton("New", Constants.COLORS.Primary, OnNewTree)
+	CreateToolbarButton("Save", Constants.COLORS.Accent, OnSave)
+	CreateToolbarButton("Load", Constants.COLORS.Accent, OnLoad)
+	CreateToolbarButton("Generate", Constants.COLORS.Success, OnGenerateCode)
 
 	local NameBox = Instance.new("TextBox")
 	NameBox.Size = UDim2.fromOffset(200, 34)

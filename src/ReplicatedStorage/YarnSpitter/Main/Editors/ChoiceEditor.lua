@@ -19,6 +19,111 @@ local CHOICE_TYPES = {
 
 local CollapsedStates: {[string]: boolean} = {}
 
+local function RefreshChoiceContent(
+	Choice: DialogChoice,
+	ContentFrame: Frame,
+	OnNavigate: (DialogNode) -> (),
+	OnRefresh: () -> ()
+)
+	for _, Child in ipairs(ContentFrame:GetChildren()) do
+		if not Child:IsA("UIListLayout") and not Child:IsA("UIPadding") then
+			Child:Destroy()
+		end
+	end
+
+	Components.CreateLabel("Button Text", ContentFrame, 1)
+	Components.CreateTextBox(Choice.ButtonText, ContentFrame, 2, false, function(NewText: string)
+		Choice.ButtonText = NewText
+		OnRefresh()
+	end)
+
+	if Choice.ResponseNode then
+		Components.CreateLabel("Response Text", ContentFrame, 3)
+		Components.CreateTextBox(Choice.ResponseNode.Text, ContentFrame, 4, true, function(NewText: string)
+			Choice.ResponseNode.Text = NewText
+			OnRefresh()
+		end)
+	end
+
+	if Choice.SkillCheck then
+		ChoiceEditor.RenderSkillCheckFields(Choice, ContentFrame, 10, OnNavigate)
+	elseif Choice.QuestTurnIn then
+		ChoiceEditor.RenderQuestTurnInFields(Choice, ContentFrame, 10)
+	else
+		if Choice.ResponseNode then
+			local NavigateButton = Instance.new("TextButton")
+			NavigateButton.Size = UDim2.new(1, 0, 0, 36)
+			NavigateButton.Text = "Edit Response Branch →"
+			NavigateButton.TextColor3 = Constants.COLORS.Primary
+			NavigateButton.BackgroundColor3 = Constants.COLORS.BackgroundLight
+			NavigateButton.BorderSizePixel = 1
+			NavigateButton.BorderColor3 = Constants.COLORS.Border
+			NavigateButton.Font = Constants.FONTS.Medium
+			NavigateButton.TextSize = 14
+			NavigateButton.AutoButtonColor = false
+			NavigateButton.LayoutOrder = 10
+			NavigateButton.Parent = ContentFrame
+
+			local NavCorner = Instance.new("UICorner")
+			NavCorner.CornerRadius = UDim.new(0, 6)
+			NavCorner.Parent = NavigateButton
+
+			NavigateButton.MouseButton1Click:Connect(function()
+				OnNavigate(Choice.ResponseNode)
+			end)
+		end
+	end
+
+	local CurrentChoiceType = "Simple Choice"
+	if Choice.SkillCheck then
+		CurrentChoiceType = "Skill Check"
+	elseif Choice.QuestTurnIn then
+		CurrentChoiceType = "Quest Turn-In"
+	end
+
+	Components.CreateLabel("Choice Type", ContentFrame, 50)
+	Components.CreateDropdown(
+		CHOICE_TYPES,
+		CurrentChoiceType,
+		ContentFrame,
+		51,
+		function(NewType: string)
+			if NewType == "Skill Check" then
+				DialogTree.ConvertToSkillCheck(Choice, "Perception", 10)
+			elseif NewType == "Quest Turn-In" then
+				DialogTree.ConvertToQuestTurnIn(Choice, "QuestID")
+			else
+				DialogTree.ConvertToSimpleChoice(Choice)
+			end
+			RefreshChoiceContent(Choice, ContentFrame, OnNavigate, OnRefresh)
+		end
+	)
+
+	local _, ConditionsContent = Components.CreateCollapsibleSection(
+		"Conditions",
+		ContentFrame,
+		100,
+		true
+	)
+	ConditionEditor.Render(Choice, ConditionsContent, 1, OnRefresh)
+
+	local _, FlagsContent = Components.CreateCollapsibleSection(
+		"Set Flags",
+		ContentFrame,
+		101,
+		true
+	)
+	FlagsEditor.Render(Choice, FlagsContent, 1, OnRefresh)
+
+	local _, CommandContent = Components.CreateCollapsibleSection(
+		"Commands",
+		ContentFrame,
+		102,
+		true
+	)
+	CommandEditor.Render(Choice, CommandContent, 1)
+end
+
 function ChoiceEditor.Render(
 	Choice: DialogChoice,
 	Index: number,
@@ -69,35 +174,33 @@ function ChoiceEditor.Render(
 	CollapseButton.TextColor3 = Constants.COLORS.TextSecondary
 	CollapseButton.BackgroundTransparency = 1
 	CollapseButton.Font = Constants.FONTS.Regular
-	CollapseButton.TextSize = 12
-	CollapseButton.AutoButtonColor = false
+	CollapseButton.TextSize = 14
 	CollapseButton.Parent = HeaderRow
 
 	local HeaderLabel = Instance.new("TextLabel")
-	HeaderLabel.Size = UDim2.new(1, -95, 1, 0)
+	HeaderLabel.Size = UDim2.new(1, -70, 1, 0)
 	HeaderLabel.Position = UDim2.fromOffset(25, 0)
-	HeaderLabel.Text = "Choice " .. tostring(Index) .. (IsCollapsed and ": " .. Choice.ButtonText:sub(1, 30) or "")
-	HeaderLabel.TextColor3 = Constants.COLORS.TextSecondary
-	HeaderLabel.BackgroundTransparency = 1
-	HeaderLabel.Font = Constants.FONTS.Bold
-	HeaderLabel.TextSize = 14
+	HeaderLabel.Text = "Choice " .. tostring(Index) .. ": " .. Choice.ButtonText:sub(1, 30)
+	HeaderLabel.TextColor3 = Constants.COLORS.TextPrimary
 	HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-	HeaderLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	HeaderLabel.BackgroundTransparency = 1
+	HeaderLabel.Font = Constants.FONTS.Medium
+	HeaderLabel.TextSize = 14
 	HeaderLabel.Parent = HeaderRow
 
 	local DeleteButton = Instance.new("TextButton")
-	DeleteButton.Size = UDim2.fromOffset(60, 24)
-	DeleteButton.Position = UDim2.new(1, -60, 0, 0)
+	DeleteButton.Size = UDim2.fromOffset(45, 24)
+	DeleteButton.Position = UDim2.new(1, -45, 0, 0)
 	DeleteButton.Text = "Delete"
 	DeleteButton.TextColor3 = Constants.COLORS.Danger
 	DeleteButton.BackgroundTransparency = 1
-	DeleteButton.Font = Constants.FONTS.Medium
+	DeleteButton.Font = Constants.FONTS.Regular
 	DeleteButton.TextSize = 12
-	DeleteButton.BorderSizePixel = 0
-	DeleteButton.AutoButtonColor = false
 	DeleteButton.Parent = HeaderRow
 
-	DeleteButton.MouseButton1Click:Connect(OnDelete)
+	DeleteButton.MouseButton1Click:Connect(function()
+		OnDelete()
+	end)
 
 	local ContentFrame = Instance.new("Frame")
 	ContentFrame.Name = "ContentFrame"
@@ -112,127 +215,57 @@ function ChoiceEditor.Render(
 	ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	ContentLayout.Parent = ContentFrame
 
-	local function UpdateCollapsedState()
-		IsCollapsed = not IsCollapsed
-		CollapsedStates[ChoiceKey] = IsCollapsed
+    local function UpdateContainerSize()
+        task.defer(function()
+            if IsCollapsed then
+                Container.Size = UDim2.new(1, 0, 0, 56)
+            else
+                local TotalHeight = Layout.AbsoluteContentSize.Y + 32
+                Container.Size = UDim2.new(1, 0, 0, TotalHeight)
+            end
 
-		CollapseButton.Text = IsCollapsed and "▶" or "▼"
-		HeaderLabel.Text = "Choice " .. tostring(Index) .. (IsCollapsed and ": " .. Choice.ButtonText:sub(1, 30) or "")
-		ContentFrame.Visible = not IsCollapsed
+            local ParentLayout = Parent:FindFirstChildOfClass("UIListLayout")
+            if ParentLayout then
+                task.defer(function()
+                    Parent.Size = UDim2.new(1, 0, 0, ParentLayout.AbsoluteContentSize.Y)
+                end)
+            end
+        end)
+    end
 
-		local TargetHeight = IsCollapsed and 56 or (Layout.AbsoluteContentSize.Y + 32)
-		Container.Size = UDim2.new(1, 0, 0, TargetHeight)
-	end
+    local function UpdateCollapsedState()
+        IsCollapsed = not IsCollapsed
+        CollapsedStates[ChoiceKey] = IsCollapsed
+
+        CollapseButton.Text = IsCollapsed and "▶" or "▼"
+        HeaderLabel.Text = "Choice " .. tostring(Index) .. (IsCollapsed and ": " .. Choice.ButtonText:sub(1, 30) or "")
+        ContentFrame.Visible = not IsCollapsed
+
+        -- Force re-layout after visibility change
+        task.defer(function()
+            if not IsCollapsed then
+                ContentFrame.Size = UDim2.new(1, 0, 0, ContentLayout.AbsoluteContentSize.Y)
+            end
+            UpdateContainerSize()
+        end)
+    end
 
 	CollapseButton.MouseButton1Click:Connect(UpdateCollapsedState)
 
-	Components.CreateLabel("Button Text", ContentFrame, 2)
-	Components.CreateTextBox(Choice.ButtonText, ContentFrame, 3, false, function(NewText: string)
-		Choice.ButtonText = NewText
-		if IsCollapsed then
-			HeaderLabel.Text = "Choice " .. tostring(Index) .. ": " .. NewText:sub(1, 30)
-		end
-		OnRefresh()
-	end)
-
-	if Choice.ResponseNode then
-		Components.CreateLabel("Response Text", ContentFrame, 4)
-		Components.CreateTextBox(Choice.ResponseNode.Text, ContentFrame, 5, true, function(NewText: string)
-			Choice.ResponseNode.Text = NewText
-			OnRefresh()
-		end)
-	end
-
-	local CurrentChoiceType = "Simple Choice"
-	if Choice.SkillCheck then
-		CurrentChoiceType = "Skill Check"
-	elseif Choice.QuestTurnIn then
-		CurrentChoiceType = "Quest Turn-In"
-	end
-
-	Components.CreateLabel("Choice Type", ContentFrame, 6)
-	Components.CreateDropdown(
-		CHOICE_TYPES,
-		CurrentChoiceType,
-		ContentFrame,
-		7,
-		function(NewType: string)
-			if NewType == "Skill Check" then
-				DialogTree.ConvertToSkillCheck(Choice, "Perception", 10)
-			elseif NewType == "Quest Turn-In" then
-				DialogTree.ConvertToQuestTurnIn(Choice, "QuestID")
-			else
-				DialogTree.ConvertToSimpleChoice(Choice)
-			end
-			OnRefresh()
-		end
-	)
-
-	if Choice.SkillCheck then
-		ChoiceEditor.RenderSkillCheckFields(Choice, ContentFrame, 8, OnNavigate)
-	elseif Choice.QuestTurnIn then
-		ChoiceEditor.RenderQuestTurnInFields(Choice, ContentFrame, 8)
-	else
-		if Choice.ResponseNode then
-			local NavigateButton = Instance.new("TextButton")
-			NavigateButton.Size = UDim2.new(1, 0, 0, 36)
-			NavigateButton.Text = "Edit Response Branch →"
-			NavigateButton.TextColor3 = Constants.COLORS.Primary
-			NavigateButton.BackgroundColor3 = Constants.COLORS.BackgroundLight
-			NavigateButton.BorderSizePixel = 1
-			NavigateButton.BorderColor3 = Constants.COLORS.Border
-			NavigateButton.Font = Constants.FONTS.Medium
-			NavigateButton.TextSize = 14
-			NavigateButton.AutoButtonColor = false
-			NavigateButton.LayoutOrder = 8
-			NavigateButton.Parent = ContentFrame
-
-			local NavCorner = Instance.new("UICorner")
-			NavCorner.CornerRadius = UDim.new(0, 6)
-			NavCorner.Parent = NavigateButton
-
-			NavigateButton.MouseButton1Click:Connect(function()
-				OnNavigate(Choice.ResponseNode)
-			end)
-		end
-	end
-
-	local _, ConditionsContent = Components.CreateCollapsibleSection(
-		"Conditions",
-		ContentFrame,
-		9,
-		true
-	)
-	ConditionEditor.Render(Choice, ConditionsContent, 1, OnRefresh)
-
-	local _, FlagsContent = Components.CreateCollapsibleSection(
-		"Set Flags",
-		ContentFrame,
-		10,
-		true
-	)
-	FlagsEditor.Render(Choice, FlagsContent, 1, OnRefresh)
-
-	local _, CommandContent = Components.CreateCollapsibleSection(
-		"Commands",
-		ContentFrame,
-		11,
-		true
-	)
-	CommandEditor.Render(Choice, CommandContent, 1)
+	RefreshChoiceContent(Choice, ContentFrame, OnNavigate, OnRefresh)
 
 	ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		if not IsCollapsed then
 			ContentFrame.Size = UDim2.new(1, 0, 0, ContentLayout.AbsoluteContentSize.Y)
-			Container.Size = UDim2.new(1, 0, 0, Layout.AbsoluteContentSize.Y + 32)
 		end
+		UpdateContainerSize()
 	end)
 
 	Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		if not IsCollapsed then
-			Container.Size = UDim2.new(1, 0, 0, Layout.AbsoluteContentSize.Y + 32)
-		end
+		UpdateContainerSize()
 	end)
+
+	task.defer(UpdateContainerSize)
 
 	return Container
 end
