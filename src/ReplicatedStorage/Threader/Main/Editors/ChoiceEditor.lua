@@ -224,6 +224,178 @@ local function RefreshChoiceContent(
 	CommandEditor.Render(Choice, CommandContent, 1)
 end
 
+function ChoiceEditor.RenderStandalone(
+	Choice: DialogChoice,
+	Parent: ScrollingFrame,
+	OnRefresh: () -> (),
+	OnNavigateToNode: (DialogNode) -> (),
+	CurrentTree: DialogNode?
+)
+	ChoiceEditor.SetCurrentTree(CurrentTree)
+
+	Components.CreateLabel("Button Text", Parent, 3)
+	Components.CreateTextBox(Choice.ButtonText, Parent, 4, false, function(NewText: string)
+		Choice.ButtonText = NewText
+		OnRefresh()
+	end)
+
+	if not Choice.ResponseType then
+		Choice.ResponseType = DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE
+	end
+
+	Components.CreateLabel("Response Type", Parent, 5)
+	Components.CreateDropdown(
+		{"Default Response", "Return to Start", "Return to Node", "End Dialog"},
+		Choice.ResponseType == DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE and "Default Response" or
+		Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START and "Return to Start" or
+		Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE and "Return to Node" or
+		"End Dialog",
+		Parent,
+		6,
+		function(Selected: string)
+			if Selected == "Default Response" then
+				DialogTree.SetResponseType(Choice, DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE)
+			elseif Selected == "Return to Start" then
+				DialogTree.SetResponseType(Choice, DialogTree.RESPONSE_TYPES.RETURN_TO_START)
+			elseif Selected == "Return to Node" then
+				DialogTree.SetResponseType(Choice, DialogTree.RESPONSE_TYPES.RETURN_TO_NODE)
+				if not Choice.ReturnToNodeId and CurrentTree then
+					local AllNodeIds = DialogTree.GetAllNodeIds(CurrentTree)
+					Choice.ReturnToNodeId = AllNodeIds[1] or "start"
+				end
+			else
+				DialogTree.SetResponseType(Choice, DialogTree.RESPONSE_TYPES.END_DIALOG)
+			end
+			OnRefresh()
+		end
+	)
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+		if Choice.ResponseNode then
+			Components.CreateLabel("Response Node Preview", Parent, 7)
+			local PreviewLabel = Instance.new("TextLabel")
+			PreviewLabel.Size = UDim2.new(1, 0, 0, 40)
+			PreviewLabel.Text = Choice.ResponseNode.Text:sub(1, 60) .. (Choice.ResponseNode.Text:len() > 60 and "..." or "")
+			PreviewLabel.TextColor3 = Constants.COLORS.TextSecondary
+			PreviewLabel.BackgroundColor3 = Constants.COLORS.BackgroundDark
+			PreviewLabel.BorderSizePixel = 1
+			PreviewLabel.BorderColor3 = Constants.COLORS.Border
+			PreviewLabel.Font = Constants.FONTS.Regular
+			PreviewLabel.TextSize = 12
+			PreviewLabel.TextWrapped = true
+			PreviewLabel.TextXAlignment = Enum.TextXAlignment.Left
+			PreviewLabel.TextYAlignment = Enum.TextYAlignment.Top
+			PreviewLabel.LayoutOrder = 8
+			PreviewLabel.Parent = Parent
+
+			local PreviewPadding = Instance.new("UIPadding")
+			PreviewPadding.PaddingLeft = UDim.new(0, 8)
+			PreviewPadding.PaddingTop = UDim.new(0, 8)
+			PreviewPadding.Parent = PreviewLabel
+
+			Components.CreateButton("Edit Response Node →", Parent, 9, Constants.COLORS.Primary, function()
+				OnNavigateToNode(Choice.ResponseNode)
+			end)
+		end
+	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		if CurrentTree then
+			local AllNodeIds = DialogTree.GetAllNodeIds(CurrentTree)
+
+			Components.CreateLabel("Target Node", Parent, 7)
+
+			local InputFrame = Instance.new("Frame")
+			InputFrame.Size = UDim2.new(1, 0, 0, 35)
+			InputFrame.BackgroundTransparency = 1
+			InputFrame.LayoutOrder = 8
+			InputFrame.Parent = Parent
+
+			local InputLayout = Instance.new("UIListLayout")
+			InputLayout.FillDirection = Enum.FillDirection.Horizontal
+			InputLayout.Padding = UDim.new(0, 5)
+			InputLayout.Parent = InputFrame
+
+			local DropdownContainer = Instance.new("Frame")
+			DropdownContainer.Size = UDim2.fromScale(0.6, 1)
+			DropdownContainer.BackgroundTransparency = 1
+			DropdownContainer.Parent = InputFrame
+
+			Components.CreateDropdown(
+				AllNodeIds,
+				Choice.ReturnToNodeId or (AllNodeIds[1] or "start"),
+				DropdownContainer,
+				1,
+				function(Selected: string)
+					DialogTree.SetReturnToNode(Choice, Selected)
+				end
+			)
+
+			local TextBoxContainer = Instance.new("Frame")
+			TextBoxContainer.Size = UDim2.new(0.4, -5, 1, 0)
+			TextBoxContainer.BackgroundTransparency = 1
+			TextBoxContainer.Parent = InputFrame
+
+			Components.CreateTextBox(Choice.ReturnToNodeId or "", TextBoxContainer, 1, false, function(NewText)
+				DialogTree.SetReturnToNode(Choice, NewText ~= "" and NewText or nil)
+			end)
+		end
+	end
+
+	if Choice.SkillCheck then
+		ChoiceEditor.RenderSkillCheckFields(Choice, Parent, 10, OnNavigateToNode)
+	elseif Choice.QuestTurnIn then
+		ChoiceEditor.RenderQuestTurnInFields(Choice, Parent, 10)
+	end
+
+	local CurrentChoiceType = "Simple Choice"
+	if Choice.SkillCheck then
+		CurrentChoiceType = "Skill Check"
+	elseif Choice.QuestTurnIn then
+		CurrentChoiceType = "Quest Turn-In"
+	end
+
+	Components.CreateLabel("Choice Type", Parent, 50)
+	Components.CreateDropdown(
+		CHOICE_TYPES,
+		CurrentChoiceType,
+		Parent,
+		51,
+		function(NewType: string)
+			if NewType == "Skill Check" then
+				DialogTree.ConvertToSkillCheck(Choice, "Perception", 10)
+			elseif NewType == "Quest Turn-In" then
+				DialogTree.ConvertToQuestTurnIn(Choice, "QuestID")
+			else
+				DialogTree.ConvertToSimpleChoice(Choice)
+			end
+			OnRefresh()
+		end
+	)
+
+	local _, ConditionsContent = Components.CreateCollapsibleSection(
+		"Conditions (When Choice Appears)",
+		Parent,
+		100,
+		true
+	)
+	ConditionEditor.Render(Choice, ConditionsContent, 1, OnRefresh)
+
+	local _, FlagsContent = Components.CreateCollapsibleSection(
+		"Set Flags (On Click)",
+		Parent,
+		101,
+		true
+	)
+	FlagsEditor.Render(Choice, FlagsContent, 1, OnRefresh)
+
+	local _, CommandContent = Components.CreateCollapsibleSection(
+		"Commands (On Click)",
+		Parent,
+		102,
+		true
+	)
+	CommandEditor.Render(Choice, CommandContent, 1)
+end
+
 function ChoiceEditor.Render(
 	Choice: DialogChoice,
 	Index: number,

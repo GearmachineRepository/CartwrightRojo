@@ -306,7 +306,13 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 	return GraphContainer
 end
 
-function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, OnNodeSelected: (DialogNode) -> ())
+function GraphEditor.Refresh(
+	RootNode: DialogNode?,
+	SelectedNode: DialogNode?,
+	SelectedChoice: DialogChoice?,
+	OnNodeSelected: (DialogNode) -> (),
+	OnChoiceSelected: (DialogChoice) -> ()
+)
 	if not Workspace or not LinesRoot then return end
 
 	for _, child in ipairs(Workspace:GetChildren()) do
@@ -333,6 +339,14 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 			return
 		end
 		OnNodeSelected(n)
+	end
+
+	local function guardedChoiceSelect(c: DialogChoice)
+		if InputHandler.DidDrag then
+			InputHandler.DidDrag = false
+			return
+		end
+		OnChoiceSelected(c)
 	end
 
 	local function renderNode(node: DialogNode, x: number, y: number, depth: number)
@@ -373,12 +387,13 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 
 				local choiceDefaultPos = UDim2.fromScale(choiceX, choiceY)
 				local choicePos = ChoicePositions[choice] or choiceDefaultPos
+				local isChoiceSelected = choice == SelectedChoice
 
 				local choiceFrame = NodeRenderer.CreateChoiceNode(
 					choice,
 					choicePos,
-					false,
-					function() end,
+					isChoiceSelected,
+					guardedChoiceSelect,
 					function(frame: Frame)
 						InputHandler.DragStarted(frame)
 					end,

@@ -165,11 +165,30 @@ function NodeRenderer.CreateChoiceNode(
 	OnDragStarted: (Frame) -> (),
 	OnDragEnded: (Frame) -> ()
 ): Frame
+	-- Determine color based on response type
+	local BaseColor = Color3.fromRGB(60, 80, 100)
+	local HoverColor = Color3.fromRGB(70, 90, 110)
+	local TitleBarColor = Color3.fromRGB(50, 70, 90)
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		BaseColor = Color3.fromRGB(150, 55, 50)
+		HoverColor = Color3.fromRGB(170, 65, 60)
+		TitleBarColor = Color3.fromRGB(130, 45, 40)
+	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		BaseColor = Color3.fromRGB(165, 115, 45)
+		HoverColor = Color3.fromRGB(185, 130, 55)
+		TitleBarColor = Color3.fromRGB(145, 100, 35)
+	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		BaseColor = Color3.fromRGB(95, 85, 165)
+		HoverColor = Color3.fromRGB(110, 100, 180)
+		TitleBarColor = Color3.fromRGB(80, 70, 145)
+	end
+
 	local ChoiceFrame = Instance.new("Frame")
 	ChoiceFrame.Name = "Choice_" .. Choice.ButtonText:sub(1, 10)
 	ChoiceFrame.Size = UDim2.fromOffset(NODE_WIDTH, NODE_HEIGHT)
 	ChoiceFrame.Position = Position
-	ChoiceFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or Color3.fromRGB(60, 80, 100)
+	ChoiceFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or BaseColor
 	ChoiceFrame.BorderSizePixel = 0
 	ChoiceFrame.ZIndex = 3
 
@@ -185,7 +204,7 @@ function NodeRenderer.CreateChoiceNode(
 
 	local TitleBar = Instance.new("Frame")
 	TitleBar.Size = UDim2.new(1, 0, 0, 28)
-	TitleBar.BackgroundColor3 = Color3.fromRGB(50, 70, 90)
+	TitleBar.BackgroundColor3 = TitleBarColor
 	TitleBar.BorderSizePixel = 0
 	TitleBar.ZIndex = 4
 	TitleBar.Parent = ChoiceFrame
@@ -197,7 +216,7 @@ function NodeRenderer.CreateChoiceNode(
 	local TitleCover = Instance.new("Frame")
 	TitleCover.Size = UDim2.new(1, 0, 0, 14)
 	TitleCover.Position = UDim2.fromOffset(0, 14)
-	TitleCover.BackgroundColor3 = Color3.fromRGB(50, 70, 90)
+	TitleCover.BackgroundColor3 = TitleBarColor
 	TitleCover.BorderSizePixel = 0
 	TitleCover.ZIndex = 4
 	TitleCover.Parent = TitleBar
@@ -239,7 +258,7 @@ function NodeRenderer.CreateChoiceNode(
 	Dragger.MouseEnter:Connect(function()
 		if not IsSelected then
 			TweenService:Create(ChoiceFrame, TWEEN_INFO, {
-				BackgroundColor3 = Color3.fromRGB(70, 90, 110)
+				BackgroundColor3 = HoverColor
 			}):Play()
 		end
 	end)
@@ -247,7 +266,7 @@ function NodeRenderer.CreateChoiceNode(
 	Dragger.MouseLeave:Connect(function()
 		if not IsSelected then
 			TweenService:Create(ChoiceFrame, TWEEN_INFO, {
-				BackgroundColor3 = Color3.fromRGB(60, 80, 100)
+				BackgroundColor3 = BaseColor
 			}):Play()
 		end
 	end)

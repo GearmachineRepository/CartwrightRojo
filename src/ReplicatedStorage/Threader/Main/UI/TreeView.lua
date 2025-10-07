@@ -7,109 +7,83 @@ type DialogNode = DialogTree.DialogNode
 type DialogChoice = DialogTree.DialogChoice
 
 local TreeView = {}
+local TreeFrame: Frame
 
 local TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local TreeScrollFrame: ScrollingFrame
-
-function TreeView.Create(Parent: Instance): ScrollingFrame
-	TreeScrollFrame = Instance.new("ScrollingFrame")
-	TreeScrollFrame.Size = UDim2.new(Constants.SIZES.TreeViewWidth, -10, 1, -Constants.SIZES.TopBarHeight - 10)
-	TreeScrollFrame.Position = UDim2.fromOffset(10, Constants.SIZES.TopBarHeight + 5)
-	TreeScrollFrame.BackgroundColor3 = Constants.COLORS.BackgroundLight
-	TreeScrollFrame.BorderSizePixel = 0
-	TreeScrollFrame.ScrollBarThickness = Constants.SIZES.ScrollBarThickness
-	TreeScrollFrame.CanvasSize = UDim2.fromOffset(500, 0)
-	TreeScrollFrame.Parent = Parent
+function TreeView.Create(Parent: Frame): ScrollingFrame
+	TreeFrame = Instance.new("Frame")
+	TreeFrame.Name = "TreeView"
+	TreeFrame.Size = UDim2.new(0.55, -10, 1, -Constants.SIZES.TopBarHeight - 10)
+	TreeFrame.Position = UDim2.fromOffset(5, Constants.SIZES.TopBarHeight + 5)
+	TreeFrame.BackgroundColor3 = Constants.COLORS.Panel
+	TreeFrame.BorderSizePixel = 1
+	TreeFrame.BorderColor3 = Constants.COLORS.Border
+	TreeFrame.Parent = Parent
 
 	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, Constants.SIZES.CornerRadius)
-	Corner.Parent = TreeScrollFrame
+	Corner.CornerRadius = UDim.new(0, 8)
+	Corner.Parent = TreeFrame
 
-	local TreeLayout = Instance.new("UIListLayout")
-	TreeLayout.Padding = UDim.new(0, 4)
-	TreeLayout.Parent = TreeScrollFrame
-
-	local TreePadding = Instance.new("UIPadding")
-	TreePadding.PaddingLeft = UDim.new(0, Constants.SIZES.PaddingSmall)
-	TreePadding.PaddingRight = UDim.new(0, Constants.SIZES.PaddingSmall)
-	TreePadding.PaddingTop = UDim.new(0, Constants.SIZES.PaddingSmall)
-	TreePadding.PaddingBottom = UDim.new(0, Constants.SIZES.PaddingSmall)
-	TreePadding.Parent = TreeScrollFrame
-
-	TreeLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		local MaxWidth = 300
-		for _, Child in ipairs(TreeScrollFrame:GetChildren()) do
-			if Child:IsA("Frame") then
-				local EndX = Child.Position.X.Offset + Child.Size.X.Offset
-				if EndX > MaxWidth then
-					MaxWidth = EndX
-				end
-			end
-		end
-		TreeScrollFrame.CanvasSize = UDim2.fromOffset(MaxWidth + 20, TreeLayout.AbsoluteContentSize.Y + 20)
-	end)
+	local TreeScrollFrame = Instance.new("ScrollingFrame")
+	TreeScrollFrame.Name = "TreeScrollFrame"
+	TreeScrollFrame.Size = UDim2.fromScale(1, 1)
+	TreeScrollFrame.BackgroundTransparency = 1
+	TreeScrollFrame.ScrollBarThickness = 6
+	TreeScrollFrame.ScrollBarImageColor3 = Constants.COLORS.Border
+	TreeScrollFrame.BorderSizePixel = 0
+	TreeScrollFrame.CanvasSize = UDim2.fromOffset(0, 0)
+	TreeScrollFrame.Parent = TreeFrame
 
 	return TreeScrollFrame
 end
 
 function TreeView.UpdateSize(DividerPosition: number)
-	if TreeScrollFrame then
-		TreeScrollFrame.Size = UDim2.new(DividerPosition, -10, 1, -Constants.SIZES.TopBarHeight - 10)
+	if TreeFrame then
+		TreeFrame.Size = UDim2.new(DividerPosition, -10, 1, -Constants.SIZES.TopBarHeight - 10)
 	end
 end
+
+local RenderOrder = 0
 
 local function RenderNode(
 	Node: DialogNode,
 	Parent: Instance,
 	Depth: number,
-	PathPrefix: string,
+	_: string,
 	SelectedNode: DialogNode?,
-	OnNodeSelected: (DialogNode) -> ()
+	SelectedChoice: DialogChoice?,
+	OnNodeSelected: (DialogNode) -> (),
+	OnChoiceSelected: (DialogChoice) -> ()
 )
 	local IsSelected = Node == SelectedNode
-	local IndentAmount = Depth * 20
 
 	local NodeFrame = Instance.new("Frame")
-	NodeFrame.Size = UDim2.new(1, -IndentAmount, 0, 36)
-	NodeFrame.Position = UDim2.fromOffset(IndentAmount, 0)
+	NodeFrame.Name = "Node_" .. Node.Id
+	NodeFrame.Size = UDim2.new(1, -Depth * 20, 0, 32)
 	NodeFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or Constants.COLORS.Panel
 	NodeFrame.BorderSizePixel = 0
-	NodeFrame.LayoutOrder = 0
+	NodeFrame.LayoutOrder = RenderOrder
+	RenderOrder = RenderOrder + 1
 	NodeFrame.Parent = Parent
 
 	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, Constants.SIZES.CornerRadius)
+	Corner.CornerRadius = UDim.new(0, 4)
 	Corner.Parent = NodeFrame
 
-	if Depth > 0 then
-		local Indent = Instance.new("Frame")
-		Indent.Size = UDim2.new(0, 3, 1, -8)
-		Indent.Position = UDim2.fromOffset(-8, 4)
-		Indent.BackgroundColor3 = Constants.COLORS.Border
-		Indent.BorderSizePixel = 0
-		Indent.Parent = NodeFrame
-
-		local IndentCorner = Instance.new("UICorner")
-		IndentCorner.CornerRadius = UDim.new(1, 0)
-		IndentCorner.Parent = Indent
-	end
+	local Indent = Instance.new("Frame")
+	Indent.Size = UDim2.fromOffset(Depth * 20, 32)
+	Indent.BackgroundTransparency = 1
+	Indent.Parent = NodeFrame
 
 	local NodeButton = Instance.new("TextButton")
-	NodeButton.Size = UDim2.fromScale(1, 1)
+	NodeButton.Size = UDim2.new(1, -Depth * 20, 1, 0)
+	NodeButton.Position = UDim2.fromOffset(Depth * 20, 0)
 	NodeButton.BackgroundTransparency = 1
-	NodeButton.AutoButtonColor = false
-
-	local Prefix = PathPrefix ~= "" and PathPrefix .. " " or ""
-	local TruncatedText = Node.Text:sub(1, 25)
-	if Node.Text:len() > 25 then
-		TruncatedText = TruncatedText .. "..."
-	end
-
-	NodeButton.Text = Prefix .. TruncatedText
-	NodeButton.TextColor3 = IsSelected and Constants.COLORS.TextPrimary or Constants.COLORS.TextSecondary
+	NodeButton.Text = Node.Id .. " - " .. Node.Text:sub(1, 30) .. (Node.Text:len() > 30 and "..." or "")
 	NodeButton.TextXAlignment = Enum.TextXAlignment.Left
-	NodeButton.Font = IsSelected and Constants.FONTS.Bold or Constants.FONTS.Medium
+	NodeButton.TextColor3 = IsSelected and Constants.COLORS.Primary or Constants.COLORS.TextSecondary
+	NodeButton.Font = IsSelected and Constants.FONTS.Bold or Constants.FONTS.Regular
 	NodeButton.TextSize = Constants.TEXT_SIZES.Normal
 	NodeButton.Parent = NodeFrame
 
@@ -146,18 +120,77 @@ local function RenderNode(
 
 	if Node.Choices then
 		for Index, Choice in ipairs(Node.Choices) do
-			local Letter = string.char(96 + Index)
-			local NewPath = tostring(Index) .. Letter
+			local IsChoiceSelected = Choice == SelectedChoice
+
+			local ChoiceFrame = Instance.new("Frame")
+			ChoiceFrame.Name = "Choice_" .. tostring(Index)
+			ChoiceFrame.Size = UDim2.new(1, -(Depth + 1) * 20, 0, 28)
+			ChoiceFrame.BackgroundColor3 = IsChoiceSelected and Constants.COLORS.SelectedBg or Constants.COLORS.BackgroundDark
+			ChoiceFrame.BorderSizePixel = 0
+			ChoiceFrame.LayoutOrder = RenderOrder
+			RenderOrder = RenderOrder + 1
+			ChoiceFrame.Parent = Parent
+
+			local ChoiceCorner = Instance.new("UICorner")
+			ChoiceCorner.CornerRadius = UDim.new(0, 4)
+			ChoiceCorner.Parent = ChoiceFrame
+
+			local ChoiceIndent = Instance.new("Frame")
+			ChoiceIndent.Size = UDim2.fromOffset((Depth + 1) * 20, 28)
+			ChoiceIndent.BackgroundTransparency = 1
+			ChoiceIndent.Parent = ChoiceFrame
+
+			local ChoiceButton = Instance.new("TextButton")
+			ChoiceButton.Size = UDim2.new(1, -(Depth + 1) * 20, 1, 0)
+			ChoiceButton.Position = UDim2.fromOffset((Depth + 1) * 20, 0)
+			ChoiceButton.BackgroundTransparency = 1
+			ChoiceButton.Text = "→ " .. (Choice.Id or "choice_unknown") .. " - " .. Choice.ButtonText:sub(1, 20) .. (Choice.ButtonText:len() > 20 and "..." or "")
+			ChoiceButton.TextXAlignment = Enum.TextXAlignment.Left
+			ChoiceButton.TextColor3 = IsChoiceSelected and Constants.COLORS.Primary or Constants.COLORS.Accent
+			ChoiceButton.Font = IsChoiceSelected and Constants.FONTS.Bold or Constants.FONTS.Regular
+			ChoiceButton.TextSize = Constants.TEXT_SIZES.Small
+			ChoiceButton.Parent = ChoiceFrame
+
+			local ChoicePadding = Instance.new("UIPadding")
+			ChoicePadding.PaddingLeft = UDim.new(0, 12)
+			ChoicePadding.PaddingRight = UDim.new(0, 8)
+			ChoicePadding.Parent = ChoiceButton
+
+			ChoiceButton.MouseEnter:Connect(function()
+				if not IsChoiceSelected then
+					TweenService:Create(ChoiceFrame, TWEEN_INFO, {
+						BackgroundColor3 = Constants.COLORS.PanelHover
+					}):Play()
+					TweenService:Create(ChoiceButton, TWEEN_INFO, {
+						TextColor3 = Constants.COLORS.TextPrimary
+					}):Play()
+				end
+			end)
+
+			ChoiceButton.MouseLeave:Connect(function()
+				if not IsChoiceSelected then
+					TweenService:Create(ChoiceFrame, TWEEN_INFO, {
+						BackgroundColor3 = Constants.COLORS.BackgroundDark
+					}):Play()
+					TweenService:Create(ChoiceButton, TWEEN_INFO, {
+						TextColor3 = Constants.COLORS.Accent
+					}):Play()
+				end
+			end)
+
+			ChoiceButton.MouseButton1Click:Connect(function()
+				OnChoiceSelected(Choice)
+			end)
 
 			if Choice.SkillCheck then
 				if Choice.SkillCheck.SuccessNode then
-					RenderNode(Choice.SkillCheck.SuccessNode, Parent, Depth + 1, NewPath .. "✓", SelectedNode, OnNodeSelected)
+					RenderNode(Choice.SkillCheck.SuccessNode, Parent, Depth + 2, "", SelectedNode, SelectedChoice, OnNodeSelected, OnChoiceSelected)
 				end
 				if Choice.SkillCheck.FailureNode then
-					RenderNode(Choice.SkillCheck.FailureNode, Parent, Depth + 1, NewPath .. "✗", SelectedNode, OnNodeSelected)
+					RenderNode(Choice.SkillCheck.FailureNode, Parent, Depth + 2, "", SelectedNode, SelectedChoice, OnNodeSelected, OnChoiceSelected)
 				end
 			elseif Choice.ResponseNode then
-				RenderNode(Choice.ResponseNode, Parent, Depth + 1, NewPath, SelectedNode, OnNodeSelected)
+				RenderNode(Choice.ResponseNode, Parent, Depth + 2, "", SelectedNode, SelectedChoice, OnNodeSelected, OnChoiceSelected)
 			end
 		end
 	end
@@ -167,7 +200,9 @@ function TreeView.Refresh(
 	TreeScrollFrameParam: ScrollingFrame,
 	RootNode: DialogNode?,
 	SelectedNode: DialogNode?,
-	OnNodeSelected: (DialogNode) -> ()
+	SelectedChoice: DialogChoice?,
+	OnNodeSelected: (DialogNode) -> (),
+	OnChoiceSelected: (DialogChoice) -> ()
 )
 	for _, Child in ipairs(TreeScrollFrameParam:GetChildren()) do
 		if Child:IsA("Frame") then
@@ -179,7 +214,17 @@ function TreeView.Refresh(
 		return
 	end
 
-	RenderNode(RootNode, TreeScrollFrameParam, 0, "", SelectedNode, OnNodeSelected)
+	local Layout = Instance.new("UIListLayout")
+	Layout.Padding = UDim.new(0, 4)
+	Layout.SortOrder = Enum.SortOrder.LayoutOrder
+	Layout.Parent = TreeScrollFrameParam
+
+	Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		TreeScrollFrameParam.CanvasSize = UDim2.fromOffset(0, Layout.AbsoluteContentSize.Y + 8)
+	end)
+
+	RenderOrder = 0
+	RenderNode(RootNode, TreeScrollFrameParam, 0, "", SelectedNode, SelectedChoice, OnNodeSelected, OnChoiceSelected)
 end
 
 return TreeView

@@ -18,6 +18,7 @@ export type ConditionalGreeting = {
 export type ResponseTypes = "DefaultResponse" | "ReturnToStart" | "ReturnToNode" | "EndDialog"
 
 export type DialogChoice = {
+	Id: string,
 	ButtonText: string,
 	ResponseType: ResponseTypes?,
 	ResponseNode: DialogNode?,
@@ -82,6 +83,7 @@ end
 
 function DialogTree.CreateChoice(ButtonText: string): DialogChoice
 	return {
+		Id = GenerateUniqueId("choice"),
 		ButtonText = ButtonText,
 		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE,
 		ResponseNode = DialogTree.CreateNode(GenerateUniqueId("response"), "Response text..."),
@@ -90,6 +92,7 @@ end
 
 function DialogTree.CreateSkillCheck(ButtonText: string, Skill: string, Difficulty: number): DialogChoice
 	return {
+		Id = GenerateUniqueId("choice"),
 		ButtonText = ButtonText,
 		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE,
 		SkillCheck = {
@@ -103,6 +106,7 @@ end
 
 function DialogTree.CreateQuestTurnIn(ButtonText: string, QuestId: string): DialogChoice
 	return {
+		Id = GenerateUniqueId("choice"),
 		ButtonText = ButtonText,
 		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE,
 		QuestTurnIn = {

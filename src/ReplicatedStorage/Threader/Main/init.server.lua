@@ -12,6 +12,7 @@ local ResizableDivider = require(script.UI.ResizableDivider)
 local Prompt = require(script.UI.Prompt)
 
 type DialogNode = DialogTree.DialogNode
+type DialogChoice = DialogTree.DialogChoice
 
 local ToolbarButton = plugin:CreateToolbar("Threader")
 local Button = ToolbarButton:CreateButton("Open Editor", "Create and edit dialog trees using Threader", "rbxassetid://124231195330391")
@@ -26,7 +27,7 @@ local WidgetInfo = DockWidgetPluginGuiInfo.new(
 	700
 )
 
-local Version = 2.10
+local Version = 2.11
 
 warn("Threader V" ..  tostring(Version))
 
@@ -35,6 +36,7 @@ Widget.Title = "Threader Editor Window"
 
 local CurrentTree: DialogNode? = nil
 local SelectedNode: DialogNode? = nil
+local SelectedChoice: DialogChoice? = nil
 local CurrentFileName: string = "UntitledDialog"
 
 local MainFrame = Instance.new("Frame")
@@ -53,21 +55,29 @@ local function UpdateWindowTitle()
 end
 
 local SelectNode
+local SelectChoice
 
 local function RefreshAll()
 	local CurrentView = ViewManager.GetCurrentView()
 
 	if CurrentView == "Editor" then
-		TreeView.Refresh(TreeScrollFrame, CurrentTree, SelectedNode, SelectNode)
-		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode, CurrentTree)
+		TreeView.Refresh(TreeScrollFrame, CurrentTree, SelectedNode, SelectedChoice, SelectNode, SelectChoice)
+		EditorPanel.Refresh(EditorScroll, SelectedNode, SelectedChoice, RefreshAll, SelectNode, SelectChoice, CurrentTree)
 	elseif CurrentView == "Graph" then
-		GraphEditor.Refresh(CurrentTree, SelectedNode, SelectNode)
-		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode, CurrentTree)
+		GraphEditor.Refresh(CurrentTree, SelectedNode, SelectedChoice, SelectNode, SelectChoice)
+		EditorPanel.Refresh(EditorScroll, SelectedNode, SelectedChoice, RefreshAll, SelectNode, SelectChoice, CurrentTree)
 	end
 end
 
 SelectNode = function(Node: DialogNode)
 	SelectedNode = Node
+	SelectedChoice = nil
+	RefreshAll()
+end
+
+SelectChoice = function(Choice: DialogChoice)
+	SelectedChoice = Choice
+	SelectedNode = nil
 	RefreshAll()
 end
 
@@ -84,6 +94,7 @@ local function CreateNewTree()
 
 			CurrentTree = DialogTree.CreateNode("start", "Enter greeting text here...")
 			SelectedNode = CurrentTree
+			SelectedChoice = nil
 			CurrentFileName = TreeName
 			UpdateWindowTitle()
 			RefreshAll()
@@ -97,56 +108,80 @@ local function SaveTree()
 		return
 	end
 
-	local DialogsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Dialogs")
-	if not DialogsFolder then
-		DialogsFolder = Instance.new("Folder")
-		DialogsFolder.Name = "Dialogs"
-		DialogsFolder.Parent = game:GetService("ReplicatedStorage")
+	local Success, JsonString = pcall(function()
+		return Serializer.Serialize(CurrentTree)
+	end)
+
+	if not Success then
+		warn("[YarnSpitter] Failed to serialize:", JsonString)
+		return
 	end
 
-	local SavedModule = Serializer.SaveToModule(CurrentTree, CurrentFileName)
-	if SavedModule then
-		SavedModule.Parent = DialogsFolder
-		print("[YarnSpitter] Saved tree as:", CurrentFileName)
-		UpdateWindowTitle()
+	local DataStoreFolder = game:GetService("ServerStorage"):FindFirstChild("DialogTrees")
+	if not DataStoreFolder then
+		DataStoreFolder = Instance.new("Folder")
+		DataStoreFolder.Name = "DialogTrees"
+		DataStoreFolder.Parent = game:GetService("ServerStorage")
 	end
+
+	local ExistingData = DataStoreFolder:FindFirstChild(CurrentFileName)
+	if ExistingData then
+		ExistingData:Destroy()
+	end
+
+	local DataValue = Instance.new("StringValue")
+	DataValue.Name = CurrentFileName
+	DataValue.Value = JsonString
+	DataValue.Parent = DataStoreFolder
+
+	print("[YarnSpitter] Saved dialog tree:", CurrentFileName)
+	UpdateWindowTitle()
 end
 
 local function LoadTree()
-	local DialogsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Dialogs")
-	if not DialogsFolder then
-		warn("[YarnSpitter] No Dialogs folder found!")
+	local DataStoreFolder = game:GetService("ServerStorage"):FindFirstChild("DialogTrees")
+	if not DataStoreFolder then
+		warn("[YarnSpitter] No saved trees found!")
 		return
 	end
 
-	local Modules = {}
-	for _, Child in ipairs(DialogsFolder:GetChildren()) do
-		if Child:IsA("ModuleScript") and Child:FindFirstChild("TreeData") then
-			table.insert(Modules, Child.Name)
+	local TreeNames = {}
+	for _, Child in ipairs(DataStoreFolder:GetChildren()) do
+		if Child:IsA("StringValue") then
+			table.insert(TreeNames, Child.Name)
 		end
 	end
 
-	if #Modules == 0 then
-		warn("[YarnSpitter] No saved dialog trees found!")
+	if #TreeNames == 0 then
+		warn("[YarnSpitter] No saved trees found!")
 		return
 	end
 
-	Prompt.CreateSelection(
+	Prompt.CreateDropdownPrompt(
 		Widget,
 		"Load Dialog Tree",
-		Modules,
-		function(SelectedName: string)
-			local ModuleToLoad = DialogsFolder:FindFirstChild(SelectedName)
-			if ModuleToLoad then
-				local LoadedTree = Serializer.LoadFromModule(ModuleToLoad)
-				if LoadedTree then
-					CurrentTree = LoadedTree
-					SelectedNode = CurrentTree
-					CurrentFileName = ModuleToLoad.Name
-					UpdateWindowTitle()
-					RefreshAll()
-					print("[YarnSpitter] Loaded tree:", CurrentFileName)
-				end
+		TreeNames,
+		function(SelectedTreeName: string)
+			local DataValue = DataStoreFolder:FindFirstChild(SelectedTreeName)
+			if not DataValue or not DataValue:IsA("StringValue") then
+				warn("[YarnSpitter] Tree not found:", SelectedTreeName)
+				return
+			end
+
+			local Success, LoadedTree = pcall(function()
+				return Serializer.Deserialize(DataValue.Value)
+			end)
+
+			if Success and LoadedTree then
+				CurrentTree = LoadedTree
+				SelectedNode = CurrentTree
+				SelectedChoice = nil
+				CurrentFileName = SelectedTreeName
+				UpdateWindowTitle()
+				RefreshAll()
+				print("[YarnSpitter] Loaded dialog tree:", SelectedTreeName)
+			else
+				warn("[YarnSpitter] Failed to deserialize:", LoadedTree)
 			end
 		end
 	)
@@ -159,17 +194,19 @@ local function RenameTree()
 		"Enter new name...",
 		CurrentFileName,
 		function(NewName: string)
-			if NewName ~= "" then
-				CurrentFileName = NewName
-				UpdateWindowTitle()
+			if NewName == "" then
+				return
 			end
+
+			CurrentFileName = NewName
+			UpdateWindowTitle()
 		end
 	)
 end
 
 local function GenerateCode()
 	if not CurrentTree then
-		warn("[YarnSpitter] No tree to generate!")
+		warn("[YarnSpitter] No tree to generate code from!")
 		return
 	end
 
