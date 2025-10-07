@@ -70,6 +70,8 @@ Constants.COLORS = {
 	SkillCheckFailure = Color3.fromRGB(200, 70, 65),
 	ConditionGated = Color3.fromRGB(95, 85, 140),   -- calmer purple
 	QuestGated = Color3.fromRGB(220, 155, 60),      -- match Warning
+
+	ResponseToNode = Color3.fromRGB(100, 200, 200),
 }
 
 Constants.SIZES = {

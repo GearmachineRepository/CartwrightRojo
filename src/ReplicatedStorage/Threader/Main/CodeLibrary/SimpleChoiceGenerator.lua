@@ -12,8 +12,7 @@ function SimpleChoiceGenerator.Generate(Choice: any, Depth: number): string
 		Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 		Code = Code .. Indent .. "\tnil,\n"
 		Code = Code .. Indent .. "\tnil\n"
-		Code = Code .. Indent .. "))\n"
-
+		Code = Code .. Indent .. "))\n\n"
 		return Code
 	end
 
@@ -67,7 +66,7 @@ function SimpleChoiceGenerator.GenerateNested(Choice: any, Depth: number): strin
 		local Code = Indent .. "{\n"
 		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 		Code = Code .. Indent .. "\tResponse = nil\n"
-		Code = Code .. Indent .. "},\n"
+		Code = Code .. Indent .. "},\n\n"
 		return Code
 	end
 
@@ -90,7 +89,7 @@ function SimpleChoiceGenerator.GenerateNested(Choice: any, Depth: number): strin
 		Code = Code .. Indent .. "\t\"response\"\n"
 	end
 
-	Code = Code .. Indent .. "),\n"
+	Code = Code .. Indent .. "),\n\n"
 	return Code
 end
 

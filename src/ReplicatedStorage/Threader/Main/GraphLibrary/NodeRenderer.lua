@@ -4,10 +4,11 @@ local TweenService = game:GetService("TweenService")
 local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 
 type DialogNode = DialogTree.DialogNode
+type DialogChoice = DialogTree.DialogChoice
 
 local NodeRenderer = {}
 
-local TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local NODE_WIDTH = 200
 local NODE_HEIGHT = 80
 local PORT_SIZE = 12
@@ -28,11 +29,9 @@ local function CreatePort(IsOutput: boolean, Parent: Frame, YOffset: number?, In
 
 	if IsOutput then
 		Port.Name = ("OutputPort_%d"):format(Index or 1)
-		-- outside the right edge (Blender-style)
 		Port.Position = UDim2.new(1, PORT_SIZE/2, 0, YOffset or NODE_HEIGHT/2)
 	else
 		Port.Name = "InputPort"
-		-- outside the left edge
 		Port.Position = UDim2.new(0, -PORT_SIZE/2, 0.5, 0)
 	end
 
@@ -47,19 +46,37 @@ function NodeRenderer.CreateNode(
 	OnDragStarted: (Frame) -> (),
 	OnDragEnded: (Frame) -> ()
 ): Frame
+	local StrokeColor = Constants.COLORS.TextMuted
+
+	if Node.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		StrokeColor = Constants.COLORS.Danger
+	elseif Node.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		StrokeColor = Constants.COLORS.Warning
+	elseif Node.ResponseType == DialogTree.RESPONSE_TYPES.CONTINUE_TO_RESPONSE then
+		StrokeColor = Constants.COLORS.ResponseToNode
+	end
+
 	local NodeFrame = Instance.new("Frame")
 	NodeFrame.Name = Node.Id or "Node"
 	NodeFrame.Size = UDim2.fromOffset(NODE_WIDTH, NODE_HEIGHT)
 	NodeFrame.Position = Position
-	NodeFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or Constants.COLORS.Panel
+	NodeFrame.BackgroundColor3 = Constants.COLORS.Panel
 	NodeFrame.BorderSizePixel = 0
 	NodeFrame.ZIndex = 3
 
 	local Stroke = Instance.new("UIStroke")
-	Stroke.Color = IsSelected and Constants.COLORS.Primary or Constants.COLORS.Border
-	Stroke.Thickness = IsSelected and 2 or 1
+	Stroke.Name = "SelectionStroke"
+	Stroke.Color = StrokeColor
+	Stroke.Thickness = 2
 	Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	Stroke.Parent = NodeFrame
+
+	if IsSelected then
+		TweenService:Create(Stroke, TWEEN_INFO, {
+			Color = Constants.COLORS.Primary,
+			Thickness = 3
+		}):Play()
+	end
 
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0, 8)
@@ -67,7 +84,7 @@ function NodeRenderer.CreateNode(
 
 	local TitleBar = Instance.new("Frame")
 	TitleBar.Size = UDim2.new(1, 0, 0, 32)
-	TitleBar.BackgroundColor3 = IsSelected and Constants.COLORS.PrimaryDark or Constants.COLORS.BackgroundDark
+	TitleBar.BackgroundColor3 = Constants.COLORS.BackgroundDark
 	TitleBar.BorderSizePixel = 0
 	TitleBar.ZIndex = 4
 	TitleBar.Parent = NodeFrame
@@ -79,7 +96,7 @@ function NodeRenderer.CreateNode(
 	local TitleCover = Instance.new("Frame")
 	TitleCover.Size = UDim2.new(1, 0, 0, 16)
 	TitleCover.Position = UDim2.fromOffset(0, 16)
-	TitleCover.BackgroundColor3 = IsSelected and Constants.COLORS.PrimaryDark or Constants.COLORS.BackgroundDark
+	TitleCover.BackgroundColor3 = Constants.COLORS.BackgroundDark
 	TitleCover.BorderSizePixel = 0
 	TitleCover.ZIndex = 4
 	TitleCover.Parent = TitleBar
@@ -87,7 +104,7 @@ function NodeRenderer.CreateNode(
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Size = UDim2.fromScale(1, 1)
 	TitleLabel.Text = Node.Id or "Node"
-	TitleLabel.TextColor3 = Constants.COLORS.TextPrimary
+	TitleLabel.TextColor3 = StrokeColor
 	TitleLabel.BackgroundTransparency = 1
 	TitleLabel.Font = Constants.FONTS.Bold
 	TitleLabel.TextSize = Constants.TEXT_SIZES.Normal
@@ -108,16 +125,16 @@ function NodeRenderer.CreateNode(
 	ContentLabel.ZIndex = 4
 	ContentLabel.Parent = NodeFrame
 
-    CreatePort(false, NodeFrame) -- input
+	CreatePort(false, NodeFrame)
 
-    if Node.Choices and #Node.Choices > 0 then
-        local PortSpacing = NODE_HEIGHT / (#Node.Choices + 1)
-        for i = 1, #Node.Choices do
-            CreatePort(true, NodeFrame, PortSpacing * i, i)
-        end
-    else
-        CreatePort(true, NodeFrame, NODE_HEIGHT/2, 1)
-    end
+	if Node.Choices and #Node.Choices > 0 then
+		local PortSpacing = NODE_HEIGHT / (#Node.Choices + 1)
+		for i = 1, #Node.Choices do
+			CreatePort(true, NodeFrame, PortSpacing * i, i)
+		end
+	else
+		CreatePort(true, NodeFrame, NODE_HEIGHT/2, 1)
+	end
 
 	local Dragger = Instance.new("TextButton")
 	Dragger.Size = UDim2.fromScale(1, 1)
@@ -165,38 +182,40 @@ function NodeRenderer.CreateChoiceNode(
 	OnDragStarted: (Frame) -> (),
 	OnDragEnded: (Frame) -> ()
 ): Frame
-	-- Determine color based on response type
-	local BaseColor = Color3.fromRGB(60, 80, 100) -- Default
-	local HoverColor = Color3.fromRGB(70, 90, 110)
-	local TitleBarColor = Color3.fromRGB(50, 70, 90)
+	local BaseColor = Constants.COLORS.Card
+	local HoverColor = Constants.COLORS.PanelHover
+	local TitleBarColor = Constants.COLORS.BackgroundDark
+	local StrokeColor = Constants.COLORS.Accent
 
 	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
-		BaseColor = Color3.fromRGB(150, 55, 50) -- Red
-		HoverColor = Color3.fromRGB(170, 65, 60)
-		TitleBarColor = Color3.fromRGB(130, 45, 40)
+		StrokeColor = Constants.COLORS.Danger
 	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
-		BaseColor = Color3.fromRGB(165, 115, 45) -- Orange
-		HoverColor = Color3.fromRGB(185, 130, 55)
-		TitleBarColor = Color3.fromRGB(145, 100, 35)
+		StrokeColor = Constants.COLORS.Warning
 	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
-		BaseColor = Color3.fromRGB(95, 85, 165) -- Purple
-		HoverColor = Color3.fromRGB(110, 100, 180)
-		TitleBarColor = Color3.fromRGB(80, 70, 145)
+		StrokeColor = Color3.fromRGB(130, 115, 200) -- Purple
 	end
 
 	local ChoiceFrame = Instance.new("Frame")
 	ChoiceFrame.Name = "Choice_" .. Choice.ButtonText:sub(1, 10)
 	ChoiceFrame.Size = UDim2.fromOffset(NODE_WIDTH, NODE_HEIGHT)
 	ChoiceFrame.Position = Position
-	ChoiceFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or BaseColor
+	ChoiceFrame.BackgroundColor3 = BaseColor
 	ChoiceFrame.BorderSizePixel = 0
 	ChoiceFrame.ZIndex = 3
 
 	local Stroke = Instance.new("UIStroke")
-	Stroke.Color = IsSelected and Constants.COLORS.Primary or Constants.COLORS.Accent
+	Stroke.Name = "SelectionStroke"
+	Stroke.Color = StrokeColor
 	Stroke.Thickness = 2
 	Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	Stroke.Parent = ChoiceFrame
+
+	if IsSelected then
+		TweenService:Create(Stroke, TWEEN_INFO, {
+			Color = Constants.COLORS.Primary,
+			Thickness = 3
+		}):Play()
+	end
 
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0, 8)
@@ -224,7 +243,7 @@ function NodeRenderer.CreateChoiceNode(
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Size = UDim2.fromScale(1, 1)
 	TitleLabel.Text = Choice.Id or "choice"
-	TitleLabel.TextColor3 = Constants.COLORS.Accent
+	TitleLabel.TextColor3 = StrokeColor
 	TitleLabel.BackgroundTransparency = 1
 	TitleLabel.Font = Constants.FONTS.Bold
 	TitleLabel.TextSize = 11

@@ -6,7 +6,10 @@ export type DialogNode = {
 	Text: string,
 	Choices: {DialogChoice}?,
 	Greetings: {ConditionalGreeting}?,
-	LoopBehavior: string?
+	LoopBehavior: string?,
+	ResponseType: ResponseTypes?,
+	NextResponseNode: DialogNode?,
+	ReturnToNodeId: string?
 }
 
 export type ConditionalGreeting = {
@@ -15,7 +18,7 @@ export type ConditionalGreeting = {
 	GreetingText: string
 }
 
-export type ResponseTypes = "DefaultResponse" | "ReturnToStart" | "ReturnToNode" | "EndDialog"
+export type ResponseTypes = "DefaultResponse" | "ReturnToStart" | "ReturnToNode" | "EndDialog" | "ContinueToResponse"
 
 export type DialogChoice = {
 	Id: string,
@@ -58,7 +61,8 @@ local RESPONSE_TYPES = {
 	DEFAULT_RESPONSE = "DefaultResponse",
 	RETURN_TO_START = "ReturnToStart",
 	RETURN_TO_NODE = "ReturnToNode",
-	END_DIALOG = "EndDialog"
+	END_DIALOG = "EndDialog",
+	CONTINUE_TO_RESPONSE = "ContinueToResponse"
 }
 
 DialogTree.LOOP_BEHAVIORS = LOOP_BEHAVIORS
@@ -77,7 +81,8 @@ function DialogTree.CreateNode(Id: string, Text: string): DialogNode
 		Text = Text,
 		Choices = {},
 		Greetings = {},
-		LoopBehavior = LOOP_BEHAVIORS.END_DIALOG
+		LoopBehavior = LOOP_BEHAVIORS.END_DIALOG,
+		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE
 	}
 end
 
@@ -117,7 +122,7 @@ function DialogTree.CreateQuestTurnIn(ButtonText: string, QuestId: string): Dial
 end
 
 function DialogTree.SetResponseType(Choice: DialogChoice, ResponseType: string)
-	if 	ResponseType == RESPONSE_TYPES.END_DIALOG then
+	if ResponseType == RESPONSE_TYPES.END_DIALOG then
 		Choice.ResponseType = ResponseType
 		Choice.ResponseNode = nil
 		Choice.ReturnToNodeId = nil
@@ -138,6 +143,34 @@ function DialogTree.SetResponseType(Choice: DialogChoice, ResponseType: string)
 		Choice.ResponseType = ResponseType
 		Choice.ResponseNode = nil
 	end
+end
+
+function DialogTree.SetNodeResponseType(Node: DialogNode, ResponseType: string)
+	if ResponseType == RESPONSE_TYPES.END_DIALOG then
+		Node.ResponseType = ResponseType
+		Node.NextResponseNode = nil
+		Node.ReturnToNodeId = nil
+		return
+	end
+
+	if ResponseType == RESPONSE_TYPES.DEFAULT_RESPONSE or ResponseType == RESPONSE_TYPES.RETURN_TO_START then
+		Node.ResponseType = ResponseType
+		Node.NextResponseNode = nil
+		Node.ReturnToNodeId = nil
+	elseif ResponseType == RESPONSE_TYPES.RETURN_TO_NODE then
+		Node.ResponseType = ResponseType
+		Node.NextResponseNode = nil
+	elseif ResponseType == RESPONSE_TYPES.CONTINUE_TO_RESPONSE then
+		Node.ResponseType = ResponseType
+		if not Node.NextResponseNode then
+			Node.NextResponseNode = DialogTree.CreateNode(GenerateUniqueId("response"), "Continued response...")
+		end
+		Node.ReturnToNodeId = nil
+	end
+end
+
+function DialogTree.SetNodeReturnToNode(Node: DialogNode, NodeId: string?)
+	Node.ReturnToNodeId = NodeId
 end
 
 function DialogTree.AddChoice(Node: DialogNode, Choice: DialogChoice)
@@ -223,6 +256,11 @@ function DialogTree.FindNodeById(Root: DialogNode, Id: string): DialogNode?
 		end
 	end
 
+	if Root.NextResponseNode then
+		local Found = DialogTree.FindNodeById(Root.NextResponseNode, Id)
+		if Found then return Found end
+	end
+
 	return nil
 end
 
@@ -251,6 +289,10 @@ function DialogTree.GetAllNodeIds(Root: DialogNode): {string}
 					end
 				end
 			end
+		end
+
+		if Node.NextResponseNode then
+			Traverse(Node.NextResponseNode)
 		end
 	end
 

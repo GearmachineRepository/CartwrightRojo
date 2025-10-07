@@ -64,6 +64,7 @@ local function UpdateLines()
 
 	local drew = false
 
+	-- Draw lines from nodes to their choices
 	for node, nodeFrame in pairs(NodeFrames) do
 		if node.Choices then
 			for index, choice in ipairs(node.Choices) do
@@ -89,8 +90,62 @@ local function UpdateLines()
 				end
 			end
 		end
+
+		-- Draw line for NextResponseNode (Continue to Response)
+		if node.NextResponseNode then
+			local targetFrame = NodeFrames[node.NextResponseNode]
+			if targetFrame then
+				local inputPort = targetFrame:FindFirstChild("InputPort") :: Frame?
+				local outputPort = nodeFrame:FindFirstChild("OutputPort_1") :: Frame?
+				if inputPort and outputPort then
+					local sAbs = outputPort.AbsolutePosition + outputPort.AbsoluteSize/2
+					local eAbs = inputPort.AbsolutePosition + inputPort.AbsoluteSize/2
+					local startLocal = (sAbs - wsPos) / scale
+					local endLocal = (eAbs - wsPos) / scale
+
+					local container = Instance.new("Frame")
+					container.BackgroundTransparency = 1
+					container.Size = UDim2.fromScale(1, 1)
+					container.ZIndex = 1000
+					container.Parent = drawParent
+
+					-- Cyan/teal color for continuation
+					BezierDrawer.DrawCurve(3, 80, startLocal, endLocal, Constants.COLORS.ResponseToNode, container)
+					drew = true
+				end
+			end
+		end
+
+		-- Draw line for ReturnToNode
+		if node.ReturnToNodeId and node.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+			local returnTargetNode = DialogTree.FindNodeById(CurrentRootNode, node.ReturnToNodeId)
+			if returnTargetNode then
+				local returnTargetFrame = NodeFrames[returnTargetNode]
+				if returnTargetFrame then
+					local inputPort = returnTargetFrame:FindFirstChild("InputPort") :: Frame?
+					local outputPort = nodeFrame:FindFirstChild("OutputPort_1") :: Frame?
+					if inputPort and outputPort then
+						local sAbs = outputPort.AbsolutePosition + outputPort.AbsoluteSize/2
+						local eAbs = inputPort.AbsolutePosition + inputPort.AbsoluteSize/2
+						local startLocal = (sAbs - wsPos) / scale
+						local endLocal = (eAbs - wsPos) / scale
+
+						local container = Instance.new("Frame")
+						container.BackgroundTransparency = 1
+						container.Size = UDim2.fromScale(1, 1)
+						container.ZIndex = 1000
+						container.Parent = drawParent
+
+						-- Purple for return to node
+						BezierDrawer.DrawCurve(4, 100, startLocal, endLocal, Color3.fromRGB(130, 115, 200), container)
+						drew = true
+					end
+				end
+			end
+		end
 	end
 
+	-- Draw lines from choices to their targets
 	for choice, choiceFrame in pairs(ChoiceFrames) do
 		local targets = table.create(3)
 
@@ -128,6 +183,7 @@ local function UpdateLines()
 			end
 		end
 
+		-- Draw line for Choice ReturnToNode
 		if choice.ReturnToNodeId then
 			local returnTargetNode = DialogTree.FindNodeById(CurrentRootNode, choice.ReturnToNodeId)
 			if returnTargetNode then
@@ -147,7 +203,8 @@ local function UpdateLines()
 						container.ZIndex = 1000
 						container.Parent = drawParent
 
-						BezierDrawer.DrawCurve(4, 100, startLocal, endLocal, Constants.COLORS.Accent, container)
+						-- Purple for return to node
+						BezierDrawer.DrawCurve(4, 100, startLocal, endLocal, Color3.fromRGB(130, 115, 200), container)
 						drew = true
 					end
 				end
@@ -380,6 +437,8 @@ function GraphEditor.Refresh(
 		end
 
 		local nextY = y
+
+		-- Render choices
 		if node.Choices then
 			for _, choice in ipairs(node.Choices) do
 				local choiceX = x + 0.15
@@ -425,6 +484,13 @@ function GraphEditor.Refresh(
 					nextY += 0.15
 				end
 			end
+		end
+
+		-- Render NextResponseNode (response chaining)
+		if node.NextResponseNode then
+			local nextX = x + 0.15
+			nextY = y + 0.05
+			renderNode(node.NextResponseNode, nextX, nextY, depth + 1)
 		end
 	end
 
