@@ -1,10 +1,30 @@
 --!strict
 local Helpers = require(script.Parent.Helpers)
+local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 
 local SimpleChoiceGenerator = {}
 
 function SimpleChoiceGenerator.Generate(Choice: any, Depth: number): string
 	local Indent = Helpers.GetIndent(Depth)
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		local Code = Indent .. "table.insert(Choices, DialogHelpers.CreateSimpleChoice(\n"
+		Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tnil,\n"
+		Code = Code .. Indent .. "\tnil\n"
+		Code = Code .. Indent .. "))\n"
+
+		return Code
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		return ""
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		return ""
+	end
+
 	local Code = Indent .. "table.insert(Choices, DialogHelpers.CreateSimpleChoice(\n"
 	Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 
@@ -42,6 +62,23 @@ end
 
 function SimpleChoiceGenerator.GenerateNested(Choice: any, Depth: number): string
 	local Indent = Helpers.GetIndent(Depth)
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil\n"
+		Code = Code .. Indent .. "},\n"
+		return Code
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		return ""
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		return ""
+	end
+
 	local Code = Indent .. "DialogHelpers.CreateSimpleChoice(\n"
 	Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 

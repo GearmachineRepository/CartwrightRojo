@@ -26,6 +26,7 @@ local MAX_DISTANCE = 17
 local ActiveNpcModel: Model? = nil
 local IsInDialog = false
 local CurrentHighlight: Highlight? = nil
+local NpcStartPosition: Vector3 = Vector3.zero
 --local CurrentButtons: {Instance} = {}
 local CurrentConnections: {RBXScriptConnection} = {}
 
@@ -101,7 +102,12 @@ ShowDialogRemote.OnClientEvent:Connect(function(NpcModel: Model, Text: string, C
 
 	CleanupDialog()
 
-	DialogText.NpcText(NpcModel, Text, true)
+	local _, DialogForcedEnd = DialogText.NpcText(NpcModel, Text, true)
+
+	if DialogForcedEnd then
+		CancelDialog()
+		return
+	end
 
 	if Choices and #Choices > 0 then
 		local Buttons = DialogText.ShowChoices(LocalPlayer, Choices)
@@ -128,7 +134,6 @@ ShowDialogRemote.OnClientEvent:Connect(function(NpcModel: Model, Text: string, C
 	end
 end)
 
-local NpcStartPosition: Vector3 = Vector3.zero
 
 task.spawn(function()
 	while true do

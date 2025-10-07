@@ -465,6 +465,7 @@ function DialogHelpers.CreateSimpleChoice(
 	Command: ((Player) -> ())?,
 	SetFlags: {string}?
 ): {Text: string, Response: any}
+
 	local Choice: any = {
 		Text = Text,
 		Response = CreateSimpleResponse(Id or "simple_choice", ResponseText, SetFlags)

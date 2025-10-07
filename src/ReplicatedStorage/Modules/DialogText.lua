@@ -191,8 +191,15 @@ function DialogText.NpcText(NpcModel: Model, Message: string, EnableScripts: boo
 		end
 	end
 
-	Gui.TextLabel.Text = Message
-	TypewriterEffect(Gui.TextLabel, true)
+	local End = false
+	if Message then
+		Gui.TextLabel.Text = Message
+		TypewriterEffect(Gui.TextLabel, true)
+	else
+		Gui.TextLabel.Text = ""
+		TypewriterEffect(Gui.TextLabel, true)
+		End = true
+	end
 
 	if EnableScripts then
 		for _, TemplateScript in ipairs(DialogUI:GetDescendants()) do
@@ -208,7 +215,7 @@ function DialogText.NpcText(NpcModel: Model, Message: string, EnableScripts: boo
 		end
 	end
 
-	return Gui
+	return Gui, End
 end
 
 function DialogText.ShowChoices(Player: Player, Options: {string}): {Instance}

@@ -1,4 +1,10 @@
 --!strict
+local RunService = game:GetService("RunService")
+
+if not RunService.IsStudio or not RunService:IsEdit() then
+	return
+end
+
 local Constants = require(script.Constants)
 local DialogTree = require(script.Data.DialogTree)
 local CodeGenerator = require(script.Data.CodeGenerator)

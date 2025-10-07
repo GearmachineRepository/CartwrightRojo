@@ -46,6 +46,18 @@ end
 end
 
 function CodeGenerator.GenerateChoiceCode(Choice: DialogChoice, Depth: number): string
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		return SimpleChoiceGen.Generate(Choice, Depth)
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		return SimpleChoiceGen.Generate(Choice, Depth)
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		return SimpleChoiceGen.Generate(Choice, Depth)
+	end
+
 	local HasConditions = Choice.Conditions and #Choice.Conditions > 0
 	local HasSkillCheck = Choice.SkillCheck ~= nil
 	local HasQuestTurnIn = Choice.QuestTurnIn ~= nil

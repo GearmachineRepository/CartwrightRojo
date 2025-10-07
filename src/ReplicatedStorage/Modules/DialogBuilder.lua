@@ -102,7 +102,7 @@ function DialogBuilder.CreateQuestOfferNode(QuestId: string, OfferText: string, 
 	}
 end
 
--- NEW: BuildQuestOffer - Creates flexible quest offer with multiple info options
+-- Creates flexible quest offer with multiple info options
 function DialogBuilder.BuildQuestOffer(Offer: QuestOffer): {Text: string, Response: DialogNode}
 	local AcceptText = Offer.AcceptText or "Thank you! Good luck!"
 	local DeclineText = Offer.DeclineText or "Come back if you change your mind."

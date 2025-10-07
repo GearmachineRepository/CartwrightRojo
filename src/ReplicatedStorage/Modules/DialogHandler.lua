@@ -234,6 +234,7 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 
 	for _, Choice in ipairs(CurrentNode.Choices) do
 		if Choice.Text == ChoiceText then
+			-- Skill check logic
 			if Choice.SkillCheckSuccess ~= nil then
 				local SoundName = Choice.SkillCheckSuccess and "SkillCheckSuccess" or "SkillCheckFailure"
 				PlaySkillCheckSoundRemote:FireClient(Player, SoundName)
@@ -244,12 +245,14 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 				end
 			end
 
+			-- Run command if present
 			if typeof(Choice.Command) == "function" then
 				pcall(function()
 					Choice.Command(Player)
 				end)
 			end
 
+			-- Handle response if it exists
 			if Choice.Response then
 				if Choice.Response.Choices and #Choice.Response.Choices == 0 and Choice.ReturnToNodeId then
 					local ReturnNode = FindNodeById(Session.DialogTree, Choice.ReturnToNodeId)
@@ -262,22 +265,24 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 				end
 
 				ShowNodeToClient(Session, Choice.Response)
+				return
+
+			-- Fallback to ReturnToNodeId if present
 			elseif Choice.ReturnToNodeId then
 				local ReturnNode = FindNodeById(Session.DialogTree, Choice.ReturnToNodeId)
 				if ReturnNode then
 					ShowNodeToClient(Session, ReturnNode)
+					return
 				else
 					warn("[DialogHandler] ReturnToNodeId not found:", Choice.ReturnToNodeId)
-					ActiveSessions[Player] = nil
-					if typeof(Session.OnFinished) == "function" then
-						Session.OnFinished()
-					end
 				end
-			else
-				ActiveSessions[Player] = nil
-				if typeof(Session.OnFinished) == "function" then
-					Session.OnFinished()
-				end
+			end
+
+			-- Fallback end dialog if no Response or ReturnToNodeId
+			ActiveSessions[Player] = nil
+			ShowDialogRemote:FireClient(Player, Session.NpcModel, "", nil, true)
+			if typeof(Session.OnFinished) == "function" then
+				Session.OnFinished()
 			end
 			return
 		end
