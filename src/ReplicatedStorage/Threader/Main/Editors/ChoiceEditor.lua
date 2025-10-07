@@ -244,12 +244,21 @@ function ChoiceEditor.RenderStandalone(
 	end
 
 	Components.CreateLabel("Response Type", Parent, 5)
+
+	local CurrentResponseType = "Default Response"
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+		CurrentResponseType = "Default Response"
+	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		CurrentResponseType = "Return to Start"
+	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		CurrentResponseType = "Return to Node"
+	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		CurrentResponseType = "End Dialog"
+	end
+
 	Components.CreateDropdown(
 		{"Default Response", "Return to Start", "Return to Node", "End Dialog"},
-		Choice.ResponseType == DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE and "Default Response" or
-		Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START and "Return to Start" or
-		Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE and "Return to Node" or
-		"End Dialog",
+		CurrentResponseType,
 		Parent,
 		6,
 		function(Selected: string)
@@ -263,7 +272,7 @@ function ChoiceEditor.RenderStandalone(
 					local AllNodeIds = DialogTree.GetAllNodeIds(CurrentTree)
 					Choice.ReturnToNodeId = AllNodeIds[1] or "start"
 				end
-			else
+			elseif Selected == "End Dialog" then
 				DialogTree.SetResponseType(Choice, DialogTree.RESPONSE_TYPES.END_DIALOG)
 			end
 			OnRefresh()

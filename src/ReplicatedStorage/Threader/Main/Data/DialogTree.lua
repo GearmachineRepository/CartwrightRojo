@@ -117,6 +117,13 @@ function DialogTree.CreateQuestTurnIn(ButtonText: string, QuestId: string): Dial
 end
 
 function DialogTree.SetResponseType(Choice: DialogChoice, ResponseType: string)
+	if 	ResponseType == RESPONSE_TYPES.END_DIALOG then
+		Choice.ResponseType = ResponseType
+		Choice.ResponseNode = nil
+		Choice.ReturnToNodeId = nil
+		return
+	end
+
 	if ResponseType == RESPONSE_TYPES.DEFAULT_RESPONSE then
 		Choice.ResponseType = ResponseType
 		if not Choice.ResponseNode then

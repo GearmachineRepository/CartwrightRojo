@@ -166,20 +166,20 @@ function NodeRenderer.CreateChoiceNode(
 	OnDragEnded: (Frame) -> ()
 ): Frame
 	-- Determine color based on response type
-	local BaseColor = Color3.fromRGB(60, 80, 100)
+	local BaseColor = Color3.fromRGB(60, 80, 100) -- Default
 	local HoverColor = Color3.fromRGB(70, 90, 110)
 	local TitleBarColor = Color3.fromRGB(50, 70, 90)
 
 	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
-		BaseColor = Color3.fromRGB(150, 55, 50)
+		BaseColor = Color3.fromRGB(150, 55, 50) -- Red
 		HoverColor = Color3.fromRGB(170, 65, 60)
 		TitleBarColor = Color3.fromRGB(130, 45, 40)
 	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
-		BaseColor = Color3.fromRGB(165, 115, 45)
+		BaseColor = Color3.fromRGB(165, 115, 45) -- Orange
 		HoverColor = Color3.fromRGB(185, 130, 55)
 		TitleBarColor = Color3.fromRGB(145, 100, 35)
 	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
-		BaseColor = Color3.fromRGB(95, 85, 165)
+		BaseColor = Color3.fromRGB(95, 85, 165) -- Purple
 		HoverColor = Color3.fromRGB(110, 100, 180)
 		TitleBarColor = Color3.fromRGB(80, 70, 145)
 	end
@@ -223,7 +223,7 @@ function NodeRenderer.CreateChoiceNode(
 
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Size = UDim2.fromScale(1, 1)
-	TitleLabel.Text = "CHOICE"
+	TitleLabel.Text = Choice.Id or "choice"
 	TitleLabel.TextColor3 = Constants.COLORS.Accent
 	TitleLabel.BackgroundTransparency = 1
 	TitleLabel.Font = Constants.FONTS.Bold

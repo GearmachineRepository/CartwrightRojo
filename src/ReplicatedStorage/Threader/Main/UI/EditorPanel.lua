@@ -224,7 +224,7 @@ function EditorPanel.RenderChoiceEditor(
 		local ParentNode = FindParentNodeForChoice(CurrentTree, Choice)
 		if ParentNode and ParentNode.Choices then
 			Prompt.CreateConfirmation(
-				EditorScroll.Parent.Parent.Parent,
+				EditorScroll:FindFirstAncestorWhichIsA("ScreenGui") or EditorScroll.Parent.Parent.Parent,
 				"Delete Choice",
 				"Are you sure you want to delete this choice? This action cannot be undone.",
 				"Delete",
@@ -269,7 +269,7 @@ function EditorPanel.RenderNodeEditor(
 	EditorScroll: ScrollingFrame,
 	SelectedNode: DialogNode,
 	OnRefresh: () -> (),
-	_: (DialogNode) -> (),
+	OnNavigateToNode: (DialogNode) -> (),
 	OnNavigateToChoice: (DialogChoice) -> (),
 	CurrentTree: DialogNode?
 )
@@ -312,7 +312,7 @@ function EditorPanel.RenderNodeEditor(
 
 		DeleteButton.MouseButton1Click:Connect(function()
 			Prompt.CreateConfirmation(
-				EditorScroll.Parent.Parent.Parent,
+				EditorScroll:FindFirstAncestorWhichIsA("ScreenGui") or EditorScroll.Parent.Parent.Parent,
 				"Delete Response Node",
 				"Deleting this response node will set its parent choice to 'End Dialog'. Continue?",
 				"Delete",
@@ -323,8 +323,8 @@ function EditorPanel.RenderNodeEditor(
 								for _, Choice in ipairs(Node.Choices) do
 									if Choice.ResponseNode == SelectedNode then
 										Choice.ResponseNode = nil
-										DialogTree.SetResponseType(Choice, DialogTree.RESPONSE_TYPES.END_DIALOG)
-										OnRefresh()
+										Choice.ResponseType = DialogTree.RESPONSE_TYPES.END_DIALOG
+										OnNavigateToNode(Node)
 										return true
 									end
 
@@ -418,7 +418,7 @@ function EditorPanel.RenderNodeEditor(
 	for Index, Greeting in ipairs(SelectedNode.Greetings) do
 		local GreetingFrame = Instance.new("Frame")
 		GreetingFrame.Name = "Greeting_" .. tostring(Index)
-		GreetingFrame.Size = UDim2.new(1, 0, 0, 220)
+		GreetingFrame.Size = UDim2.new(1, 0, 0, 100)
 		GreetingFrame.BackgroundColor3 = Constants.COLORS.BackgroundDark
 		GreetingFrame.BorderSizePixel = 1
 		GreetingFrame.BorderColor3 = Constants.COLORS.Border
@@ -460,6 +460,10 @@ function EditorPanel.RenderNodeEditor(
 			DialogTree.RemoveGreeting(SelectedNode, Index)
 			OnRefresh()
 		end)
+
+		GreetingLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			GreetingFrame.Size = UDim2.new(1, 0, 0, GreetingLayout.AbsoluteContentSize.Y + 16)
+		end)
 	end
 
 	Components.CreateButton("+ Add Greeting", GreetingsContent, 1000, Constants.COLORS.Accent, function()
@@ -497,15 +501,29 @@ function EditorPanel.RenderNodeEditor(
 		ButtonLayout.Padding = UDim.new(0, 6)
 		ButtonLayout.Parent = ButtonContainer
 
-		Components.CreateButton(
-			"→ " .. (ChoiceLink.Id or "choice"),
-			ButtonContainer,
-			1,
-			Constants.COLORS.Accent,
-			function()
-				OnNavigateToChoice(ChoiceLink)
-			end
-		)
+		local ChoiceLinkButton = Instance.new("TextButton")
+		ChoiceLinkButton.Size = UDim2.new(1, -66, 0, 32)
+		ChoiceLinkButton.Text = "→ " .. (ChoiceLink.Id or "choice")
+		ChoiceLinkButton.TextColor3 = Constants.COLORS.TextPrimary
+		ChoiceLinkButton.BackgroundColor3 = Constants.COLORS.Accent
+		ChoiceLinkButton.BorderSizePixel = 0
+		ChoiceLinkButton.Font = Constants.FONTS.Medium
+		ChoiceLinkButton.TextSize = 13
+		ChoiceLinkButton.AutoButtonColor = false
+		ChoiceLinkButton.TextXAlignment = Enum.TextXAlignment.Left
+		ChoiceLinkButton.Parent = ButtonContainer
+
+		local ChoiceLinkCorner = Instance.new("UICorner")
+		ChoiceLinkCorner.CornerRadius = UDim.new(0, 4)
+		ChoiceLinkCorner.Parent = ChoiceLinkButton
+
+		local ChoiceLinkPadding = Instance.new("UIPadding")
+		ChoiceLinkPadding.PaddingLeft = UDim.new(0, 8)
+		ChoiceLinkPadding.Parent = ChoiceLinkButton
+
+		ChoiceLinkButton.MouseButton1Click:Connect(function()
+			OnNavigateToChoice(ChoiceLink)
+		end)
 
 		local DeleteChoiceBtn = Instance.new("TextButton")
 		DeleteChoiceBtn.Size = UDim2.fromOffset(60, 32)
@@ -524,7 +542,7 @@ function EditorPanel.RenderNodeEditor(
 
 		DeleteChoiceBtn.MouseButton1Click:Connect(function()
 			Prompt.CreateConfirmation(
-				EditorScroll.Parent.Parent.Parent,
+				EditorScroll:FindFirstAncestorWhichIsA("ScreenGui") or EditorScroll.Parent.Parent.Parent,
 				"Delete Choice",
 				"Are you sure you want to delete this choice? This action cannot be undone.",
 				"Delete",

@@ -264,7 +264,7 @@ function Prompt.CreateConfirmation(
 	ButtonContainer.Size = UDim2.new(1, -40, 0, 40)
 	ButtonContainer.Position = UDim2.new(0, 20, 1, -50)
 	ButtonContainer.BackgroundTransparency = 1
-	ButtonContainer.ZIndex = 10002
+	ButtonContainer.ZIndex = 10004  -- Changed from 10002
 	ButtonContainer.Parent = Dialog
 
 	local ButtonLayout = Instance.new("UIListLayout")
@@ -282,7 +282,7 @@ function Prompt.CreateConfirmation(
 	CancelButton.TextSize = 14
 	CancelButton.BorderSizePixel = 0
 	CancelButton.AutoButtonColor = false
-	CancelButton.ZIndex = 1003
+	CancelButton.ZIndex = 10005  -- Changed from 1003
 	CancelButton.Parent = ButtonContainer
 
 	local CancelCorner = Instance.new("UICorner")
@@ -298,7 +298,7 @@ function Prompt.CreateConfirmation(
 	ConfirmButton.TextSize = 14
 	ConfirmButton.BorderSizePixel = 0
 	ConfirmButton.AutoButtonColor = false
-	ConfirmButton.ZIndex = 1003
+	ConfirmButton.ZIndex = 10005  -- Changed from 1003
 	ConfirmButton.Parent = ButtonContainer
 
 	local ConfirmCorner = Instance.new("UICorner")
