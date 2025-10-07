@@ -5,7 +5,8 @@ export type DialogNode = {
 	Id: string,
 	Text: string,
 	Choices: {DialogChoice}?,
-	Greetings: {ConditionalGreeting}?
+	Greetings: {ConditionalGreeting}?,
+	LoopBehavior: string?
 }
 
 export type ConditionalGreeting = {
@@ -14,9 +15,13 @@ export type ConditionalGreeting = {
 	GreetingText: string
 }
 
+export type ResponseTypes = "DefaultResponse" | "ReturnToStart" | "ReturnToNode" | "EndDialog"
+
 export type DialogChoice = {
 	ButtonText: string,
+	ResponseType: ResponseTypes?,
 	ResponseNode: DialogNode?,
+	ReturnToNodeId: string?,
 	SkillCheck: SkillCheckData?,
 	QuestTurnIn: QuestTurnInData?,
 	Conditions: {ConditionData}?,
@@ -42,30 +47,56 @@ export type QuestTurnInData = {
 	ResponseText: string
 }
 
+local LOOP_BEHAVIORS = {
+	END_DIALOG = "EndDialog",
+	LOOP_TO_START = "LoopToStart",
+	LOOP_TO_NODE = "LoopToNode"
+}
+
+local RESPONSE_TYPES = {
+	DEFAULT_RESPONSE = "DefaultResponse",
+	RETURN_TO_START = "ReturnToStart",
+	RETURN_TO_NODE = "ReturnToNode",
+	END_DIALOG = "EndDialog"
+}
+
+DialogTree.LOOP_BEHAVIORS = LOOP_BEHAVIORS
+DialogTree.RESPONSE_TYPES = RESPONSE_TYPES
+
+local NodeIdCounter = 0
+
+local function GenerateUniqueId(Prefix: string): string
+	NodeIdCounter = NodeIdCounter + 1
+	return Prefix .. "_" .. tostring(NodeIdCounter)
+end
+
 function DialogTree.CreateNode(Id: string, Text: string): DialogNode
 	return {
 		Id = Id,
 		Text = Text,
 		Choices = {},
-		Greetings = {}
+		Greetings = {},
+		LoopBehavior = LOOP_BEHAVIORS.END_DIALOG
 	}
 end
 
 function DialogTree.CreateChoice(ButtonText: string): DialogChoice
 	return {
 		ButtonText = ButtonText,
-		ResponseNode = DialogTree.CreateNode("response", "Response text..."),
+		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE,
+		ResponseNode = DialogTree.CreateNode(GenerateUniqueId("response"), "Response text..."),
 	}
 end
 
 function DialogTree.CreateSkillCheck(ButtonText: string, Skill: string, Difficulty: number): DialogChoice
 	return {
 		ButtonText = ButtonText,
+		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE,
 		SkillCheck = {
 			Skill = Skill,
 			Difficulty = Difficulty,
-			SuccessNode = DialogTree.CreateNode("success", "Success response..."),
-			FailureNode = DialogTree.CreateNode("failure", "Failure response...")
+			SuccessNode = DialogTree.CreateNode(GenerateUniqueId("success"), "Success response..."),
+			FailureNode = DialogTree.CreateNode(GenerateUniqueId("failure"), "Failure response...")
 		}
 	}
 end
@@ -73,11 +104,29 @@ end
 function DialogTree.CreateQuestTurnIn(ButtonText: string, QuestId: string): DialogChoice
 	return {
 		ButtonText = ButtonText,
+		ResponseType = RESPONSE_TYPES.DEFAULT_RESPONSE,
 		QuestTurnIn = {
 			QuestId = QuestId,
 			ResponseText = "Thank you! Here's your reward."
 		}
 	}
+end
+
+function DialogTree.SetResponseType(Choice: DialogChoice, ResponseType: string)
+	if ResponseType == RESPONSE_TYPES.DEFAULT_RESPONSE then
+		Choice.ResponseType = ResponseType
+		if not Choice.ResponseNode then
+			Choice.ResponseNode = DialogTree.CreateNode(GenerateUniqueId("response"), "Response text...")
+		end
+		Choice.ReturnToNodeId = nil
+	elseif ResponseType == RESPONSE_TYPES.RETURN_TO_START then
+		Choice.ResponseType = ResponseType
+		Choice.ResponseNode = nil
+		Choice.ReturnToNodeId = nil
+	elseif ResponseType == RESPONSE_TYPES.RETURN_TO_NODE then
+		Choice.ResponseType = ResponseType
+		Choice.ResponseNode = nil
+	end
 end
 
 function DialogTree.AddChoice(Node: DialogNode, Choice: DialogChoice)
@@ -116,8 +165,8 @@ function DialogTree.ConvertToSkillCheck(Choice: DialogChoice, Skill: string, Dif
 	Choice.SkillCheck = {
 		Skill = Skill,
 		Difficulty = Difficulty,
-		SuccessNode = DialogTree.CreateNode("success", "Success response..."),
-		FailureNode = DialogTree.CreateNode("failure", "Failure response...")
+		SuccessNode = DialogTree.CreateNode(GenerateUniqueId("success"), "Success response..."),
+		FailureNode = DialogTree.CreateNode(GenerateUniqueId("failure"), "Failure response...")
 	}
 end
 
@@ -133,7 +182,9 @@ end
 function DialogTree.ConvertToSimpleChoice(Choice: DialogChoice)
 	Choice.SkillCheck = nil
 	Choice.QuestTurnIn = nil
-	Choice.ResponseNode = DialogTree.CreateNode("response", "Response text...")
+	if not Choice.ResponseNode then
+		Choice.ResponseNode = DialogTree.CreateNode(GenerateUniqueId("response"), "Response text...")
+	end
 end
 
 function DialogTree.FindNodeById(Root: DialogNode, Id: string): DialogNode?
@@ -164,6 +215,38 @@ function DialogTree.FindNodeById(Root: DialogNode, Id: string): DialogNode?
 	return nil
 end
 
+function DialogTree.GetAllNodeIds(Root: DialogNode): {string}
+	local NodeIds = {}
+	local Visited = {}
+
+	local function Traverse(Node: DialogNode)
+		if Visited[Node] then return end
+		Visited[Node] = true
+
+		table.insert(NodeIds, Node.Id)
+
+		if Node.Choices then
+			for _, Choice in ipairs(Node.Choices) do
+				if Choice.ResponseNode then
+					Traverse(Choice.ResponseNode)
+				end
+
+				if Choice.SkillCheck then
+					if Choice.SkillCheck.SuccessNode then
+						Traverse(Choice.SkillCheck.SuccessNode)
+					end
+					if Choice.SkillCheck.FailureNode then
+						Traverse(Choice.SkillCheck.FailureNode)
+					end
+				end
+			end
+		end
+	end
+
+	Traverse(Root)
+	return NodeIds
+end
+
 function DialogTree.AddCondition(Choice: DialogChoice, ConditionType: string, Value: any)
 	if not Choice.Conditions then
 		Choice.Conditions = {}
@@ -192,6 +275,18 @@ function DialogTree.RemoveFlag(Choice: DialogChoice, Index: number)
 	if Choice.SetFlags then
 		table.remove(Choice.SetFlags, Index)
 	end
+end
+
+function DialogTree.SetLoopBehavior(Node: DialogNode, Behavior: string)
+	if Behavior == LOOP_BEHAVIORS.END_DIALOG or
+	   Behavior == LOOP_BEHAVIORS.LOOP_TO_START or
+	   Behavior == LOOP_BEHAVIORS.LOOP_TO_NODE then
+		Node.LoopBehavior = Behavior
+	end
+end
+
+function DialogTree.SetReturnToNode(Choice: DialogChoice, NodeId: string?)
+	Choice.ReturnToNodeId = NodeId
 end
 
 return DialogTree

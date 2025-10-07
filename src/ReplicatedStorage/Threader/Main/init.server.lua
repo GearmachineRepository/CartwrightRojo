@@ -59,10 +59,10 @@ local function RefreshAll()
 
 	if CurrentView == "Editor" then
 		TreeView.Refresh(TreeScrollFrame, CurrentTree, SelectedNode, SelectNode)
-		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode)
+		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode, CurrentTree)
 	elseif CurrentView == "Graph" then
 		GraphEditor.Refresh(CurrentTree, SelectedNode, SelectNode)
-		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode)
+		EditorPanel.Refresh(EditorScroll, SelectedNode, RefreshAll, SelectNode, CurrentTree)
 	end
 end
 

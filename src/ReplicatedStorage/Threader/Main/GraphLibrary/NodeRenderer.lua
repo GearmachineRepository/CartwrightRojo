@@ -8,8 +8,8 @@ type DialogNode = DialogTree.DialogNode
 local NodeRenderer = {}
 
 local TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local NODE_WIDTH = 220
-local NODE_HEIGHT = 100
+local NODE_WIDTH = 200
+local NODE_HEIGHT = 80
 local PORT_SIZE = 12
 
 local function CreatePort(IsOutput: boolean, Parent: Frame, YOffset: number?, Index: number?): Frame
@@ -155,6 +155,116 @@ function NodeRenderer.CreateNode(
 	end)
 
 	return NodeFrame
+end
+
+function NodeRenderer.CreateChoiceNode(
+	Choice: DialogChoice,
+	Position: UDim2,
+	IsSelected: boolean,
+	OnChoiceSelected: (DialogChoice) -> (),
+	OnDragStarted: (Frame) -> (),
+	OnDragEnded: (Frame) -> ()
+): Frame
+	local ChoiceFrame = Instance.new("Frame")
+	ChoiceFrame.Name = "Choice_" .. Choice.ButtonText:sub(1, 10)
+	ChoiceFrame.Size = UDim2.fromOffset(NODE_WIDTH, NODE_HEIGHT)
+	ChoiceFrame.Position = Position
+	ChoiceFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or Color3.fromRGB(60, 80, 100)
+	ChoiceFrame.BorderSizePixel = 0
+	ChoiceFrame.ZIndex = 3
+
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = IsSelected and Constants.COLORS.Primary or Constants.COLORS.Accent
+	Stroke.Thickness = 2
+	Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	Stroke.Parent = ChoiceFrame
+
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0, 8)
+	Corner.Parent = ChoiceFrame
+
+	local TitleBar = Instance.new("Frame")
+	TitleBar.Size = UDim2.new(1, 0, 0, 28)
+	TitleBar.BackgroundColor3 = Color3.fromRGB(50, 70, 90)
+	TitleBar.BorderSizePixel = 0
+	TitleBar.ZIndex = 4
+	TitleBar.Parent = ChoiceFrame
+
+	local TitleCorner = Instance.new("UICorner")
+	TitleCorner.CornerRadius = UDim.new(0, 8)
+	TitleCorner.Parent = TitleBar
+
+	local TitleCover = Instance.new("Frame")
+	TitleCover.Size = UDim2.new(1, 0, 0, 14)
+	TitleCover.Position = UDim2.fromOffset(0, 14)
+	TitleCover.BackgroundColor3 = Color3.fromRGB(50, 70, 90)
+	TitleCover.BorderSizePixel = 0
+	TitleCover.ZIndex = 4
+	TitleCover.Parent = TitleBar
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Size = UDim2.fromScale(1, 1)
+	TitleLabel.Text = "CHOICE"
+	TitleLabel.TextColor3 = Constants.COLORS.Accent
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Font = Constants.FONTS.Bold
+	TitleLabel.TextSize = 11
+	TitleLabel.ZIndex = 5
+	TitleLabel.Parent = TitleBar
+
+	local ContentLabel = Instance.new("TextLabel")
+	ContentLabel.Size = UDim2.new(1, -12, 1, -32)
+	ContentLabel.Position = UDim2.fromOffset(6, 30)
+	ContentLabel.Text = Choice.ButtonText:sub(1, 40) .. (Choice.ButtonText:len() > 40 and "..." or "")
+	ContentLabel.TextColor3 = Constants.COLORS.TextPrimary
+	ContentLabel.BackgroundTransparency = 1
+	ContentLabel.Font = Constants.FONTS.Regular
+	ContentLabel.TextSize = 12
+	ContentLabel.TextWrapped = true
+	ContentLabel.TextXAlignment = Enum.TextXAlignment.Left
+	ContentLabel.TextYAlignment = Enum.TextYAlignment.Top
+	ContentLabel.ZIndex = 4
+	ContentLabel.Parent = ChoiceFrame
+
+	CreatePort(false, ChoiceFrame)
+	CreatePort(true, ChoiceFrame, NODE_HEIGHT/2, 1)
+
+	local Dragger = Instance.new("TextButton")
+	Dragger.Size = UDim2.fromScale(1, 1)
+	Dragger.BackgroundTransparency = 1
+	Dragger.Text = ""
+	Dragger.ZIndex = 6
+	Dragger.Parent = ChoiceFrame
+
+	Dragger.MouseEnter:Connect(function()
+		if not IsSelected then
+			TweenService:Create(ChoiceFrame, TWEEN_INFO, {
+				BackgroundColor3 = Color3.fromRGB(70, 90, 110)
+			}):Play()
+		end
+	end)
+
+	Dragger.MouseLeave:Connect(function()
+		if not IsSelected then
+			TweenService:Create(ChoiceFrame, TWEEN_INFO, {
+				BackgroundColor3 = Color3.fromRGB(60, 80, 100)
+			}):Play()
+		end
+	end)
+
+	Dragger.MouseButton1Click:Connect(function()
+		OnChoiceSelected(Choice)
+	end)
+
+	Dragger.MouseButton1Down:Connect(function()
+		OnDragStarted(ChoiceFrame)
+	end)
+
+	Dragger.MouseButton1Up:Connect(function()
+		OnDragEnded(ChoiceFrame)
+	end)
+
+	return ChoiceFrame
 end
 
 function NodeRenderer.GetNodeSize(): Vector2

@@ -12,15 +12,31 @@ local function ElevateEditorZ(EditorFrame: Frame, EditorScroll: ScrollingFrame)
 	EditorFrame.ZIndex = 100
 	EditorScroll.ZIndex = 101
 
-	for _, obj in ipairs(EditorScroll:GetDescendants()) do
-		if obj:IsA("GuiObject") then
-			obj.ZIndex = 102
+	local function ShouldSkipZIndexOverride(Obj: GuiObject): boolean
+		if Obj:GetAttribute("IsDropdownOptions") then
+			return true
+		end
+
+		local Parent = Obj.Parent
+		while Parent do
+			if Parent:IsA("GuiObject") and Parent:GetAttribute("IsDropdownOptions") then
+				return true
+			end
+			Parent = Parent.Parent
+		end
+
+		return false
+	end
+
+	for _, Obj in ipairs(EditorScroll:GetDescendants()) do
+		if Obj:IsA("GuiObject") and not ShouldSkipZIndexOverride(Obj) then
+			Obj.ZIndex = 102
 		end
 	end
 
-	EditorScroll.DescendantAdded:Connect(function(obj)
-		if obj:IsA("GuiObject") then
-			obj.ZIndex = 102
+	EditorScroll.DescendantAdded:Connect(function(Obj)
+		if Obj:IsA("GuiObject") and not ShouldSkipZIndexOverride(Obj) then
+			Obj.ZIndex = 102
 		end
 	end)
 end
@@ -72,8 +88,11 @@ function EditorPanel.Refresh(
 	EditorScroll: ScrollingFrame,
 	SelectedNode: DialogNode?,
 	OnRefresh: () -> (),
-	OnNavigate: (DialogNode) -> ()
+	OnNavigate: (DialogNode) -> (),
+	CurrentTree: DialogNode?
 )
+	ChoiceEditor.SetCurrentTree(CurrentTree)
+
 	for _, Child in ipairs(EditorScroll:GetChildren()) do
 		if not Child:IsA("UIListLayout") and not Child:IsA("UIPadding") then
 			Child:Destroy()
@@ -92,8 +111,36 @@ function EditorPanel.Refresh(
 		return
 	end
 
-	Components.CreateLabel("Default Dialog Text:", EditorScroll, 1)
-	Components.CreateTextBox(SelectedNode.Text, EditorScroll, 2, true, function(NewText: string)
+	-- NODE TYPE INDICATOR
+	local NodeTypeFrame = Instance.new("Frame")
+	NodeTypeFrame.Size = UDim2.new(1, 0, 0, 36)
+	NodeTypeFrame.BackgroundColor3 = Constants.COLORS.Primary
+	NodeTypeFrame.BorderSizePixel = 0
+	NodeTypeFrame.LayoutOrder = 0
+	NodeTypeFrame.Parent = EditorScroll
+
+	local NodeTypeCorner = Instance.new("UICorner")
+	NodeTypeCorner.CornerRadius = UDim.new(0, 6)
+	NodeTypeCorner.Parent = NodeTypeFrame
+
+	local NodeTypeLabel = Instance.new("TextLabel")
+	NodeTypeLabel.Size = UDim2.fromScale(1, 1)
+	NodeTypeLabel.Text = "DIALOG/RESPONSE NODE"
+	NodeTypeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	NodeTypeLabel.BackgroundTransparency = 1
+	NodeTypeLabel.Font = Constants.FONTS.Bold
+	NodeTypeLabel.TextSize = 14
+	NodeTypeLabel.Parent = NodeTypeFrame
+
+	-- REST OF THE FUNCTION CONTINUES WITH NODE ID, DIALOG TEXT, ETC...
+	Components.CreateLabel("Node ID:", EditorScroll, 1)
+	Components.CreateTextBox(SelectedNode.Id, EditorScroll, 2, false, function(NewId: string)
+		SelectedNode.Id = NewId
+		OnRefresh()
+	end)
+
+	Components.CreateLabel("Dialog Text:", EditorScroll, 3)
+	Components.CreateTextBox(SelectedNode.Text, EditorScroll, 4, true, function(NewText: string)
 		SelectedNode.Text = NewText
 		OnRefresh()
 	end)
@@ -155,7 +202,7 @@ function EditorPanel.Refresh(
 	ChoicesContainer.Name = "ChoicesContainer"
 	ChoicesContainer.Size = UDim2.new(1, 0, 0, 100)
 	ChoicesContainer.BackgroundTransparency = 1
-	ChoicesContainer.LayoutOrder = 5
+	ChoicesContainer.LayoutOrder = 7
 	ChoicesContainer.Parent = EditorScroll
 
 	local ChoicesLayout = Instance.new("UIListLayout")

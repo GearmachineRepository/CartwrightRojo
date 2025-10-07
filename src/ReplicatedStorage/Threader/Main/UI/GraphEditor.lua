@@ -27,6 +27,12 @@ local NodeFrames: {[DialogNode]: Frame} = {}
 local FrameToNode: {[Frame]: DialogNode} = {}
 local NodePositions: {[DialogNode]: UDim2} = {}
 
+local ChoiceFrames: {[DialogChoice]: Frame} = {}
+local FrameToChoice: {[Frame]: DialogChoice} = {}
+local ChoicePositions: {[DialogChoice]: UDim2} = {}
+
+local CurrentRootNode: DialogNode? = nil
+
 local function getInactiveLinesBuffer(): Frame?
 	if not LinesBufferA or not LinesBufferB then return nil end
 	return ActiveBufferIsA and LinesBufferB or LinesBufferA
@@ -51,9 +57,7 @@ local function UpdateLines()
 		return ActiveBufferIsA and LinesBufferA or LinesBufferB
 	end
 
-	-- During pan/drag, draw into the visible buffer and don't swap (prevents flicker)
 	local isInteracting = InputHandler.IsPanning or (InputHandler.DraggingNode ~= nil)
-
 	local drawParent: Frame? = isInteracting and getActiveLinesBuffer() or getInactiveLinesBuffer()
 	if not drawParent then return end
 	drawParent:ClearAllChildren()
@@ -63,59 +67,94 @@ local function UpdateLines()
 	for node, nodeFrame in pairs(NodeFrames) do
 		if node.Choices then
 			for index, choice in ipairs(node.Choices) do
-				-- Collect ALL possible targets for this choice
-				local targets = table.create(3)
+				local choiceFrame = ChoiceFrames[choice]
+				if choiceFrame then
+					local inputPort = choiceFrame:FindFirstChild("InputPort") :: Frame?
+					local outputPort = nodeFrame:FindFirstChild(("OutputPort_%d"):format(index)) :: Frame?
+					if inputPort and outputPort then
+						local sAbs = outputPort.AbsolutePosition + outputPort.AbsoluteSize/2
+						local eAbs = inputPort.AbsolutePosition + inputPort.AbsoluteSize/2
+						local startLocal = (sAbs - wsPos) / scale
+						local endLocal = (eAbs - wsPos) / scale
 
-				if choice.SkillCheck then
-					if choice.SkillCheck.SuccessNode then
-						table.insert(targets, choice.SkillCheck.SuccessNode)
-					end
-					if choice.SkillCheck.FailureNode then
-						table.insert(targets, choice.SkillCheck.FailureNode)
-					end
-				end
+						local container = Instance.new("Frame")
+						container.BackgroundTransparency = 1
+						container.Size = UDim2.fromScale(1, 1)
+						container.ZIndex = 1000
+						container.Parent = drawParent
 
-				if choice.QuestTurnIn then
-					if choice.QuestTurnIn.SuccessNode then
-						table.insert(targets, choice.QuestTurnIn.SuccessNode)
-					end
-					if choice.QuestTurnIn.FailureNode then
-						table.insert(targets, choice.QuestTurnIn.FailureNode)
-					end
-				end
-
-				if choice.ResponseNode then
-					table.insert(targets, choice.ResponseNode)
-				end
-
-				-- Draw a line from this choice's output port to each target's input port
-				for _, target in ipairs(targets) do
-					local targetFrame = target and NodeFrames[target]
-					if targetFrame then
-						local inputPort = targetFrame:FindFirstChild("InputPort") :: Frame?
-						local outputPort = nodeFrame:FindFirstChild(("OutputPort_%d"):format(index)) :: Frame?
-						if inputPort and outputPort then
-							local sAbs = outputPort.AbsolutePosition + outputPort.AbsoluteSize/2
-							local eAbs = inputPort.AbsolutePosition  + inputPort.AbsoluteSize/2
-							local startLocal = (sAbs - wsPos) / scale
-							local endLocal   = (eAbs - wsPos) / scale
-
-							local container = Instance.new("Frame")
-							container.BackgroundTransparency = 1
-							container.Size = UDim2.fromScale(1, 1)
-							container.ZIndex = 1000
-							container.Parent = drawParent
-
-							BezierDrawer.DrawCurve(3, 80, startLocal, endLocal, Constants.COLORS.Border, container)
-							drew = true
-						end
+						BezierDrawer.DrawCurve(3, 80, startLocal, endLocal, Constants.COLORS.Border, container)
+						drew = true
 					end
 				end
 			end
 		end
 	end
 
-	-- When idle, swap buffers (double-buffering); during interaction we already drew to the active buffer
+	for choice, choiceFrame in pairs(ChoiceFrames) do
+		local targets = table.create(3)
+
+		if choice.SkillCheck then
+			if choice.SkillCheck.SuccessNode then
+				table.insert(targets, {node = choice.SkillCheck.SuccessNode, color = Constants.COLORS.Success})
+			end
+			if choice.SkillCheck.FailureNode then
+				table.insert(targets, {node = choice.SkillCheck.FailureNode, color = Constants.COLORS.Danger})
+			end
+		elseif choice.ResponseNode then
+			table.insert(targets, {node = choice.ResponseNode, color = Constants.COLORS.Border})
+		end
+
+		for _, target in ipairs(targets) do
+			local targetFrame = NodeFrames[target.node]
+			if targetFrame then
+				local inputPort = targetFrame:FindFirstChild("InputPort") :: Frame?
+				local outputPort = choiceFrame:FindFirstChild("OutputPort_1") :: Frame?
+				if inputPort and outputPort then
+					local sAbs = outputPort.AbsolutePosition + outputPort.AbsoluteSize/2
+					local eAbs = inputPort.AbsolutePosition + inputPort.AbsoluteSize/2
+					local startLocal = (sAbs - wsPos) / scale
+					local endLocal = (eAbs - wsPos) / scale
+
+					local container = Instance.new("Frame")
+					container.BackgroundTransparency = 1
+					container.Size = UDim2.fromScale(1, 1)
+					container.ZIndex = 1000
+					container.Parent = drawParent
+
+					BezierDrawer.DrawCurve(3, 80, startLocal, endLocal, target.color, container)
+					drew = true
+				end
+			end
+		end
+
+		if choice.ReturnToNodeId then
+			local returnTargetNode = DialogTree.FindNodeById(CurrentRootNode, choice.ReturnToNodeId)
+			if returnTargetNode then
+				local returnTargetFrame = NodeFrames[returnTargetNode]
+				if returnTargetFrame then
+					local inputPort = returnTargetFrame:FindFirstChild("InputPort") :: Frame?
+					local outputPort = choiceFrame:FindFirstChild("OutputPort_1") :: Frame?
+					if inputPort and outputPort then
+						local sAbs = outputPort.AbsolutePosition + outputPort.AbsoluteSize/2
+						local eAbs = inputPort.AbsolutePosition + inputPort.AbsoluteSize/2
+						local startLocal = (sAbs - wsPos) / scale
+						local endLocal = (eAbs - wsPos) / scale
+
+						local container = Instance.new("Frame")
+						container.BackgroundTransparency = 1
+						container.Size = UDim2.fromScale(1, 1)
+						container.ZIndex = 1000
+						container.Parent = drawParent
+
+						BezierDrawer.DrawCurve(4, 100, startLocal, endLocal, Constants.COLORS.Accent, container)
+						drew = true
+					end
+				end
+			end
+		end
+	end
+
 	if (not isInteracting) and drew then
 		swapBuffers()
 	end
@@ -188,6 +227,10 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 		if n then
 			NodePositions[n] = frame.Position
 		end
+		local c = FrameToChoice[frame]
+		if c then
+			ChoicePositions[c] = frame.Position
+		end
 	end)
 
 	ZoomHandler.Initialize(Workspace, Mouse, UpdateLines, GetMouseScreen)
@@ -196,7 +239,6 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 		UpdateLines()
 	end)
 
-	-- Transparent blocker for panning / wheel
 	local Blocker = Instance.new("TextButton")
 	Blocker.Size = UDim2.fromScale(1, 1)
 	Blocker.BackgroundTransparency = 1
@@ -205,7 +247,7 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 	Blocker.Modal = false
 	Blocker.Selectable = false
 	Blocker.Active = true
-	Blocker.ZIndex = 0 -- keep below nodes so clicks on nodes still work
+	Blocker.ZIndex = 0
 	Blocker.Parent = GraphContainer
 
 	Blocker.MouseButton1Down:Connect(function()
@@ -217,7 +259,6 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 	end)
 
 	Blocker.MouseLeave:Connect(function()
-		-- if mouse leaves the graph while panning, stop gracefully
 		InputHandler.StopPan()
 	end)
 
@@ -231,7 +272,6 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 
 	local RunService = game:GetService("RunService")
 	RunService:BindToRenderStep("Threader_GraphEditor_InputLoop", Enum.RenderPriority.Input.Value, function()
-		-- Pan and drag are independent; run both each frame.
 		InputHandler.PanUpdate()
 		InputHandler.DragUpdate()
 	end)
@@ -247,7 +287,6 @@ function GraphEditor.Create(Parent: Instance, Mouse: Mouse, HostWidget: DockWidg
 	end)
 
 	UserInputService.InputEnded:Connect(function(input: InputObject, _: boolean)
-		-- Always stop pan/drag on MouseUp, even if a GUI consumed the input.
 		if input.UserInputType == Enum.UserInputType.MouseButton1
 		or input.UserInputType == Enum.UserInputType.MouseButton3 then
 			InputHandler.StopPan()
@@ -278,16 +317,18 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 
 	table.clear(NodeFrames)
 	table.clear(FrameToNode)
-	-- Keep NodePositions to preserve layout across refreshes.
+	table.clear(ChoiceFrames)
+	table.clear(FrameToChoice)
 
 	if not RootNode then return end
+
+	CurrentRootNode = RootNode
 
 	local CurrentX = 0.1
 	local CurrentY = 0.1
 
 	local function guardedSelect(n: DialogNode)
 		if InputHandler.DidDrag then
-			-- swallow the click that ended a drag
 			InputHandler.DidDrag = false
 			return
 		end
@@ -303,11 +344,11 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 			node,
 			pos,
 			isSelected,
-			guardedSelect, -- from prior step
-			function(frame: Frame) -- onDragStart
+			guardedSelect,
+			function(frame: Frame)
 				InputHandler.DragStarted(frame)
 			end,
-			function(frame: Frame) -- onDragEnd
+			function(frame: Frame)
 				InputHandler.DragEnded(frame)
 				local n = FrameToNode[frame]
 				if n then
@@ -320,7 +361,6 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 		NodeFrames[node] = nodeFrame
 		FrameToNode[nodeFrame] = node
 
-			-- Seed once so future refreshes know we have positions
 		if not NodePositions[node] then
 			NodePositions[node] = nodeFrame.Position
 		end
@@ -328,17 +368,45 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 		local nextY = y
 		if node.Choices then
 			for _, choice in ipairs(node.Choices) do
+				local choiceX = x + 0.15
+				local choiceY = nextY
+
+				local choiceDefaultPos = UDim2.fromScale(choiceX, choiceY)
+				local choicePos = ChoicePositions[choice] or choiceDefaultPos
+
+				local choiceFrame = NodeRenderer.CreateChoiceNode(
+					choice,
+					choicePos,
+					false,
+					function() end,
+					function(frame: Frame)
+						InputHandler.DragStarted(frame)
+					end,
+					function(frame: Frame)
+						InputHandler.DragEnded(frame)
+						ChoicePositions[choice] = frame.Position
+					end
+				)
+
+				choiceFrame.Parent = Workspace
+				ChoiceFrames[choice] = choiceFrame
+				FrameToChoice[choiceFrame] = choice
+
+				if not ChoicePositions[choice] then
+					ChoicePositions[choice] = choiceFrame.Position
+				end
+
 				if choice.SkillCheck then
 					if choice.SkillCheck.SuccessNode then
-						renderNode(choice.SkillCheck.SuccessNode, x + 0.15, nextY, depth + 1)
+						renderNode(choice.SkillCheck.SuccessNode, choiceX + 0.15, choiceY, depth + 1)
 						nextY += 0.15
 					end
 					if choice.SkillCheck.FailureNode then
-						renderNode(choice.SkillCheck.FailureNode, x + 0.15, nextY, depth + 1)
+						renderNode(choice.SkillCheck.FailureNode, choiceX + 0.15, choiceY + 0.05, depth + 1)
 						nextY += 0.15
 					end
 				elseif choice.ResponseNode then
-					renderNode(choice.ResponseNode, x + 0.15, nextY, depth + 1)
+					renderNode(choice.ResponseNode, choiceX + 0.15, choiceY, depth + 1)
 					nextY += 0.15
 				end
 			end
@@ -348,7 +416,6 @@ function GraphEditor.Refresh(RootNode: DialogNode?, SelectedNode: DialogNode?, O
 	renderNode(RootNode, CurrentX, CurrentY, 0)
 	UpdateLines()
 
-	-- Center only on first layout (when there are no saved positions yet)
 	if next(NodePositions) == nil then
 		if not DidInitialCenter then
 			DidInitialCenter = true

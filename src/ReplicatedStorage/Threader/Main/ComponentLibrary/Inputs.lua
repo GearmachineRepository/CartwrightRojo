@@ -6,8 +6,8 @@ local Inputs = {}
 
 local TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local function CreateTween(Instance: GuiObject, Properties: {[string]: any})
-	return TweenService:Create(Instance, TWEEN_INFO, Properties)
+local function CreateTween(Object: Instance, Properties: {[string]: any})
+	return TweenService:Create(Object, TWEEN_INFO, Properties)
 end
 
 function Inputs.CreateTextBox(
@@ -100,7 +100,7 @@ function Inputs.CreateDropdown(
 	Dropdown.BackgroundColor3 = Constants.COLORS.InputBackground
 	Dropdown.BorderSizePixel = 0
 	Dropdown.AutoButtonColor = false
-	Dropdown.ZIndex = 10
+	Dropdown.ZIndex = 200
 	Dropdown.Parent = Container
 
 	local Corner = Instance.new("UICorner")
@@ -123,7 +123,7 @@ function Inputs.CreateDropdown(
 	ValueLabel.TextSize = 14
 	ValueLabel.TextXAlignment = Enum.TextXAlignment.Left
 	ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
-	ValueLabel.ZIndex = 11
+	ValueLabel.ZIndex = 201
 	ValueLabel.Parent = Dropdown
 
 	local Arrow = Instance.new("TextLabel")
@@ -134,32 +134,36 @@ function Inputs.CreateDropdown(
 	Arrow.BackgroundTransparency = 1
 	Arrow.Font = Constants.FONTS.Regular
 	Arrow.TextSize = 12
-	Arrow.ZIndex = 11
+	Arrow.ZIndex = 201
 	Arrow.Parent = Dropdown
 
 	local OptionsFrame = Instance.new("ScrollingFrame")
+	OptionsFrame.Name = "DropdownOptions"
 	OptionsFrame.Size = UDim2.new(1, 0, 0, math.min(#Options * 32 + 8, 200))
 	OptionsFrame.Position = UDim2.new(0, 0, 1, 4)
 	OptionsFrame.BackgroundColor3 = Constants.COLORS.Panel
 	OptionsFrame.BorderSizePixel = 0
+	OptionsFrame.ScrollBarThickness = 6
 	OptionsFrame.Visible = false
-	OptionsFrame.ZIndex = 100
-	OptionsFrame.ScrollBarThickness = 4
 	OptionsFrame.CanvasSize = UDim2.fromOffset(0, #Options * 32 + 8)
+	OptionsFrame.ClipsDescendants = true
+	OptionsFrame.ZIndex = 1000
 	OptionsFrame.Parent = Container
+	OptionsFrame:SetAttribute("IsDropdownOptions", true)
 
 	local OptionsCorner = Instance.new("UICorner")
 	OptionsCorner.CornerRadius = UDim.new(0, 6)
 	OptionsCorner.Parent = OptionsFrame
 
-	local OptionsStroke = Instance.new("UIStroke")
-	OptionsStroke.Color = Constants.COLORS.Border
-	OptionsStroke.Thickness = 1
-	OptionsStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	OptionsStroke.Parent = OptionsFrame
+	local OptionsShadow = Instance.new("UIStroke")
+	OptionsShadow.Color = Constants.COLORS.BorderLight
+	OptionsShadow.Thickness = 1
+	OptionsShadow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	OptionsShadow.Parent = OptionsFrame
 
 	local OptionsLayout = Instance.new("UIListLayout")
-	OptionsLayout.Padding = UDim.new(0, 2)
+	OptionsLayout.Padding = UDim.new(0, 0)
+	OptionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	OptionsLayout.Parent = OptionsFrame
 
 	local OptionsPadding = Instance.new("UIPadding")
@@ -169,22 +173,28 @@ function Inputs.CreateDropdown(
 	OptionsPadding.PaddingBottom = UDim.new(0, 4)
 	OptionsPadding.Parent = OptionsFrame
 
-	local OptionButtons: {[string]: TextButton} = {}
+	local OptionButtons = {}
 
-	for _, Option in ipairs(Options) do
+	for Index, Option in ipairs(Options) do
 		local OptionButton = Instance.new("TextButton")
-		OptionButton.Size = UDim2.new(1, 0, 0, 28)
+		OptionButton.Size = UDim2.new(1, 0, 0, 32)
 		OptionButton.Text = Option
 		OptionButton.TextColor3 = Constants.COLORS.TextPrimary
-		OptionButton.BackgroundColor3 = Option == CurrentValue and Constants.COLORS.Primary or Color3.fromRGB(0, 0, 0)
-		OptionButton.BackgroundTransparency = Option == CurrentValue and 0 or 1
+		OptionButton.BackgroundTransparency = 1
 		OptionButton.Font = Constants.FONTS.Regular
 		OptionButton.TextSize = 14
-		OptionButton.BorderSizePixel = 0
 		OptionButton.TextXAlignment = Enum.TextXAlignment.Left
 		OptionButton.AutoButtonColor = false
-		OptionButton.ZIndex = 101
+		OptionButton.LayoutOrder = Index
+		OptionButton.ZIndex = 1001
 		OptionButton.Parent = OptionsFrame
+
+		OptionButtons[Option] = OptionButton
+
+		if Option == CurrentValue then
+			OptionButton.BackgroundColor3 = Constants.COLORS.Primary
+			OptionButton.BackgroundTransparency = 0
+		end
 
 		local OptionCorner = Instance.new("UICorner")
 		OptionCorner.CornerRadius = UDim.new(0, 4)
@@ -194,16 +204,14 @@ function Inputs.CreateDropdown(
 		OptionPadding.PaddingLeft = UDim.new(0, 8)
 		OptionPadding.Parent = OptionButton
 
-		OptionButtons[Option] = OptionButton
-
 		OptionButton.MouseEnter:Connect(function()
-			if ValueLabel.Text ~= Option then
-				CreateTween(OptionButton, {BackgroundTransparency = 0, BackgroundColor3 = Constants.COLORS.PanelHover}):Play()
+			if Option ~= CurrentValue then
+				CreateTween(OptionButton, {BackgroundTransparency = 0.85}):Play()
 			end
 		end)
 
 		OptionButton.MouseLeave:Connect(function()
-			if ValueLabel.Text ~= Option then
+			if Option ~= CurrentValue then
 				CreateTween(OptionButton, {BackgroundTransparency = 1}):Play()
 			end
 		end)

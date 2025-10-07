@@ -22,7 +22,7 @@ local IsServer = RunService:IsServer()
 type DialogNode = {
 	Id: string,
 	Text: string,
-	Choices: {{Text: string, Response: DialogNode, Command: ((Player) -> ())?}}?,
+	Choices: {{Text: string, Response: DialogNode, Command: ((Player) -> ())?, ReturnToNodeId: string?}}?,
 	OpenGui: string?,
 	GiveQuest: string?,
 	TurnInQuest: string?
@@ -54,6 +54,23 @@ local function HandleNodeActions(Node: DialogNode, Player: Player): ()
 	if Node.TurnInQuest then
 		QuestManager.TurnInQuest(Player, Node.TurnInQuest)
 	end
+end
+
+local function FindNodeById(Root: DialogNode, NodeId: string): DialogNode?
+	if Root.Id == NodeId then
+		return Root
+	end
+
+	if Root.Choices then
+		for _, Choice in ipairs(Root.Choices) do
+			if Choice.Response then
+				local Found = FindNodeById(Choice.Response, NodeId)
+				if Found then return Found end
+			end
+		end
+	end
+
+	return nil
 end
 
 local function ShowNodeToClient(Session: DialogSession, Node: DialogNode): ()
@@ -233,7 +250,35 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 				end)
 			end
 
-			ShowNodeToClient(Session, Choice.Response)
+			if Choice.Response then
+				if Choice.Response.Choices and #Choice.Response.Choices == 0 and Choice.ReturnToNodeId then
+					local ReturnNode = FindNodeById(Session.DialogTree, Choice.ReturnToNodeId)
+					if ReturnNode then
+						ShowNodeToClient(Session, ReturnNode)
+						return
+					else
+						warn("[DialogHandler] ReturnToNodeId not found:", Choice.ReturnToNodeId)
+					end
+				end
+
+				ShowNodeToClient(Session, Choice.Response)
+			elseif Choice.ReturnToNodeId then
+				local ReturnNode = FindNodeById(Session.DialogTree, Choice.ReturnToNodeId)
+				if ReturnNode then
+					ShowNodeToClient(Session, ReturnNode)
+				else
+					warn("[DialogHandler] ReturnToNodeId not found:", Choice.ReturnToNodeId)
+					ActiveSessions[Player] = nil
+					if typeof(Session.OnFinished) == "function" then
+						Session.OnFinished()
+					end
+				end
+			else
+				ActiveSessions[Player] = nil
+				if typeof(Session.OnFinished) == "function" then
+					Session.OnFinished()
+				end
+			end
 			return
 		end
 	end
