@@ -22,6 +22,37 @@ function ConditionalGenerator.Generate(Choice: any, Depth: number, GenerateRecur
 	return ConditionalGenerator.GenerateGeneric(Choice, Depth, GenerateRecursive)
 end
 
+function ConditionalGenerator.GenerateNested(Choice: any, Depth: number, GenerateRecursive: (any, number) -> string): string
+	if not Choice.Conditions then
+		return ""
+	end
+
+	local Indent = Helpers.GetIndent(Depth)
+	local Code = Indent .. "DialogHelpers.Advanced.CreateConditionalChoice({\n"
+	Code = Code .. Indent .. "\tButtonText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+
+	if Choice.ResponseNode then
+		Code = Code .. Indent .. "\tResponseText = \"" .. Helpers.EscapeString(Choice.ResponseNode.Text) .. "\",\n"
+	end
+
+	Code = Code .. Indent .. "\tConditions = {\n"
+	for _, Condition in ipairs(Choice.Conditions) do
+		Code = Code .. Helpers.GenerateCondition(Condition, Depth + 2)
+	end
+	Code = Code .. Indent .. "\t},\n"
+
+	if Choice.ResponseNode and Choice.ResponseNode.Choices and #Choice.ResponseNode.Choices > 0 then
+		Code = Code .. Indent .. "\tSubChoices = {\n"
+		for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
+			Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+		end
+		Code = Code .. Indent .. "\t},\n"
+	end
+
+	Code = Code .. Indent .. "}),\n\n"
+	return Code
+end
+
 function ConditionalGenerator.GenerateGeneric(Choice: any, Depth: number, GenerateRecursive: (any, number) -> string): string
 	local Indent = Helpers.GetIndent(Depth)
 	local Code = Indent .. "table.insert(Choices, DialogHelpers.Advanced.CreateConditionalChoice({\n"

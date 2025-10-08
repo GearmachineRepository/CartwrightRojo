@@ -67,14 +67,14 @@ function NodeRenderer.CreateNode(
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Name = "SelectionStroke"
 	Stroke.Color = StrokeColor
-	Stroke.Thickness = 2
+	Stroke.Thickness = Constants.SIZES.StrokeIdleThickness
 	Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	Stroke.Parent = NodeFrame
 
 	if IsSelected then
 		TweenService:Create(Stroke, TWEEN_INFO, {
 			Color = Constants.COLORS.Primary,
-			Thickness = 3
+			Thickness = Constants.SIZES.StrokeSelectedThickness
 		}):Play()
 	end
 
@@ -192,7 +192,7 @@ function NodeRenderer.CreateChoiceNode(
 	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
 		StrokeColor = Constants.COLORS.Warning
 	elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
-		StrokeColor = Color3.fromRGB(130, 115, 200) -- Purple
+		StrokeColor = Constants.COLORS.ChoiceStrokeColor
 	end
 
 	local ChoiceFrame = Instance.new("Frame")
@@ -206,14 +206,14 @@ function NodeRenderer.CreateChoiceNode(
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Name = "SelectionStroke"
 	Stroke.Color = StrokeColor
-	Stroke.Thickness = 2
+	Stroke.Thickness = Constants.SIZES.StrokeIdleThickness
 	Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	Stroke.Parent = ChoiceFrame
 
 	if IsSelected then
 		TweenService:Create(Stroke, TWEEN_INFO, {
 			Color = Constants.COLORS.Primary,
-			Thickness = 3
+			Thickness = Constants.SIZES.StrokeSelectedThickness
 		}):Play()
 	end
 

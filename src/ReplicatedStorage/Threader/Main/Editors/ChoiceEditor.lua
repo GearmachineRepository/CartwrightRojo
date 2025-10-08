@@ -453,17 +453,25 @@ function ChoiceEditor.RenderSkillCheckFields(
 	end
 
 	Components.CreateLabel("Skill Type", Parent, StartOrder)
-	Components.CreateTextBox(Choice.SkillCheck.Skill or "Perception", Parent, StartOrder + 1, false, function(NewSkill: string)
-		Choice.SkillCheck.Skill = NewSkill
-	end)
+	Components.CreateDropdown(
+		Constants.SKILLS,
+		Choice.SkillCheck.Skill or "Perception",
+		Parent,
+		StartOrder + 1,
+		function(NewSkill: string)
+			Choice.SkillCheck.Skill = NewSkill
+		end
+	)
 
 	Components.CreateLabel("Difficulty", Parent, StartOrder + 2)
-	Components.CreateTextBox(tostring(Choice.SkillCheck.Difficulty or 10), Parent, StartOrder + 3, false, function(NewDiff: string)
-		local DiffNum = tonumber(NewDiff)
-		if DiffNum then
-			Choice.SkillCheck.Difficulty = DiffNum
+	Components.CreateNumberInput(
+		Choice.SkillCheck.Difficulty or 10,
+		Parent,
+		StartOrder + 3,
+		function(NewDiff: number)
+			Choice.SkillCheck.Difficulty = NewDiff
 		end
-	end)
+	)
 
 	if Choice.SkillCheck.SuccessNode then
 		Components.CreateButton("Edit Success Branch →", Parent, StartOrder + 4, Constants.COLORS.Success, function()

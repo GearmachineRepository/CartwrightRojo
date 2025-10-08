@@ -22,10 +22,13 @@ local IsServer = RunService:IsServer()
 type DialogNode = {
 	Id: string,
 	Text: string,
-	Choices: {{Text: string, Response: DialogNode, Command: ((Player) -> ())?, ReturnToNodeId: string?}}?,
+	Choices: {{Text: string, Response: DialogNode?, Command: ((Player) -> ())?, ReturnToNodeId: string?}}?,
 	OpenGui: string?,
 	GiveQuest: string?,
-	TurnInQuest: string?
+	TurnInQuest: string?,
+	ResponseType: string?,
+	NextResponseNode: DialogNode?,
+	ReturnToNodeId: string?
 }
 
 type DialogSession = {
@@ -38,7 +41,7 @@ type DialogSession = {
 
 local ActiveSessions: {[Player]: DialogSession} = {}
 
-local function GetChoiceTexts(Choices: {{Text: string, Response: DialogNode, Command: ((Player) -> ())?}}): {string}
+local function GetChoiceTexts(Choices: {{Text: string, Response: DialogNode?, Command: ((Player) -> ())?}}): {string}
 	local Texts = {}
 	for _, Choice in ipairs(Choices) do
 		table.insert(Texts, Choice.Text)
@@ -68,6 +71,11 @@ local function FindNodeById(Root: DialogNode, NodeId: string): DialogNode?
 				if Found then return Found end
 			end
 		end
+	end
+
+	if Root.NextResponseNode then
+		local Found = FindNodeById(Root.NextResponseNode, NodeId)
+		if Found then return Found end
 	end
 
 	return nil
@@ -155,6 +163,51 @@ local function ShowNodeToClient(Session: DialogSession, Node: DialogNode): ()
 		end
 		ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, ChoiceTexts, false)
 	else
+		local NodeResponseType = ProcessedNode.ResponseType or "default"
+
+		if NodeResponseType == "continue_to_response" and ProcessedNode.NextResponseNode then
+			ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, false)
+			task.wait(2.5)
+			ShowNodeToClient(Session, ProcessedNode.NextResponseNode)
+			return
+		elseif NodeResponseType == "return_to_start" then
+			ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, false)
+			task.wait(2.5)
+			local StartNode = FindNodeById(Session.DialogTree, "start")
+			if StartNode then
+				ShowNodeToClient(Session, StartNode)
+			else
+				ActiveSessions[Session.Player] = nil
+				ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, "", nil, true)
+				if typeof(Session.OnFinished) == "function" then
+					Session.OnFinished()
+				end
+			end
+			return
+		elseif NodeResponseType == "return_to_node" and ProcessedNode.ReturnToNodeId then
+			ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, false)
+			task.wait(2.5)
+			local TargetNode = FindNodeById(Session.DialogTree, ProcessedNode.ReturnToNodeId)
+			if TargetNode then
+				ShowNodeToClient(Session, TargetNode)
+			else
+				warn("[DialogHandler] ReturnToNodeId not found:", ProcessedNode.ReturnToNodeId)
+				ActiveSessions[Session.Player] = nil
+				ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, "", nil, true)
+				if typeof(Session.OnFinished) == "function" then
+					Session.OnFinished()
+				end
+			end
+			return
+		elseif NodeResponseType == "end_dialog" then
+			ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, true)
+			ActiveSessions[Session.Player] = nil
+			if typeof(Session.OnFinished) == "function" then
+				Session.OnFinished()
+			end
+			return
+		end
+
 		ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, true)
 		ActiveSessions[Session.Player] = nil
 		if typeof(Session.OnFinished) == "function" then
@@ -234,7 +287,6 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 
 	for _, Choice in ipairs(CurrentNode.Choices) do
 		if Choice.Text == ChoiceText then
-			-- Skill check logic
 			if Choice.SkillCheckSuccess ~= nil then
 				local SoundName = Choice.SkillCheckSuccess and "SkillCheckSuccess" or "SkillCheckFailure"
 				PlaySkillCheckSoundRemote:FireClient(Player, SoundName)
@@ -245,30 +297,13 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 				end
 			end
 
-			-- Run command if present
 			if typeof(Choice.Command) == "function" then
 				pcall(function()
 					Choice.Command(Player)
 				end)
 			end
 
-			-- Handle response if it exists
-			if Choice.Response then
-				if Choice.Response.Choices and #Choice.Response.Choices == 0 and Choice.ReturnToNodeId then
-					local ReturnNode = FindNodeById(Session.DialogTree, Choice.ReturnToNodeId)
-					if ReturnNode then
-						ShowNodeToClient(Session, ReturnNode)
-						return
-					else
-						warn("[DialogHandler] ReturnToNodeId not found:", Choice.ReturnToNodeId)
-					end
-				end
-
-				ShowNodeToClient(Session, Choice.Response)
-				return
-
-			-- Fallback to ReturnToNodeId if present
-			elseif Choice.ReturnToNodeId then
+			if Choice.ReturnToNodeId then
 				local ReturnNode = FindNodeById(Session.DialogTree, Choice.ReturnToNodeId)
 				if ReturnNode then
 					ShowNodeToClient(Session, ReturnNode)
@@ -278,7 +313,11 @@ function DialogHandler.HandleChoice(Player: Player, ChoiceText: string): ()
 				end
 			end
 
-			-- Fallback end dialog if no Response or ReturnToNodeId
+			if Choice.Response then
+				ShowNodeToClient(Session, Choice.Response)
+				return
+			end
+
 			ActiveSessions[Player] = nil
 			ShowDialogRemote:FireClient(Player, Session.NpcModel, "", nil, true)
 			if typeof(Session.OnFinished) == "function" then

@@ -108,14 +108,33 @@ function AdvancedDialogBuilder.ProcessNode(Player: Player, Node: DialogNode): Di
 
 	if Node.Choices then
 		local FilteredChoices = AdvancedDialogBuilder.FilterChoices(Player, Node.Choices)
-		return {
-			Id = Node.Id,
-			Text = Node.Text,
-			Choices = FilteredChoices,
-			OpenGui = Node.OpenGui,
-			GiveQuest = Node.GiveQuest,
-			TurnInQuest = Node.TurnInQuest
-		}
+
+		-- Only include Choices field if there are actually choices
+		if #FilteredChoices > 0 then
+			return {
+				Id = Node.Id,
+				Text = Node.Text,
+				Choices = FilteredChoices,
+				OpenGui = Node.OpenGui,
+				GiveQuest = Node.GiveQuest,
+				TurnInQuest = Node.TurnInQuest,
+				ResponseType = Node.ResponseType,
+				NextResponseNode = Node.NextResponseNode,
+				ReturnToNodeId = Node.ReturnToNodeId
+			}
+		else
+			-- No choices after filtering - return node without Choices field
+			return {
+				Id = Node.Id,
+				Text = Node.Text,
+				OpenGui = Node.OpenGui,
+				GiveQuest = Node.GiveQuest,
+				TurnInQuest = Node.TurnInQuest,
+				ResponseType = Node.ResponseType,
+				NextResponseNode = Node.NextResponseNode,
+				ReturnToNodeId = Node.ReturnToNodeId
+			}
+		end
 	end
 
 	return Node

@@ -61,7 +61,7 @@ local function RenderNode(
 	local NodeFrame = Instance.new("Frame")
 	NodeFrame.Name = "Node_" .. Node.Id
 	NodeFrame.Size = UDim2.new(1, -Depth * 20, 0, 32)
-	NodeFrame.BackgroundColor3 = IsSelected and Constants.COLORS.SelectedBg or Constants.COLORS.Panel
+	NodeFrame.BackgroundColor3 = Constants.COLORS.Panel
 	NodeFrame.BorderSizePixel = 0
 	NodeFrame.LayoutOrder = RenderOrder
 	RenderOrder = RenderOrder + 1
@@ -71,45 +71,68 @@ local function RenderNode(
 	Corner.CornerRadius = UDim.new(0, 4)
 	Corner.Parent = NodeFrame
 
+	local StrokeColor = Constants.COLORS.TextMuted
+	if Node.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		StrokeColor = Constants.COLORS.Danger
+	elseif Node.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		StrokeColor = Constants.COLORS.Warning
+	elseif Node.ResponseType == DialogTree.RESPONSE_TYPES.CONTINUE_TO_RESPONSE then
+		StrokeColor = Constants.COLORS.ResponseToNode
+	elseif Node.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		StrokeColor = Constants.COLORS.ChoiceStrokeColor
+	end
+
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = IsSelected and Constants.COLORS.Primary or StrokeColor
+	Stroke.Thickness = IsSelected and Constants.SIZES.StrokeSelectedThickness or Constants.SIZES.StrokeIdleThickness
+	Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	Stroke.Parent = NodeFrame
+
+	if IsSelected then
+		TweenService:Create(Stroke, TWEEN_INFO, {
+			Thickness = Constants.SIZES.StrokeSelectedThickness
+		}):Play()
+	end
+
 	local Indent = Instance.new("Frame")
 	Indent.Size = UDim2.fromOffset(Depth * 20, 32)
 	Indent.BackgroundTransparency = 1
 	Indent.Parent = NodeFrame
 
 	local NodeButton = Instance.new("TextButton")
-	NodeButton.Size = UDim2.new(1, -Depth * 20, 1, 0)
-	NodeButton.Position = UDim2.fromOffset(Depth * 20, 0)
+	NodeButton.Size = UDim2.fromScale(1, 1)
+	NodeButton.Position = UDim2.fromOffset(0, 0)
 	NodeButton.BackgroundTransparency = 1
 	NodeButton.Text = Node.Id .. " - " .. Node.Text:sub(1, 30) .. (Node.Text:len() > 30 and "..." or "")
 	NodeButton.TextXAlignment = Enum.TextXAlignment.Left
-	NodeButton.TextColor3 = IsSelected and Constants.COLORS.Primary or Constants.COLORS.TextSecondary
+	NodeButton.TextColor3 = IsSelected and Constants.COLORS.Primary or StrokeColor
 	NodeButton.Font = IsSelected and Constants.FONTS.Bold or Constants.FONTS.Regular
 	NodeButton.TextSize = Constants.TEXT_SIZES.Normal
 	NodeButton.Parent = NodeFrame
 
 	local Padding = Instance.new("UIPadding")
-	Padding.PaddingLeft = UDim.new(0, 12)
+	Padding.PaddingLeft = UDim.new(0, 12 + Depth * 20)
 	Padding.PaddingRight = UDim.new(0, 8)
 	Padding.Parent = NodeButton
 
 	NodeButton.MouseEnter:Connect(function()
 		if not IsSelected then
-			TweenService:Create(NodeFrame, TWEEN_INFO, {
-				BackgroundColor3 = Constants.COLORS.PanelHover
+			TweenService:Create(Stroke, TWEEN_INFO, {
+				Thickness = Constants.SIZES.StrokeSelectedThickness
 			}):Play()
 			TweenService:Create(NodeButton, TWEEN_INFO, {
-				TextColor3 = Constants.COLORS.TextPrimary
+				TextColor3 = Constants.COLORS.Primary
 			}):Play()
 		end
 	end)
 
 	NodeButton.MouseLeave:Connect(function()
 		if not IsSelected then
-			TweenService:Create(NodeFrame, TWEEN_INFO, {
-				BackgroundColor3 = Constants.COLORS.Panel
+			TweenService:Create(Stroke, TWEEN_INFO, {
+				Thickness = Constants.SIZES.StrokeIdleThickness
 			}):Play()
 			TweenService:Create(NodeButton, TWEEN_INFO, {
-				TextColor3 = Constants.COLORS.TextSecondary
+				TextColor3 = StrokeColor
 			}):Play()
 		end
 	end)
@@ -118,6 +141,10 @@ local function RenderNode(
 		OnNodeSelected(Node)
 	end)
 
+	if Node.NextResponseNode then
+		RenderNode(Node.NextResponseNode, Parent, Depth + 1, "", SelectedNode, SelectedChoice, OnNodeSelected, OnChoiceSelected)
+	end
+
 	if Node.Choices then
 		for Index, Choice in ipairs(Node.Choices) do
 			local IsChoiceSelected = Choice == SelectedChoice
@@ -125,7 +152,7 @@ local function RenderNode(
 			local ChoiceFrame = Instance.new("Frame")
 			ChoiceFrame.Name = "Choice_" .. tostring(Index)
 			ChoiceFrame.Size = UDim2.new(1, -(Depth + 1) * 20, 0, 28)
-			ChoiceFrame.BackgroundColor3 = IsChoiceSelected and Constants.COLORS.SelectedBg or Constants.COLORS.BackgroundDark
+			ChoiceFrame.BackgroundColor3 = Constants.COLORS.BackgroundDark
 			ChoiceFrame.BorderSizePixel = 0
 			ChoiceFrame.LayoutOrder = RenderOrder
 			RenderOrder = RenderOrder + 1
@@ -134,6 +161,27 @@ local function RenderNode(
 			local ChoiceCorner = Instance.new("UICorner")
 			ChoiceCorner.CornerRadius = UDim.new(0, 4)
 			ChoiceCorner.Parent = ChoiceFrame
+
+			local ChoiceStrokeColor = Constants.COLORS.Accent
+			if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+				ChoiceStrokeColor = Constants.COLORS.Danger
+			elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+				ChoiceStrokeColor = Constants.COLORS.Warning
+			elseif Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+				ChoiceStrokeColor = Constants.COLORS.ChoiceStrokeColor
+			end
+
+			local ChoiceStroke = Instance.new("UIStroke")
+			ChoiceStroke.Color = IsChoiceSelected and Constants.COLORS.Primary or ChoiceStrokeColor
+			ChoiceStroke.Thickness = IsChoiceSelected and Constants.SIZES.StrokeSelectedThickness or Constants.SIZES.StrokeIdleThickness
+			ChoiceStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			ChoiceStroke.Parent = ChoiceFrame
+
+			if IsChoiceSelected then
+				TweenService:Create(ChoiceStroke, TWEEN_INFO, {
+					Thickness = Constants.SIZES.StrokeSelectedThickness
+				}):Play()
+			end
 
 			local ChoiceIndent = Instance.new("Frame")
 			ChoiceIndent.Size = UDim2.fromOffset((Depth + 1) * 20, 28)
@@ -144,36 +192,36 @@ local function RenderNode(
 			ChoiceButton.Size = UDim2.new(1, -(Depth + 1) * 20, 1, 0)
 			ChoiceButton.Position = UDim2.fromOffset((Depth + 1) * 20, 0)
 			ChoiceButton.BackgroundTransparency = 1
-			ChoiceButton.Text = "→ " .. (Choice.Id or "choice_unknown") .. " - " .. Choice.ButtonText:sub(1, 20) .. (Choice.ButtonText:len() > 20 and "..." or "")
+			ChoiceButton.Text = Choice.Id .. " - " .. Choice.ButtonText:sub(1, 25) .. (Choice.ButtonText:len() > 25 and "..." or "")
 			ChoiceButton.TextXAlignment = Enum.TextXAlignment.Left
-			ChoiceButton.TextColor3 = IsChoiceSelected and Constants.COLORS.Primary or Constants.COLORS.Accent
+			ChoiceButton.TextColor3 = IsChoiceSelected and Constants.COLORS.Primary or ChoiceStrokeColor
 			ChoiceButton.Font = IsChoiceSelected and Constants.FONTS.Bold or Constants.FONTS.Regular
 			ChoiceButton.TextSize = Constants.TEXT_SIZES.Small
 			ChoiceButton.Parent = ChoiceFrame
 
 			local ChoicePadding = Instance.new("UIPadding")
-			ChoicePadding.PaddingLeft = UDim.new(0, 12)
+			ChoicePadding.PaddingLeft = UDim.new(0, 8 + (Depth + 1) * 20)
 			ChoicePadding.PaddingRight = UDim.new(0, 8)
 			ChoicePadding.Parent = ChoiceButton
 
 			ChoiceButton.MouseEnter:Connect(function()
 				if not IsChoiceSelected then
-					TweenService:Create(ChoiceFrame, TWEEN_INFO, {
-						BackgroundColor3 = Constants.COLORS.PanelHover
+					TweenService:Create(ChoiceStroke, TWEEN_INFO, {
+						Thickness = Constants.SIZES.StrokeSelectedThickness
 					}):Play()
 					TweenService:Create(ChoiceButton, TWEEN_INFO, {
-						TextColor3 = Constants.COLORS.TextPrimary
+						TextColor3 = Constants.COLORS.Primary
 					}):Play()
 				end
 			end)
 
 			ChoiceButton.MouseLeave:Connect(function()
 				if not IsChoiceSelected then
-					TweenService:Create(ChoiceFrame, TWEEN_INFO, {
-						BackgroundColor3 = Constants.COLORS.BackgroundDark
+					TweenService:Create(ChoiceStroke, TWEEN_INFO, {
+						Thickness = Constants.SIZES.StrokeIdleThickness
 					}):Play()
 					TweenService:Create(ChoiceButton, TWEEN_INFO, {
-						TextColor3 = Constants.COLORS.Accent
+						TextColor3 = ChoiceStrokeColor
 					}):Play()
 				end
 			end)
@@ -217,6 +265,7 @@ function TreeView.Refresh(
 	local Layout = Instance.new("UIListLayout")
 	Layout.Padding = UDim.new(0, 4)
 	Layout.SortOrder = Enum.SortOrder.LayoutOrder
+	Layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	Layout.Parent = TreeScrollFrameParam
 
 	Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()

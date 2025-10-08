@@ -22,4 +22,19 @@ function QuestGenerator.GenerateTurnIn(Choice: any, Depth: number): string
 	return Code
 end
 
+function QuestGenerator.GenerateTurnInNested(Choice: any, Depth: number): string
+	if not Choice.QuestTurnIn then
+		return ""
+	end
+
+	local Indent = Helpers.GetIndent(Depth)
+
+	local Code = Indent .. "DialogHelpers.Advanced.CreateQuestTurnIn({\n"
+	Code = Code .. Indent .. "\tButtonText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+	Code = Code .. Indent .. "\tQuestId = \"" .. Choice.QuestTurnIn.QuestId .. "\",\n"
+	Code = Code .. Indent .. "\tResponseText = \"" .. Helpers.EscapeString(Choice.QuestTurnIn.ResponseText) .. "\"\n"
+	Code = Code .. Indent .. "}),\n\n"
+	return Code
+end
+
 return QuestGenerator

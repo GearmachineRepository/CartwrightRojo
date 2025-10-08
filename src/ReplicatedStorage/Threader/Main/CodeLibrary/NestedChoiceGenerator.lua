@@ -1,7 +1,41 @@
 --!strict
 local Helpers = require(script.Parent.Helpers)
+local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 
 local NestedChoiceGenerator = {}
+
+local function GenerateResponseNodeWithType(ResponseNode: any, Depth: number, GenerateRecursive: (any, number) -> string): string
+	local Indent = Helpers.GetIndent(Depth)
+	local Code = "{\n"
+
+	Code = Code .. Indent .. "\tId = \"" .. ResponseNode.Id .. "\",\n"
+	Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(ResponseNode.Text) .. "\",\n"
+
+	if ResponseNode.ResponseType and ResponseNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+		if ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.CONTINUE_TO_RESPONSE and ResponseNode.NextResponseNode then
+			Code = Code .. Indent .. "\tResponseType = \"continue_to_response\",\n"
+			Code = Code .. Indent .. "\tNextResponseNode = " .. GenerateResponseNodeWithType(ResponseNode.NextResponseNode, Depth + 1, GenerateRecursive) .. ",\n"
+		elseif ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+			Code = Code .. Indent .. "\tResponseType = \"return_to_start\",\n"
+		elseif ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE and ResponseNode.ReturnToNodeId then
+			Code = Code .. Indent .. "\tResponseType = \"return_to_node\",\n"
+			Code = Code .. Indent .. "\tReturnToNodeId = \"" .. ResponseNode.ReturnToNodeId .. "\",\n"
+		elseif ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+			Code = Code .. Indent .. "\tResponseType = \"end_dialog\",\n"
+		end
+	end
+
+	if ResponseNode.Choices and #ResponseNode.Choices > 0 then
+		Code = Code .. Indent .. "\tChoices = {\n"
+		for _, SubChoice in ipairs(ResponseNode.Choices) do
+			Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+		end
+		Code = Code .. Indent .. "\t}\n"
+	end
+
+	Code = Code .. Indent .. "}"
+	return Code
+end
 
 function NestedChoiceGenerator.GenerateBranching(Choice: any, Depth: number, GenerateRecursive: (any, number) -> string): string
 	if not Choice.ResponseNode then
@@ -36,21 +70,41 @@ end
 
 function NestedChoiceGenerator.GenerateNested(Choice: any, Depth: number, GenerateRecursive: (any, number) -> string): string
 	local Indent = Helpers.GetIndent(Depth)
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil\n"
+		Code = Code .. Indent .. "},\n\n"
+		return Code
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil,\n"
+		Code = Code .. Indent .. "\tReturnToNodeId = \"start\"\n"
+		Code = Code .. Indent .. "},\n\n"
+		return Code
+	end
+
+	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
+		local TargetNodeId = Choice.ReturnToNodeId or "start"
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil,\n"
+		Code = Code .. Indent .. "\tReturnToNodeId = \"" .. TargetNodeId .. "\"\n"
+		Code = Code .. Indent .. "},\n\n"
+		return Code
+	end
+
 	local HasSubChoices = Choice.ResponseNode and Choice.ResponseNode.Choices and #Choice.ResponseNode.Choices > 0
 
-	if HasSubChoices then
-		local Code = Indent .. "DialogHelpers.CreateNestedChoice(\n"
-		Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
-		Code = Code .. Indent .. "\t\"" .. Helpers.EscapeString(Choice.ResponseNode.Text) .. "\",\n"
-		Code = Code .. Indent .. "\t{\n"
-
-		for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
-			Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
-		end
-
-		Code = Code .. Indent .. "\t},\n"
-		Code = Code .. Indent .. "\t\"" .. Choice.ResponseNode.Id .. "\"\n"
-		Code = Code .. Indent .. "),\n"
+	if HasSubChoices or (Choice.ResponseNode and Choice.ResponseNode.ResponseType and Choice.ResponseNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE) then
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = " .. GenerateResponseNodeWithType(Choice.ResponseNode, Depth + 1, GenerateRecursive) .. "\n"
+		Code = Code .. Indent .. "},\n\n"
 		return Code
 	else
 		local SimpleChoiceGen = require(script.Parent.SimpleChoiceGenerator)

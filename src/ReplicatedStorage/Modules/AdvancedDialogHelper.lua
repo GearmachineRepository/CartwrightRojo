@@ -36,7 +36,7 @@ function Advanced.CreateSkillCheck(Options: {
 		Text = Options.SuccessResponse
 	}
 
-	if Options.SuccessChoices then
+	if Options.SuccessChoices and #Options.SuccessChoices > 0 then
 		SuccessNode.Choices = Options.SuccessChoices
 	end
 
@@ -49,7 +49,7 @@ function Advanced.CreateSkillCheck(Options: {
 		Text = Options.FailureResponse
 	}
 
-	if Options.FailureChoices then
+	if Options.FailureChoices and #Options.FailureChoices > 0 then
 		FailureNode.Choices = Options.FailureChoices
 	end
 
@@ -57,9 +57,11 @@ function Advanced.CreateSkillCheck(Options: {
 		FailureNode.SetFlags = Options.FailureFlags
 	end
 
+	-- Don't create a Response node at all - pass nil
+	-- FilterChoices will use SuccessResponse/FailureResponse instead
 	return AdvancedDialogBuilder.CreateChoice(
 		Options.ButtonText,
-		SuccessNode,
+		SuccessNode,  -- This becomes Response, but FilterChoices will replace it
 		{
 			SkillCheck = {
 				Skill = Options.Skill,

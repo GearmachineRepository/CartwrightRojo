@@ -4,6 +4,39 @@ local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 
 local SimpleChoiceGenerator = {}
 
+local function GenerateResponseNodeWithType(ResponseNode: any, Depth: number): string
+	if not ResponseNode then
+		return "nil"
+	end
+
+	local Indent = Helpers.GetIndent(Depth)
+	local Code = "{\n"
+
+	Code = Code .. Indent .. "\tId = \"" .. ResponseNode.Id .. "\",\n"
+	Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(ResponseNode.Text) .. "\",\n"
+
+	if ResponseNode.ResponseType and ResponseNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+		if ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.CONTINUE_TO_RESPONSE and ResponseNode.NextResponseNode then
+			Code = Code .. Indent .. "\tResponseType = \"continue_to_response\",\n"
+			Code = Code .. Indent .. "\tNextResponseNode = " .. GenerateResponseNodeWithType(ResponseNode.NextResponseNode, Depth + 1) .. ",\n"
+		elseif ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
+			Code = Code .. Indent .. "\tResponseType = \"return_to_start\",\n"
+		elseif ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE and ResponseNode.ReturnToNodeId then
+			Code = Code .. Indent .. "\tResponseType = \"return_to_node\",\n"
+			Code = Code .. Indent .. "\tReturnToNodeId = \"" .. ResponseNode.ReturnToNodeId .. "\",\n"
+		elseif ResponseNode.ResponseType == DialogTree.RESPONSE_TYPES.END_DIALOG then
+			Code = Code .. Indent .. "\tResponseType = \"end_dialog\",\n"
+		end
+	end
+
+	if ResponseNode.Choices and #ResponseNode.Choices > 0 then
+		Code = Code .. Indent .. "\tChoices = {}\n"
+	end
+
+	Code = Code .. Indent .. "}"
+	return Code
+end
+
 function SimpleChoiceGenerator.Generate(Choice: any, Depth: number): string
 	local Indent = Helpers.GetIndent(Depth)
 
@@ -17,11 +50,30 @@ function SimpleChoiceGenerator.Generate(Choice: any, Depth: number): string
 	end
 
 	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
-		return ""
+		local Code = Indent .. "table.insert(Choices, {\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil,\n"
+		Code = Code .. Indent .. "\tReturnToNodeId = \"start\"\n"
+		Code = Code .. Indent .. "})\n\n"
+		return Code
 	end
 
 	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
-		return ""
+		local TargetNodeId = Choice.ReturnToNodeId or "start"
+		local Code = Indent .. "table.insert(Choices, {\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil,\n"
+		Code = Code .. Indent .. "\tReturnToNodeId = \"" .. TargetNodeId .. "\"\n"
+		Code = Code .. Indent .. "})\n\n"
+		return Code
+	end
+
+	if Choice.ResponseNode and (Choice.ResponseNode.ResponseType and Choice.ResponseNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE) then
+		local Code = Indent .. "table.insert(Choices, {\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = " .. GenerateResponseNodeWithType(Choice.ResponseNode, Depth + 1) .. "\n"
+		Code = Code .. Indent .. "})\n\n"
+		return Code
 	end
 
 	local Code = Indent .. "table.insert(Choices, DialogHelpers.CreateSimpleChoice(\n"
@@ -71,11 +123,30 @@ function SimpleChoiceGenerator.GenerateNested(Choice: any, Depth: number): strin
 	end
 
 	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_START then
-		return ""
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil,\n"
+		Code = Code .. Indent .. "\tReturnToNodeId = \"start\"\n"
+		Code = Code .. Indent .. "},\n\n"
+		return Code
 	end
 
 	if Choice.ResponseType == DialogTree.RESPONSE_TYPES.RETURN_TO_NODE then
-		return ""
+		local TargetNodeId = Choice.ReturnToNodeId or "start"
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = nil,\n"
+		Code = Code .. Indent .. "\tReturnToNodeId = \"" .. TargetNodeId .. "\"\n"
+		Code = Code .. Indent .. "},\n\n"
+		return Code
+	end
+
+	if Choice.ResponseNode and (Choice.ResponseNode.ResponseType and Choice.ResponseNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE) then
+		local Code = Indent .. "{\n"
+		Code = Code .. Indent .. "\tText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
+		Code = Code .. Indent .. "\tResponse = " .. GenerateResponseNodeWithType(Choice.ResponseNode, Depth + 1) .. "\n"
+		Code = Code .. Indent .. "},\n\n"
+		return Code
 	end
 
 	local Code = Indent .. "DialogHelpers.CreateSimpleChoice(\n"

@@ -72,6 +72,7 @@ Constants.COLORS = {
 	QuestGated = Color3.fromRGB(220, 155, 60),      -- match Warning
 
 	ResponseToNode = Color3.fromRGB(100, 200, 200),
+	ChoiceStrokeColor = Color3.fromRGB(130, 115, 200),
 }
 
 Constants.SIZES = {
@@ -92,7 +93,10 @@ Constants.SIZES = {
 	CornerRadius = 6,
 
 	ScrollBarThickness = 6,
-	ScrollBarThicknessThin = 5
+	ScrollBarThicknessThin = 5,
+
+	StrokeSelectedThickness = 1.25,
+	StrokeIdleThickness = 1,
 }
 
 Constants.FONTS = {
