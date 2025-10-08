@@ -16,6 +16,7 @@ local ViewManager = require(script.UI.ViewManager)
 local DropdownMenu = require(script.UI.DropdownMenu)
 local ResizableDivider = require(script.UI.ResizableDivider)
 local Prompt = require(script.UI.Prompt)
+local FlagsManagerUI = require(script.UI.FlagsManagerUI)
 
 type DialogNode = DialogTree.DialogNode
 type DialogChoice = DialogTree.DialogChoice
@@ -264,11 +265,17 @@ local ViewMenuItems = {
 	{Text = "Graph View", OnClick = SwitchToGraphView}
 }
 
-local Menus = {
-	{Name = "File", Items = FileMenuItems},
-	{Name = "View", Items = ViewMenuItems}
+local FlagsMenuItems = {
+	{Text = "Manage Flags", OnClick = function()
+		FlagsManagerUI.Open(MainFrame)
+	end}
 }
 
+local Menus = {
+	{Name = "File", Items = FileMenuItems},
+	{Name = "View", Items = ViewMenuItems},
+	{Name = "Flags", Items = FlagsMenuItems}  -- NEW
+}
 DropdownMenu.CreateMenuBar(MainFrame, Menus)
 TreeScrollFrame = TreeView.Create(MainFrame)
 EditorScroll = EditorPanel.Create(MainFrame)

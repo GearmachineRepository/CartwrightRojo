@@ -45,14 +45,22 @@ function Helpers.GenerateCondition(Condition: any, Depth: number): string
 end
 
 function Helpers.GenerateFlagsArray(Flags: {string}): string
-	local FlagsStr = ""
-	for Index, Flag in ipairs(Flags) do
-		if Index > 1 then
-			FlagsStr = FlagsStr .. ", "
-		end
-		FlagsStr = FlagsStr .. '"' .. Helpers.EscapeString(Flag) .. '"'
+	if not Flags or #Flags == 0 then
+		return ""
 	end
-	return FlagsStr
+
+	local FilteredFlags = {}
+	for _, Flag in ipairs(Flags) do
+		if Flag ~= "None" then
+			table.insert(FilteredFlags, '"' .. Flag .. '"')
+		end
+	end
+
+	if #FilteredFlags == 0 then
+		return ""
+	end
+
+	return table.concat(FilteredFlags, ", ")
 end
 
 function Helpers.GenerateCommandFunction(Command: string, Depth: number): string

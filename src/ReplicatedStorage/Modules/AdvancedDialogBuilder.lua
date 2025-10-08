@@ -109,7 +109,12 @@ function AdvancedDialogBuilder.ProcessNode(Player: Player, Node: DialogNode): Di
 	if Node.Choices then
 		local FilteredChoices = AdvancedDialogBuilder.FilterChoices(Player, Node.Choices)
 
-		-- Only include Choices field if there are actually choices
+		for _, Choice in ipairs(FilteredChoices) do
+			if Choice.Response and Choice.Response.Choices then
+				Choice.Response = AdvancedDialogBuilder.ProcessNode(Player, Choice.Response)
+			end
+		end
+
 		if #FilteredChoices > 0 then
 			return {
 				Id = Node.Id,
@@ -123,7 +128,6 @@ function AdvancedDialogBuilder.ProcessNode(Player: Player, Node: DialogNode): Di
 				ReturnToNodeId = Node.ReturnToNodeId
 			}
 		else
-			-- No choices after filtering - return node without Choices field
 			return {
 				Id = Node.Id,
 				Text = Node.Text,

@@ -4,7 +4,7 @@ local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 
 local SkillCheckGenerator = {}
 
-local function GenerateNodeWithResponseType(Node: any, Depth: number, GenerateRecursive: (any, number) -> string): string
+local function GenerateNodeWithResponseType(Node: any, Depth: number, GenerateRecursive: (any, number) -> string, _: boolean?): string
 	local Indent = Helpers.GetIndent(Depth)
 	local Code = "{\n"
 
@@ -49,30 +49,50 @@ function SkillCheckGenerator.Generate(Choice: any, Depth: number, GenerateRecurs
 	Code = Code .. Indent .. "\tButtonText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 
 	if Choice.SkillCheck.SuccessNode then
-		Code = Code .. Indent .. "\tSuccessResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.SuccessNode.Text) .. "\",\n"
+		local SuccessNode = Choice.SkillCheck.SuccessNode
 
-		if Choice.SkillCheck.SuccessNode.Choices and #Choice.SkillCheck.SuccessNode.Choices > 0 then
-			Code = Code .. Indent .. "\tSuccessChoices = {\n"
-			for _, SubChoice in ipairs(Choice.SkillCheck.SuccessNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+		if SuccessNode.ResponseType and SuccessNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\tSuccessResponse = " .. GenerateNodeWithResponseType(SuccessNode, Depth + 1, GenerateRecursive) .. ",\n"
+
+			if SuccessNode.SetFlags and #SuccessNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(SuccessNode.SetFlags) .. "},\n"
 			end
-			Code = Code .. Indent .. "\t},\n"
-		end
+		else
+			Code = Code .. Indent .. "\tSuccessResponse = \"" .. Helpers.EscapeString(SuccessNode.Text) .. "\",\n"
 
-		if Choice.SetFlags and #Choice.SetFlags > 0 then
-			Code = Code .. Indent .. "\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+			if SuccessNode.Choices and #SuccessNode.Choices > 0 then
+				Code = Code .. Indent .. "\tSuccessChoices = {\n"
+				for _, SubChoice in ipairs(SuccessNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+				end
+				Code = Code .. Indent .. "\t},\n"
+			end
+
+			if SuccessNode.SetFlags and #SuccessNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(SuccessNode.SetFlags) .. "},\n"
+			end
 		end
 	end
 
 	if Choice.SkillCheck.FailureNode then
-		Code = Code .. Indent .. "\tFailureResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.FailureNode.Text) .. "\",\n"
+		local FailureNode = Choice.SkillCheck.FailureNode
 
-		if Choice.SkillCheck.FailureNode.Choices and #Choice.SkillCheck.FailureNode.Choices > 0 then
-			Code = Code .. Indent .. "\tFailureChoices = {\n"
-			for _, SubChoice in ipairs(Choice.SkillCheck.FailureNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+		if FailureNode.ResponseType and FailureNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\tFailureResponse = " .. GenerateNodeWithResponseType(FailureNode, Depth + 1, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\tFailureResponse = \"" .. Helpers.EscapeString(FailureNode.Text) .. "\",\n"
+
+			if FailureNode.Choices and #FailureNode.Choices > 0 then
+				Code = Code .. Indent .. "\tFailureChoices = {\n"
+				for _, SubChoice in ipairs(FailureNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+				end
+				Code = Code .. Indent .. "\t},\n"
 			end
-			Code = Code .. Indent .. "\t},\n"
+
+			if FailureNode.SetFlags and #FailureNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\tFailureFlags = {" .. Helpers.GenerateFlagsArray(FailureNode.SetFlags) .. "},\n"
+			end
 		end
 	end
 
@@ -109,29 +129,47 @@ function SkillCheckGenerator.GenerateConditional(Choice: any, Depth: number, Gen
 	Code = Code .. Indent .. "\t\t\tButtonText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 
 	if Choice.SkillCheck.SuccessNode then
-		Code = Code .. Indent .. "\t\t\tSuccessResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.SuccessNode.Text) .. "\",\n"
-		Code = Code .. Indent .. "\t\t\tSuccessChoices = {\n"
-		if Choice.SkillCheck.SuccessNode.Choices and #Choice.SkillCheck.SuccessNode.Choices > 0 then
-			for _, SubChoice in ipairs(Choice.SkillCheck.SuccessNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
-			end
-		end
-		Code = Code .. Indent .. "\t\t\t},\n"
+		local SuccessNode = Choice.SkillCheck.SuccessNode
 
-		if Choice.SetFlags and #Choice.SetFlags > 0 then
-			Code = Code .. Indent .. "\t\t\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+		if SuccessNode.ResponseType and SuccessNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\t\t\tSuccessResponse = " .. GenerateNodeWithResponseType(SuccessNode, Depth + 2, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\t\t\tSuccessResponse = \"" .. Helpers.EscapeString(SuccessNode.Text) .. "\",\n"
+
+			if SuccessNode.Choices and #SuccessNode.Choices > 0 then
+				Code = Code .. Indent .. "\t\t\tSuccessChoices = {\n"
+				for _, SubChoice in ipairs(SuccessNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+				end
+				Code = Code .. Indent .. "\t\t\t},\n"
+			end
+
+			if SuccessNode.SetFlags and #SuccessNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\t\t\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(SuccessNode.SetFlags) .. "},\n"
+			end
 		end
 	end
 
 	if Choice.SkillCheck.FailureNode then
-		Code = Code .. Indent .. "\t\t\tFailureResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.FailureNode.Text) .. "\",\n"
-		Code = Code .. Indent .. "\t\t\tFailureChoices = {\n"
-		if Choice.SkillCheck.FailureNode.Choices and #Choice.SkillCheck.FailureNode.Choices > 0 then
-			for _, SubChoice in ipairs(Choice.SkillCheck.FailureNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+		local FailureNode = Choice.SkillCheck.FailureNode
+
+		if FailureNode.ResponseType and FailureNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\t\t\tFailureResponse = " .. GenerateNodeWithResponseType(FailureNode, Depth + 2, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\t\t\tFailureResponse = \"" .. Helpers.EscapeString(FailureNode.Text) .. "\",\n"
+
+			if FailureNode.Choices and #FailureNode.Choices > 0 then
+				Code = Code .. Indent .. "\t\t\tFailureChoices = {\n"
+				for _, SubChoice in ipairs(FailureNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+				end
+				Code = Code .. Indent .. "\t\t\t},\n"
+			end
+
+			if FailureNode.SetFlags and #FailureNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\t\t\tFailureFlags = {" .. Helpers.GenerateFlagsArray(FailureNode.SetFlags) .. "},\n"
 			end
 		end
-		Code = Code .. Indent .. "\t\t\t},\n"
 	end
 
 	if Choice.Command and Choice.Command ~= "" then
@@ -158,28 +196,46 @@ function SkillCheckGenerator.GenerateNested(Choice: any, Depth: number, Generate
 	Code = Code .. Indent .. "\tButtonText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 
 	if Choice.SkillCheck.SuccessNode then
-		Code = Code .. Indent .. "\tSuccessResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.SuccessNode.Text) .. "\",\n"
+		local SuccessNode = Choice.SkillCheck.SuccessNode
 
-		local HasSuccessChoices = Choice.SkillCheck.SuccessNode.Choices and #Choice.SkillCheck.SuccessNode.Choices > 0
-		if HasSuccessChoices then
-			Code = Code .. Indent .. "\tSuccessChoices = {\n"
-			for _, SubChoice in ipairs(Choice.SkillCheck.SuccessNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+		if SuccessNode.ResponseType and SuccessNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\tSuccessResponse = " .. GenerateNodeWithResponseType(SuccessNode, Depth + 1, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\tSuccessResponse = \"" .. Helpers.EscapeString(SuccessNode.Text) .. "\",\n"
+
+			if SuccessNode.Choices and #SuccessNode.Choices > 0 then
+				Code = Code .. Indent .. "\tSuccessChoices = {\n"
+				for _, SubChoice in ipairs(SuccessNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+				end
+				Code = Code .. Indent .. "\t},\n"
 			end
-			Code = Code .. Indent .. "\t},\n"
+
+			if SuccessNode.SetFlags and #SuccessNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(SuccessNode.SetFlags) .. "},\n"
+			end
 		end
 	end
 
 	if Choice.SkillCheck.FailureNode then
-		Code = Code .. Indent .. "\tFailureResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.FailureNode.Text) .. "\",\n"
+		local FailureNode = Choice.SkillCheck.FailureNode
 
-		local HasFailureChoices = Choice.SkillCheck.FailureNode.Choices and #Choice.SkillCheck.FailureNode.Choices > 0
-		if HasFailureChoices then
-			Code = Code .. Indent .. "\tFailureChoices = {\n"
-			for _, SubChoice in ipairs(Choice.SkillCheck.FailureNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+		if FailureNode.ResponseType and FailureNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\tFailureResponse = " .. GenerateNodeWithResponseType(FailureNode, Depth + 1, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\tFailureResponse = \"" .. Helpers.EscapeString(FailureNode.Text) .. "\",\n"
+
+			if FailureNode.Choices and #FailureNode.Choices > 0 then
+				Code = Code .. Indent .. "\tFailureChoices = {\n"
+				for _, SubChoice in ipairs(FailureNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 2)
+				end
+				Code = Code .. Indent .. "\t},\n"
 			end
-			Code = Code .. Indent .. "\t},\n"
+
+			if FailureNode.SetFlags and #FailureNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\tFailureFlags = {" .. Helpers.GenerateFlagsArray(FailureNode.SetFlags) .. "},\n"
+			end
 		end
 	end
 
@@ -211,25 +267,47 @@ function SkillCheckGenerator.GenerateConditionalNested(Choice: any, Depth: numbe
 	Code = Code .. Indent .. "\t\t\tButtonText = \"" .. Helpers.EscapeString(Choice.ButtonText) .. "\",\n"
 
 	if Choice.SkillCheck.SuccessNode then
-		Code = Code .. Indent .. "\t\t\tSuccessResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.SuccessNode.Text) .. "\",\n"
-		Code = Code .. Indent .. "\t\t\tSuccessChoices = {\n"
-		if Choice.SkillCheck.SuccessNode.Choices and #Choice.SkillCheck.SuccessNode.Choices > 0 then
-			for _, SubChoice in ipairs(Choice.SkillCheck.SuccessNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+		local SuccessNode = Choice.SkillCheck.SuccessNode
+
+		if SuccessNode.ResponseType and SuccessNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\t\t\tSuccessResponse = " .. GenerateNodeWithResponseType(SuccessNode, Depth + 2, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\t\t\tSuccessResponse = \"" .. Helpers.EscapeString(SuccessNode.Text) .. "\",\n"
+
+			if SuccessNode.Choices and #SuccessNode.Choices > 0 then
+				Code = Code .. Indent .. "\t\t\tSuccessChoices = {\n"
+				for _, SubChoice in ipairs(SuccessNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+				end
+				Code = Code .. Indent .. "\t\t\t},\n"
+			end
+
+			if SuccessNode.SetFlags and #SuccessNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\t\t\tSuccessFlags = {" .. Helpers.GenerateFlagsArray(SuccessNode.SetFlags) .. "},\n"
 			end
 		end
-		Code = Code .. Indent .. "\t\t\t},\n"
 	end
 
 	if Choice.SkillCheck.FailureNode then
-		Code = Code .. Indent .. "\t\t\tFailureResponse = \"" .. Helpers.EscapeString(Choice.SkillCheck.FailureNode.Text) .. "\",\n"
-		Code = Code .. Indent .. "\t\t\tFailureChoices = {\n"
-		if Choice.SkillCheck.FailureNode.Choices and #Choice.SkillCheck.FailureNode.Choices > 0 then
-			for _, SubChoice in ipairs(Choice.SkillCheck.FailureNode.Choices) do
-				Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+		local FailureNode = Choice.SkillCheck.FailureNode
+
+		if FailureNode.ResponseType and FailureNode.ResponseType ~= DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE then
+			Code = Code .. Indent .. "\t\t\tFailureResponse = " .. GenerateNodeWithResponseType(FailureNode, Depth + 2, GenerateRecursive) .. ",\n"
+		else
+			Code = Code .. Indent .. "\t\t\tFailureResponse = \"" .. Helpers.EscapeString(FailureNode.Text) .. "\",\n"
+
+			if FailureNode.Choices and #FailureNode.Choices > 0 then
+				Code = Code .. Indent .. "\t\t\tFailureChoices = {\n"
+				for _, SubChoice in ipairs(FailureNode.Choices) do
+					Code = Code .. GenerateRecursive(SubChoice, Depth + 4)
+				end
+				Code = Code .. Indent .. "\t\t\t},\n"
+			end
+
+			if FailureNode.SetFlags and #FailureNode.SetFlags > 0 then
+				Code = Code .. Indent .. "\t\t\tFailureFlags = {" .. Helpers.GenerateFlagsArray(FailureNode.SetFlags) .. "},\n"
 			end
 		end
-		Code = Code .. Indent .. "\t\t\t},\n"
 	end
 
 	Code = Code .. Indent .. "\t\t})\n"

@@ -2,6 +2,7 @@
 local Components = require(script.Parent.Parent.UI.Components)
 local Constants = require(script.Parent.Parent.Constants)
 local DialogTree = require(script.Parent.Parent.Data.DialogTree)
+local FlagsManager = require(script.Parent.Parent.Data.FlagsManager)
 
 type DialogChoice = DialogTree.DialogChoice
 
@@ -29,32 +30,29 @@ function FlagsEditor.Render(
 
 		Components.CreateInlineLabel("Flag " .. tostring(Index) .. ":", FlagRow, 60)
 
-		local FlagInput = Instance.new("TextBox")
-		FlagInput.Size = UDim2.new(1, -130, 1, 0)
-		FlagInput.Position = UDim2.fromOffset(65, 0)
-		FlagInput.Text = FlagName
-		FlagInput.TextColor3 = Constants.COLORS.TextPrimary
-		FlagInput.BackgroundColor3 = Constants.COLORS.InputBackground
-		FlagInput.BorderSizePixel = 1
-		FlagInput.BorderColor3 = Constants.COLORS.InputBorder
-		FlagInput.Font = Constants.FONTS.Regular
-		FlagInput.TextSize = 13
-		FlagInput.TextXAlignment = Enum.TextXAlignment.Left
-		FlagInput.ClearTextOnFocus = false
-		FlagInput.Parent = FlagRow
+		local DropdownContainer = Instance.new("Frame")
+		DropdownContainer.Size = UDim2.new(1, -130, 1, 0)
+		DropdownContainer.Position = UDim2.fromOffset(65, 0)
+		DropdownContainer.BackgroundTransparency = 1
+		DropdownContainer.Parent = FlagRow
 
-		local InputCorner = Instance.new("UICorner")
-		InputCorner.CornerRadius = UDim.new(0, 4)
-		InputCorner.Parent = FlagInput
+		local AllFlags = FlagsManager.GetAllFlags()
 
-		local InputPadding = Instance.new("UIPadding")
-		InputPadding.PaddingLeft = UDim.new(0, 8)
-		InputPadding.PaddingRight = UDim.new(0, 8)
-		InputPadding.Parent = FlagInput
-
-		FlagInput.FocusLost:Connect(function()
-			Choice.SetFlags[Index] = FlagInput.Text
-		end)
+		Components.CreateDropdown(
+			AllFlags,
+			FlagName,
+			DropdownContainer,
+			1,
+			function(NewFlag: string)
+				if NewFlag == "None" then
+					DialogTree.RemoveFlag(Choice, Index)
+					task.wait()
+					OnRefresh()
+				else
+					Choice.SetFlags[Index] = NewFlag
+				end
+			end
+		)
 
 		local DeleteButton = Instance.new("TextButton")
 		DeleteButton.Size = UDim2.new(0, 60, 1, 0)
@@ -62,9 +60,9 @@ function FlagsEditor.Render(
 		DeleteButton.Text = "✕"
 		DeleteButton.TextColor3 = Constants.COLORS.TextPrimary
 		DeleteButton.BackgroundColor3 = Constants.COLORS.Danger
+		DeleteButton.BorderSizePixel = 0
 		DeleteButton.Font = Constants.FONTS.Bold
 		DeleteButton.TextSize = 16
-		DeleteButton.BorderSizePixel = 0
 		DeleteButton.AutoButtonColor = false
 		DeleteButton.Parent = FlagRow
 
@@ -93,7 +91,7 @@ function FlagsEditor.Render(
 		CurrentOrder,
 		Constants.COLORS.Primary,
 		function()
-			DialogTree.AddFlag(Choice, "NewFlag")
+			DialogTree.AddFlag(Choice, "None")
 			task.wait()
 			OnRefresh()
 		end

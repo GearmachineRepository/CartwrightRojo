@@ -4,6 +4,7 @@ local Constants = require(script.Parent.Parent.Constants)
 local DialogTree = require(script.Parent.Parent.Data.DialogTree)
 local ChoiceEditor = require(script.Parent.Parent.Editors.ChoiceEditor)
 local Prompt = require(script.Parent.Parent.UI.Prompt)
+local FlagsEditor = require(script.Parent.Parent.Editors.FlagsEditor)
 
 type DialogNode = DialogTree.DialogNode
 type DialogChoice = DialogTree.DialogChoice
@@ -288,7 +289,6 @@ function EditorPanel.RenderNodeEditor(
 	OnNavigateToChoice: (DialogChoice) -> (),
 	CurrentTree: DialogNode?
 )
-	-- FIXED: Removed background color, made transparent
 	local NodeTypeFrame = Instance.new("Frame")
 	NodeTypeFrame.Size = UDim2.new(1, 0, 0, 36)
 	NodeTypeFrame.BackgroundTransparency = 1
@@ -298,7 +298,7 @@ function EditorPanel.RenderNodeEditor(
 
 	local NodeTypeLabel = Instance.new("TextLabel")
 	NodeTypeLabel.Size = UDim2.new(1, -100, 1, 0)
-	NodeTypeLabel.Text = "DIALOG/RESPONSE"
+	NodeTypeLabel.Text = "Response Node"
 	NodeTypeLabel.TextColor3 = Constants.COLORS.Primary
 	NodeTypeLabel.BackgroundTransparency = 1
 	NodeTypeLabel.Font = Constants.FONTS.Bold
@@ -307,6 +307,26 @@ function EditorPanel.RenderNodeEditor(
 	NodeTypeLabel.Parent = NodeTypeFrame
 
 	if SelectedNode.Id ~= "start" then
+		local _, NodeFlagsContent = Components.CreateCollapsibleSection(
+			"Set Flags",
+			EditorScroll,
+			5.5,
+			true
+		)
+
+		if not SelectedNode.SetFlags then
+			SelectedNode.SetFlags = {}
+		end
+
+		local NodeFlagsWrapper = {
+			SetFlags = SelectedNode.SetFlags
+		}
+
+		FlagsEditor.Render(NodeFlagsWrapper, NodeFlagsContent, 1, function()
+			SelectedNode.SetFlags = NodeFlagsWrapper.SetFlags
+			OnRefresh()
+		end)
+
 		local DeleteButton = Instance.new("TextButton")
 		DeleteButton.Size = UDim2.fromOffset(80, 28)
 		DeleteButton.Position = UDim2.new(1, -90, 0.5, -14)
@@ -379,7 +399,6 @@ function EditorPanel.RenderNodeEditor(
 		SelectedNode.Id = NewId
 	end)
 
-	-- FIXED: Underlined links for incoming choices
 	local IncomingChoices = FindChoicesPointingToNode(CurrentTree, SelectedNode)
 	if #IncomingChoices > 0 then
 		Components.CreateLabel("Incoming Choices:", EditorScroll, 2.5)
@@ -402,7 +421,7 @@ function EditorPanel.RenderNodeEditor(
 			LinkButton.BackgroundTransparency = 1
 			LinkButton.AutoButtonColor = false
 			LinkButton.RichText = true
-			LinkButton.Text = "<u>→ " .. (ChoiceLink.Id or "choice") .. ": " .. ChoiceLink.ButtonText:sub(1, 20) .. "</u>"
+			LinkButton.Text = "<u>← " .. (ChoiceLink.Id or "choice") .. ": " .. ChoiceLink.ButtonText:sub(1, 20) .. "</u>"
 			LinkButton.TextColor3 = Constants.COLORS.Primary
 			LinkButton.Font = Constants.FONTS.Regular
 			LinkButton.TextSize = 14
@@ -433,7 +452,6 @@ function EditorPanel.RenderNodeEditor(
 		SelectedNode.Text = NewText
 	end)
 
-	-- Response chaining for non-start nodes
 	if SelectedNode.Id ~= "start" then
 		if not SelectedNode.ResponseType then
 			SelectedNode.ResponseType = DialogTree.RESPONSE_TYPES.DEFAULT_RESPONSE

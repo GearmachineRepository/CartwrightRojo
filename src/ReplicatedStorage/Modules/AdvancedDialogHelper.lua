@@ -20,21 +20,26 @@ function Advanced.CreateSkillCheck(Options: {
 	Skill: Skills,
 	Difficulty: number,
 	ButtonText: string,
-	SuccessResponse: string,
+	SuccessResponse: string | {Id: string, Text: string, ResponseType: string?, ReturnToNodeId: string?, NextResponseNode: any?},
 	SuccessChoices: {any}?,
 	SuccessFlags: {string}?,
 	SuccessCommand: ((Player) -> ())?,
-	FailureResponse: string,
+	FailureResponse: string | {Id: string, Text: string, ResponseType: string?, ReturnToNodeId: string?, NextResponseNode: any?},
 	FailureChoices: {any}?,
 	FailureFlags: {string}?,
 	FailureCommand: ((Player) -> ())?,
 	OneTime: boolean?
 }): any
 
-	local SuccessNode: any = {
-		Id = "skill_success_" .. Options.Skill:lower(),
-		Text = Options.SuccessResponse
-	}
+	local SuccessNode: any
+	if type(Options.SuccessResponse) == "string" then
+		SuccessNode = {
+			Id = "skill_success_" .. Options.Skill:lower(),
+			Text = Options.SuccessResponse
+		}
+	else
+		SuccessNode = Options.SuccessResponse
+	end
 
 	if Options.SuccessChoices and #Options.SuccessChoices > 0 then
 		SuccessNode.Choices = Options.SuccessChoices
@@ -44,10 +49,15 @@ function Advanced.CreateSkillCheck(Options: {
 		SuccessNode.SetFlags = Options.SuccessFlags
 	end
 
-	local FailureNode: any = {
-		Id = "skill_failure_" .. Options.Skill:lower(),
-		Text = Options.FailureResponse
-	}
+	local FailureNode: any
+	if type(Options.FailureResponse) == "string" then
+		FailureNode = {
+			Id = "skill_failure_" .. Options.Skill:lower(),
+			Text = Options.FailureResponse
+		}
+	else
+		FailureNode = Options.FailureResponse
+	end
 
 	if Options.FailureChoices and #Options.FailureChoices > 0 then
 		FailureNode.Choices = Options.FailureChoices
@@ -57,11 +67,9 @@ function Advanced.CreateSkillCheck(Options: {
 		FailureNode.SetFlags = Options.FailureFlags
 	end
 
-	-- Don't create a Response node at all - pass nil
-	-- FilterChoices will use SuccessResponse/FailureResponse instead
 	return AdvancedDialogBuilder.CreateChoice(
 		Options.ButtonText,
-		SuccessNode,  -- This becomes Response, but FilterChoices will replace it
+		SuccessNode,
 		{
 			SkillCheck = {
 				Skill = Options.Skill,
