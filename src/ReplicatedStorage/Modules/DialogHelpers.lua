@@ -460,7 +460,7 @@ end
 
 function DialogHelpers.CreateSimpleChoice(
 	Text: string,
-	ResponseText: string,
+	ResponseText: any,
 	Id: string?,
 	Command: ((Player) -> ())?,
 	SetFlags: {string}?
@@ -468,8 +468,14 @@ function DialogHelpers.CreateSimpleChoice(
 
 	local Choice: any = {
 		Text = Text,
-		Response = CreateSimpleResponse(Id or "simple_choice", ResponseText, SetFlags)
+		Response = nil
 	}
+
+	if type(ResponseText) == "table" then
+		Choice.Response = ResponseText
+	else
+		Choice.Response = CreateSimpleResponse(Id or "simple_choice", ResponseText, SetFlags)
+	end
 
 	if Command then
 		Choice.Command = Command

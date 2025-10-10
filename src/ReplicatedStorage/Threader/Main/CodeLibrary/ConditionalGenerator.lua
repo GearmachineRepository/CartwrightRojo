@@ -49,6 +49,14 @@ function ConditionalGenerator.GenerateNested(Choice: any, Depth: number, Generat
 		Code = Code .. Indent .. "\t},\n"
 	end
 
+	if Choice.ResponseNode and Choice.ResponseNode.SetFlags and #Choice.ResponseNode.SetFlags > 0 then
+		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.ResponseNode.SetFlags) .. "},\n"
+	end
+
+	if Choice.Command and Choice.Command ~= "" then
+		Code = Code .. Helpers.GenerateCommandFunction(Choice.Command, Depth + 1)
+	end
+
 	Code = Code .. Indent .. "}),\n\n"
 	return Code
 end
@@ -76,8 +84,8 @@ function ConditionalGenerator.GenerateGeneric(Choice: any, Depth: number, Genera
 		Code = Code .. Indent .. "\t},\n"
 	end
 
-	if Choice.SetFlags and #Choice.SetFlags > 0 then
-		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+	if Choice.ResponseNode and Choice.ResponseNode.SetFlags and #Choice.ResponseNode.SetFlags > 0 then
+		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.ResponseNode.SetFlags) .. "},\n"
 	end
 
 	if Choice.Command and Choice.Command ~= "" then
@@ -109,8 +117,8 @@ function ConditionalGenerator.GenerateFlagGated(Choice: any, Depth: number, Gene
 		Code = Code .. Indent .. "\t},\n"
 	end
 
-	if Choice.SetFlags and #Choice.SetFlags > 0 then
-		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+	if Choice.ResponseNode and Choice.ResponseNode.SetFlags and #Choice.ResponseNode.SetFlags > 0 then
+		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.ResponseNode.SetFlags) .. "},\n"
 	end
 
 	if Choice.Command and Choice.Command ~= "" then
@@ -149,8 +157,8 @@ function ConditionalGenerator.GenerateQuestGated(Choice: any, Depth: number, Gen
 		Code = Code .. Indent .. "\t},\n"
 	end
 
-	if Choice.SetFlags and #Choice.SetFlags > 0 then
-		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+	if Choice.ResponseNode and Choice.ResponseNode.SetFlags and #Choice.ResponseNode.SetFlags > 0 then
+		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.ResponseNode.SetFlags) .. "},\n"
 	end
 
 	if Choice.Command and Choice.Command ~= "" then
@@ -191,8 +199,8 @@ function ConditionalGenerator.GenerateReputationGated(Choice: any, Depth: number
 		Code = Code .. Indent .. "\t},\n"
 	end
 
-	if Choice.SetFlags and #Choice.SetFlags > 0 then
-		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.SetFlags) .. "},\n"
+	if Choice.ResponseNode and Choice.ResponseNode.SetFlags and #Choice.ResponseNode.SetFlags > 0 then
+		Code = Code .. Indent .. "\tSetFlags = {" .. Helpers.GenerateFlagsArray(Choice.ResponseNode.SetFlags) .. "},\n"
 	end
 
 	if Choice.Command and Choice.Command ~= "" then

@@ -2,6 +2,7 @@
 local Components = require(script.Parent.Parent.UI.Components)
 local Constants = require(script.Parent.Parent.Constants)
 local DialogTree = require(script.Parent.Parent.Data.DialogTree)
+local FlagsManager = require(script.Parent.Parent.Data.FlagsManager)
 
 type DialogChoice = DialogTree.DialogChoice
 
@@ -54,9 +55,23 @@ function ConditionEditor.Render(
 		end
 
 		Components.CreateLabel(ValueLabel, ConditionContainer, 4)
-		Components.CreateTextBox(tostring(Condition.Value or ""), ConditionContainer, 5, false, function(NewValue: string)
-			Condition.Value = NewValue
-		end)
+
+		if Condition.Type == "DialogFlag" then
+			local AllFlags = FlagsManager.GetAllFlags()
+			Components.CreateDropdown(
+				AllFlags,
+				tostring(Condition.Value or ""),
+				ConditionContainer,
+				5,
+				function(NewValue: string)
+					Condition.Value = NewValue
+				end
+			)
+		else
+			Components.CreateTextBox(tostring(Condition.Value or ""), ConditionContainer, 5, false, function(NewValue: string)
+				Condition.Value = NewValue
+			end)
+		end
 
 		Components.CreateButton("Delete Condition", ConditionContainer, 100, Constants.COLORS.Danger, function()
 			DialogTree.RemoveCondition(Choice, Index)

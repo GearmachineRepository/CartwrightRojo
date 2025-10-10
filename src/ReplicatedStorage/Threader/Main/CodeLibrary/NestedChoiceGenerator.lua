@@ -58,10 +58,24 @@ function NestedChoiceGenerator.GenerateBranching(Choice: any, Depth: number, Gen
 	Code = Code .. Indent .. "\t},\n"
 	Code = Code .. Indent .. "\t\"" .. Choice.ResponseNode.Id .. "\""
 
-	if Choice.Command and Choice.Command ~= "" then
-		Code = Code .. ",\n" .. Indent .. "\tfunction(Plr: Player)\n"
-		Code = Code .. Indent .. "\t\t" .. Choice.Command:gsub("\n", "\n" .. Indent .. "\t\t") .. "\n"
-		Code = Code .. Indent .. "\tend"
+	local HasCommand = Choice.Command and Choice.Command ~= ""
+	local HasFlags = Choice.ResponseNode.SetFlags and #Choice.ResponseNode.SetFlags > 0
+
+	if HasCommand or HasFlags then
+		Code = Code .. ",\n"
+
+		if HasCommand then
+			Code = Code .. Indent .. "\tfunction(Plr: Player)\n"
+			Code = Code .. Indent .. "\t\t" .. Choice.Command:gsub("\n", "\n" .. Indent .. "\t\t") .. "\n"
+			Code = Code .. Indent .. "\tend"
+		else
+			Code = Code .. Indent .. "\tnil"
+		end
+
+		if HasFlags then
+			Code = Code .. ",\n"
+			Code = Code .. Indent .. "\t{" .. Helpers.GenerateFlagsArray(Choice.ResponseNode.SetFlags) .. "}"
+		end
 	end
 
 	Code = Code .. "\n" .. Indent .. "))\n\n"

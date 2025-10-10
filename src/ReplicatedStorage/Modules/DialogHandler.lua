@@ -172,10 +172,56 @@ local function ShowNodeToClient(Session: DialogSession, Node: DialogNode): ()
 			return
 		elseif NodeResponseType == "return_to_start" then
 			ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, false)
+
 			task.wait(2.5)
-			local StartNode = FindNodeById(Session.DialogTree, "start")
-			if StartNode then
-				ShowNodeToClient(Session, StartNode)
+
+			local DialogsFolder = ReplicatedStorage:WaitForChild("Dialogs")
+			local NpcName = Session.NpcModel.Name
+			local DialogModule = DialogsFolder:FindFirstChild(NpcName)
+
+			if not DialogModule then
+				warn("[DialogHandler] No dialog found for", NpcName, "when returning to start")
+				ActiveSessions[Session.Player] = nil
+				ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, "", nil, true)
+				if typeof(Session.OnFinished) == "function" then
+					Session.OnFinished()
+				end
+				return
+			end
+
+			local Success, Loaded = pcall(require, DialogModule)
+			if not Success then
+				warn("[DialogHandler] Failed to load dialog for", NpcName)
+				ActiveSessions[Session.Player] = nil
+				ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, "", nil, true)
+				if typeof(Session.OnFinished) == "function" then
+					Session.OnFinished()
+				end
+				return
+			end
+
+			local NewTree = nil
+			if typeof(Loaded) == "function" then
+				local FuncSuccess, Result = pcall(Loaded, Session.Player)
+				if FuncSuccess and typeof(Result) == "table" then
+					NewTree = Result
+				end
+			elseif typeof(Loaded) == "table" then
+				NewTree = Loaded
+			end
+
+			if NewTree then
+				Session.DialogTree = NewTree
+				local StartNode = FindNodeById(NewTree, "start")
+				if StartNode then
+					ShowNodeToClient(Session, StartNode)
+				else
+					ActiveSessions[Session.Player] = nil
+					ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, "", nil, true)
+					if typeof(Session.OnFinished) == "function" then
+						Session.OnFinished()
+					end
+				end
 			else
 				ActiveSessions[Session.Player] = nil
 				ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, "", nil, true)
@@ -183,6 +229,7 @@ local function ShowNodeToClient(Session: DialogSession, Node: DialogNode): ()
 					Session.OnFinished()
 				end
 			end
+
 			return
 		elseif NodeResponseType == "return_to_node" and ProcessedNode.ReturnToNodeId then
 			ShowDialogRemote:FireClient(Session.Player, Session.NpcModel, ProcessedNode.Text, nil, false)

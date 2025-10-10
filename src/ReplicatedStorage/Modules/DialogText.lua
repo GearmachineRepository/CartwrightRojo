@@ -23,14 +23,14 @@ local ActiveParticleEmitters = {}
 
 local FADE_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local SKILL_COLORS = {
-	Perception = Color3.fromRGB(100, 200, 255),   -- Blue
-	Empathy = Color3.fromRGB(255, 150, 200),      -- Pink
-	Logic = Color3.fromRGB(200, 255, 150),        -- Green
-	Authority = Color3.fromRGB(255, 100, 100),    -- Red
-	Rhetoric = Color3.fromRGB(255, 200, 100),     -- Orange
-	Composure = Color3.fromRGB(150, 150, 255),    -- Purple
-	Endurance = Color3.fromRGB(200, 150, 100),    -- Brown
-	Streetwise = Color3.fromRGB(150, 255, 150)    -- Lime
+	Perception = Color3.fromRGB(100, 200, 255),
+	Empathy = Color3.fromRGB(255, 150, 200),
+	Logic = Color3.fromRGB(200, 255, 150),
+	Authority = Color3.fromRGB(255, 100, 100),
+	Rhetoric = Color3.fromRGB(255, 200, 100),
+	Composure = Color3.fromRGB(150, 150, 255),
+	Endurance = Color3.fromRGB(200, 150, 100),
+	Streetwise = Color3.fromRGB(150, 255, 150)
 }
 
 local SKILL_PARTICLE_COLORS = {
@@ -45,9 +45,7 @@ local SKILL_PARTICLE_COLORS = {
 }
 
 local function StripSkillCheckInfo(Text: string): string
-	-- Remove [Skill Difficulty] prefix
 	Text = Text:gsub("%[%w+%s+%d+%]%s*", "")
-	-- Remove (X%) suffix
 	Text = Text:gsub("%s*%(%d+%%%)", "")
 	return Text
 end
@@ -64,7 +62,6 @@ local function ColorizeSkillCheckButton(Button: Instance, Text: string)
 		if Frame and Frame:FindFirstChild("ImageButton") then
 			Frame.ImageLabel.ImageColor3 = SKILL_COLORS[SkillName]
 		end
-
 		local NumberLabel = Frame:FindFirstChild("TextLabel", true)
 		if NumberLabel then
 			NumberLabel.TextColor3 = SKILL_COLORS[SkillName]
@@ -117,10 +114,7 @@ local function AddSkillParticles(Button: Instance, SkillName: string)
 
 	local ParticleEmitter = Emitter.newEmitter(ParticleContainer)
 	local ParticleTemplate = CreateSkillParticleTemplate(ParticleColor)
-
 	ParticleTemplate.Parent = ParticleContainer
-
-	ParticleEmitter.EmitShape = "area"
 
 	ParticleEmitter
 		:SetEmitterParticle(ParticleTemplate)
@@ -277,6 +271,25 @@ function DialogText.TakeAwayResponses(NpcModel: Model, Player: Player): ()
 		end
 	end
 
+	-- Also clear the player's own overhead bubble
+	if Player.Character and Player.Character:FindFirstChild("Head") then
+		for _, UIElement in ipairs(Player.Character.Head:GetChildren()) do
+			if UIElement:IsA("BillboardGui") and UIElement.Name == DialogUI.Name then
+				for _, Label in ipairs(UIElement:GetChildren()) do
+					if Label:IsA("TextLabel") then
+						TweenService:Create(Label, FADE_TWEEN, {TextTransparency = 1}):Play()
+					elseif Label:IsA("ImageLabel") then
+						TweenService:Create(Label, FADE_TWEEN, {ImageTransparency = 1}):Play()
+					end
+				end
+				Debris:AddItem(UIElement, FADE_TWEEN.Time)
+			end
+		end
+	end
+end
+
+-- NEW: explicitly hide the player's overhead typed line (typewriter bubble)
+function DialogText.HidePlayerOverhead(Player: Player): ()
 	if Player.Character and Player.Character:FindFirstChild("Head") then
 		for _, UIElement in ipairs(Player.Character.Head:GetChildren()) do
 			if UIElement:IsA("BillboardGui") and UIElement.Name == DialogUI.Name then
@@ -298,7 +311,6 @@ function DialogText.RemovePlayerSideFrame(Player: Player): ()
 	if Gui then
 		for _, Child in ipairs(Gui:GetChildren()) do
 			if Child.Name ~= "UIListLayout" then
-				-- Clear particles but don't destroy emitter
 				if ActiveParticleEmitters[Child] then
 					ActiveParticleEmitters[Child]:ClearParticles()
 					ActiveParticleEmitters[Child]:SetEmitterParticle(nil)
@@ -309,10 +321,12 @@ function DialogText.RemovePlayerSideFrame(Player: Player): ()
 		end
 	end
 	GamepadService:DisableGamepadCursor()
+
+	-- Also ensure the player's overhead typewriter bubble is cleared.
+	DialogText.HidePlayerOverhead(Player)
 end
 
 function DialogText.PlayerResponse(PlayerModel: Model, Message: string, EnableScripts: boolean): BillboardGui?
-	-- Strip skill check info from player's spoken dialog
 	local CleanMessage = StripSkillCheckInfo(Message)
 
 	if not PlayerModel or not PlayerModel:FindFirstChild("Head") then
@@ -332,7 +346,7 @@ function DialogText.PlayerResponse(PlayerModel: Model, Message: string, EnableSc
 		end
 	end
 
-	Gui.TextLabel.Text = CleanMessage  -- Use cleaned message
+	Gui.TextLabel.Text = CleanMessage
 	TypewriterEffect(Gui.TextLabel, false)
 
 	if EnableScripts then

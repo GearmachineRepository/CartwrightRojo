@@ -110,7 +110,7 @@ function AdvancedDialogBuilder.ProcessNode(Player: Player, Node: DialogNode): Di
 		local FilteredChoices = AdvancedDialogBuilder.FilterChoices(Player, Node.Choices)
 
 		for _, Choice in ipairs(FilteredChoices) do
-			if Choice.Response and Choice.Response.Choices then
+			if Choice.Response then
 				Choice.Response = AdvancedDialogBuilder.ProcessNode(Player, Choice.Response)
 			end
 		end
