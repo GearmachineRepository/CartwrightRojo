@@ -9,9 +9,14 @@ local LAYER_RANGES = {
 }
 
 local OriginalZIndices: {[GuiObject]: number} = {}
+local LayerConnections: {[GuiObject]: RBXScriptConnection} = {}
 
 function ZIndexManager.Initialize()
 	OriginalZIndices = {}
+	for Element, Connection in pairs(LayerConnections) do
+		Connection:Disconnect()
+	end
+	LayerConnections = {}
 end
 
 function ZIndexManager.SetLayer(Element: GuiObject, Layer: string)
@@ -27,18 +32,43 @@ function ZIndexManager.SetLayer(Element: GuiObject, Layer: string)
 	local BaseZIndex = LAYER_RANGES[Layer].Min
 	Element.ZIndex = BaseZIndex
 
-	local function UpdateDescendants(Parent: GuiObject, Depth: number)
-		for _, Descendant in ipairs(Parent:GetDescendants()) do
-			if Descendant:IsA("GuiObject") then
-				if not OriginalZIndices[Descendant] then
-					OriginalZIndices[Descendant] = Descendant.ZIndex
+	local function UpdateDescendants(Parent: GuiObject, CurrentDepth: number)
+		for _, Child in ipairs(Parent:GetChildren()) do
+			if Child:IsA("GuiObject") then
+				if not OriginalZIndices[Child] then
+					OriginalZIndices[Child] = Child.ZIndex
 				end
-				Descendant.ZIndex = BaseZIndex + Depth
+				Child.ZIndex = BaseZIndex + CurrentDepth
+				UpdateDescendants(Child, CurrentDepth + 1)
+			end
+		end
+	end
+
+	local function SetupChildAddedConnection(Parent: GuiObject, Depth: number)
+		if LayerConnections[Parent] then
+			LayerConnections[Parent]:Disconnect()
+		end
+
+		LayerConnections[Parent] = Parent.ChildAdded:Connect(function(Child)
+			if Child:IsA("GuiObject") then
+				if not OriginalZIndices[Child] then
+					OriginalZIndices[Child] = Child.ZIndex
+				end
+				Child.ZIndex = BaseZIndex + Depth
+				UpdateDescendants(Child, Depth + 1)
+				SetupChildAddedConnection(Child, Depth + 1)
+			end
+		end)
+
+		for _, Child in ipairs(Parent:GetChildren()) do
+			if Child:IsA("GuiObject") then
+				SetupChildAddedConnection(Child, Depth + 1)
 			end
 		end
 	end
 
 	UpdateDescendants(Element, 1)
+	SetupChildAddedConnection(Element, 1)
 end
 
 function ZIndexManager.Elevate(Element: GuiObject, Layer: string)
@@ -46,21 +76,36 @@ function ZIndexManager.Elevate(Element: GuiObject, Layer: string)
 end
 
 function ZIndexManager.Reset(Element: GuiObject)
+	if LayerConnections[Element] then
+		LayerConnections[Element]:Disconnect()
+		LayerConnections[Element] = nil
+	end
+
 	local OriginalZIndex = OriginalZIndices[Element]
 	if OriginalZIndex then
 		Element.ZIndex = OriginalZIndex
 		OriginalZIndices[Element] = nil
 	end
 
-	for _, Descendant in ipairs(Element:GetDescendants()) do
-		if Descendant:IsA("GuiObject") then
-			local DescendantOriginalZIndex = OriginalZIndices[Descendant]
-			if DescendantOriginalZIndex then
-				Descendant.ZIndex = DescendantOriginalZIndex
-				OriginalZIndices[Descendant] = nil
+	local function ResetDescendants(Parent: GuiObject)
+		for _, Child in ipairs(Parent:GetChildren()) do
+			if Child:IsA("GuiObject") then
+				if LayerConnections[Child] then
+					LayerConnections[Child]:Disconnect()
+					LayerConnections[Child] = nil
+				end
+
+				local ChildOriginalZIndex = OriginalZIndices[Child]
+				if ChildOriginalZIndex then
+					Child.ZIndex = ChildOriginalZIndex
+					OriginalZIndices[Child] = nil
+				end
+				ResetDescendants(Child)
 			end
 		end
 	end
+
+	ResetDescendants(Element)
 end
 
 function ZIndexManager.GetLayer(Element: GuiObject): string

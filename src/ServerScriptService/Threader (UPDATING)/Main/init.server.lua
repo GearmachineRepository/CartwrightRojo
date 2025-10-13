@@ -21,295 +21,226 @@ local CurrentTree: any? = nil
 local CurrentFilename: string? = nil
 
 local function RefreshAll()
-	if not CurrentTree then return end
+    if not CurrentTree then return end
 
-	TreeView.Refresh(MainFrame:FindFirstChild("TreeView"), CurrentTree, function(Node)
-		UIStateManager.SelectNode(Node)
-		NodeEditorView.Refresh(MainFrame:FindFirstChild("EditorView"), RefreshAll)
-	end, function(Choice)
-		UIStateManager.SelectChoice(Choice)
-		NodeEditorView.Refresh(MainFrame:FindFirstChild("EditorView"), RefreshAll)
-	end)
+    local TreeViewFrame = MainFrame:FindFirstChild("TreeView")
+    local EditorViewFrame = MainFrame:FindFirstChild("EditorView")
 
-	NodeEditorView.Refresh(MainFrame:FindFirstChild("EditorView"), RefreshAll)
+    if not TreeViewFrame or not EditorViewFrame then
+        warn("[Threader] UI not initialized yet")
+        return
+    end
 
-	if UIStateManager.GetCurrentView() == "Graph" then
-		GraphView.Refresh(CurrentTree, function(Node)
-			UIStateManager.SelectNode(Node)
-			NodeEditorView.Refresh(MainFrame:FindFirstChild("EditorView"), RefreshAll)
-		end, function(Choice)
-			UIStateManager.SelectChoice(Choice)
-			NodeEditorView.Refresh(MainFrame:FindFirstChild("EditorView"), RefreshAll)
-		end)
-	end
+    TreeView.Refresh(TreeViewFrame, CurrentTree, function(Node)
+        UIStateManager.SelectNode(Node)
+        NodeEditorView.Refresh(EditorViewFrame, RefreshAll)
+    end, function(Choice)
+        UIStateManager.SelectChoice(Choice)
+        NodeEditorView.Refresh(EditorViewFrame, RefreshAll)
+    end)
+
+    NodeEditorView.Refresh(EditorViewFrame, RefreshAll)
+
+    if UIStateManager.GetCurrentView() == "Graph" then
+        GraphView.Refresh(CurrentTree, function(Node)
+            UIStateManager.SelectNode(Node)
+            NodeEditorView.Refresh(EditorViewFrame, RefreshAll)
+        end, function(Choice)
+            UIStateManager.SelectChoice(Choice)
+            NodeEditorView.Refresh(EditorViewFrame, RefreshAll)
+        end)
+    end
 end
 
 local function Initialize()
-	Widget = PluginBootstrap.Initialize(Plugin)
-	PluginSettings.Initialize(Plugin)
+    Widget = PluginBootstrap.Initialize(Plugin)
+    PluginSettings.Initialize(Plugin)
 
-	MainFrame = Instance.new("Frame")
-	MainFrame.Name = "MainFrame"
-	MainFrame.Size = UDim2.fromScale(1, 1)
-	MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	MainFrame.BorderSizePixel = 0
-	MainFrame.Parent = Widget
+    MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.fromScale(1, 1)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Parent = Widget
 
-	local Menus = {
-		{
-			Name = "File",
-			Items = {
-				{
-					Text = "New",
-					OnClick = function()
-						if CurrentTree then
-							ModalView.CreateConfirmation(
-								MainFrame,
-								"Create New Tree",
-								"This will discard the current tree. Continue?",
-								function()
-									PluginCommands.NewTree(function(NewTree)
-										CurrentTree = NewTree
-										CurrentFilename = nil
-										HistoryManager.Clear()
-										RefreshAll()
-									end)
-								end
-							)
-						else
-							PluginCommands.NewTree(function(NewTree)
-								CurrentTree = NewTree
-								CurrentFilename = nil
-								HistoryManager.Clear()
-								RefreshAll()
-							end)
-						end
-					end
-				},
-				{Separator = true},
-				{
-					Text = "Save",
-					OnClick = function()
-						if not CurrentTree then
-							ModalView.CreateNotification(MainFrame, "Error", "No tree to save")
-							return
-						end
+    local Menus = {
+        {
+            Name = "File",
+            Items = {
+                {
+                    Text = "New",
+                    OnClick = function()
+                        if CurrentTree then
+                            ModalView.CreateConfirmation(
+                                MainFrame,
+                                "Create New Tree",
+                                "This will discard the current tree. Continue?",
+                                function()
+                                    PluginCommands.NewTree(function(NewTree)
+                                        CurrentTree = NewTree
+                                        CurrentFilename = nil
+                                        RefreshAll()
+                                    end)
+                                end
+                            )
+                        else
+                            PluginCommands.NewTree(function(NewTree)
+                                CurrentTree = NewTree
+                                CurrentFilename = nil
+                                RefreshAll()
+                            end)
+                        end
+                    end
+                },
+                {
+                    Text = "Load",
+                    OnClick = function()
+                        -- Load tree logic
+                    end
+                },
+                {
+                    Text = "Save",
+                    OnClick = function()
+                        if CurrentTree and CurrentFilename then
+                            PluginCommands.SaveTree(CurrentTree, CurrentFilename)
+                            ModalView.CreateNotification(MainFrame, "Success", "Tree saved!")
+                        else
+                            ModalView.CreateNotification(MainFrame, "Error", "No tree to save")
+                        end
+                    end
+                },
+                {
+                    Text = "Generate Code",
+                    OnClick = function()
+                        if CurrentTree and CurrentFilename then
+                            PluginCommands.GenerateCode(CurrentTree, CurrentFilename)
+                            ModalView.CreateNotification(MainFrame, "Success", "Code generated!")
+                        else
+                            ModalView.CreateNotification(MainFrame, "Error", "No tree to generate")
+                        end
+                    end
+                }
+            }
+        },
+        {
+            Name = "Edit",
+            Items = {
+                {
+                    Text = "Undo",
+                    OnClick = function()
+                        if HistoryManager.CanUndo() then
+                            HistoryManager.Undo()
+                            RefreshAll()
+                        end
+                    end
+                },
+                {
+                    Text = "Redo",
+                    OnClick = function()
+                        if HistoryManager.CanRedo() then
+                            HistoryManager.Redo()
+                            RefreshAll()
+                        end
+                    end
+                },
+                {Separator = true},
+                {
+                    Text = "Copy",
+                    OnClick = function()
+                        local SelectedNode = UIStateManager.GetSelectedNode()
+                        if SelectedNode then
+                            ClipboardManager.CopyNode(SelectedNode)
+                            ModalView.CreateNotification(MainFrame, "Info", "Node copied", 1.5)
+                        end
+                    end
+                },
+                {
+                    Text = "Paste",
+                    OnClick = function()
+                        if ClipboardManager.CanPaste() then
+                            local Pasted = ClipboardManager.Paste()
+                            if Pasted then
+                                ModalView.CreateNotification(MainFrame, "Info", "Node pasted", 1.5)
+                            end
+                        end
+                    end
+                }
+            }
+        },
+        {
+            Name = "View",
+            Items = {
+                {
+                    Text = "Editor Mode",
+                    OnClick = function()
+                        ViewManager.SwitchToView("Editor")
+                        RefreshAll()
+                    end
+                },
+                {
+                    Text = "Graph Mode",
+                    OnClick = function()
+                        ViewManager.SwitchToView("Graph")
+                        RefreshAll()
+                    end
+                }
+            }
+        },
+        {
+            Name = "Tools",
+            Items = {
+                {
+                    Text = "Flags Manager",
+                    OnClick = function()
+                        FlagsManagerWindow.Open(MainFrame)
+                    end
+                },
+                {
+                    Text = "Validate Tree",
+                    OnClick = function()
+                        if not CurrentTree then
+                            ModalView.CreateNotification(MainFrame, "Error", "No tree to validate")
+                            return
+                        end
 
-						if CurrentFilename then
-							local Success = PluginCommands.SaveTree(CurrentTree, CurrentFilename)
-							if Success then
-								ModalView.CreateNotification(MainFrame, "Success", "Tree saved successfully")
-							else
-								ModalView.CreateNotification(MainFrame, "Error", "Failed to save tree")
-							end
-						else
-							ModalView.CreateTextInput(
-								MainFrame,
-								"Save Tree",
-								"Enter filename:",
-								"MyDialog",
-								function(Filename)
-									local Success = PluginCommands.SaveTree(CurrentTree, Filename)
-									if Success then
-										CurrentFilename = Filename
-										ModalView.CreateNotification(MainFrame, "Success", "Tree saved as " .. Filename)
-									else
-										ModalView.CreateNotification(MainFrame, "Error", "Failed to save tree")
-									end
-								end
-							)
-						end
-					end
-				},
-				{
-					Text = "Save As...",
-					OnClick = function()
-						if not CurrentTree then
-							ModalView.CreateNotification(MainFrame, "Error", "No tree to save")
-							return
-						end
+                        local Validation = require(script.Core.Validation)
+                        local Result = Validation.ValidateTree(CurrentTree)
 
-						ModalView.CreateTextInput(
-							MainFrame,
-							"Save Tree As",
-							"Enter filename:",
-							CurrentFilename or "MyDialog",
-							function(Filename)
-								local Success = PluginCommands.SaveTree(CurrentTree, Filename)
-								if Success then
-									CurrentFilename = Filename
-									ModalView.CreateNotification(MainFrame, "Success", "Tree saved as " .. Filename)
-								else
-									ModalView.CreateNotification(MainFrame, "Error", "Failed to save tree")
-								end
-							end
-						)
-					end
-				},
-				{
-					Text = "Load...",
-					OnClick = function()
-						local SavedTrees = PluginCommands.GetAllSavedTrees()
-						if #SavedTrees == 0 then
-							ModalView.CreateNotification(MainFrame, "Info", "No saved trees found")
-							return
-						end
+                        if Result.IsValid then
+                            ModalView.CreateNotification(MainFrame, "Success", "Tree is valid!")
+                        else
+                            local ErrorMessage = "Validation errors:\n" .. table.concat(Result.Errors, "\n")
+                            warn(ErrorMessage)
+                            ModalView.CreateNotification(MainFrame, "Error", "Tree has validation errors (see output)")
+                        end
+                    end
+                }
+            }
+        }
+    }
 
-						local LoadWindow = require(script.Windows.LoadWindow)
-						LoadWindow.Open(MainFrame, SavedTrees, function(Filename)
-							local LoadedTree = PluginCommands.LoadTree(Filename)
-							if LoadedTree then
-								CurrentTree = LoadedTree
-								CurrentFilename = Filename
-								HistoryManager.Clear()
-								RefreshAll()
-								ModalView.CreateNotification(MainFrame, "Success", "Tree loaded: " .. Filename)
-							else
-								ModalView.CreateNotification(MainFrame, "Error", "Failed to load tree")
-							end
-						end)
-					end
-				},
-				{Separator = true},
-				{
-					Text = "Generate Code",
-					OnClick = function()
-						if not CurrentTree then
-							ModalView.CreateNotification(MainFrame, "Error", "No tree to generate")
-							return
-						end
+    MenuBar.CreateMenuBar(MainFrame, Menus)
 
-						local Filename = CurrentFilename or "GeneratedDialog"
-						local Module = PluginCommands.GenerateCode(CurrentTree, Filename)
-						if Module then
-							ModalView.CreateNotification(MainFrame, "Success", "Code generated in ReplicatedStorage/Dialogs")
-						else
-							ModalView.CreateNotification(MainFrame, "Error", "Failed to generate code")
-						end
-					end
-				}
-			}
-		},
-		{
-			Name = "Edit",
-			Items = {
-				{
-					Text = "Undo",
-					OnClick = function()
-						if HistoryManager.CanUndo() then
-							HistoryManager.Undo()
-							RefreshAll()
-						end
-					end
-				},
-				{
-					Text = "Redo",
-					OnClick = function()
-						if HistoryManager.CanRedo() then
-							HistoryManager.Redo()
-							RefreshAll()
-						end
-					end
-				},
-				{Separator = true},
-				{
-					Text = "Copy",
-					OnClick = function()
-						local SelectedNode = UIStateManager.GetSelectedNode()
-						if SelectedNode then
-							ClipboardManager.CopyNode(SelectedNode)
-							ModalView.CreateNotification(MainFrame, "Info", "Node copied", 1.5)
-						end
-					end
-				},
-				{
-					Text = "Paste",
-					OnClick = function()
-						if ClipboardManager.CanPaste() then
-							local Pasted = ClipboardManager.Paste()
-							if Pasted then
-								ModalView.CreateNotification(MainFrame, "Info", "Node pasted", 1.5)
-							end
-						end
-					end
-				}
-			}
-		},
-		{
-			Name = "View",
-			Items = {
-				{
-					Text = "Editor Mode",
-					OnClick = function()
-						ViewManager.SwitchToView("Editor")
-						RefreshAll()
-					end
-				},
-				{
-					Text = "Graph Mode",
-					OnClick = function()
-						ViewManager.SwitchToView("Graph")
-						RefreshAll()
-					end
-				}
-			}
-		},
-		{
-			Name = "Tools",
-			Items = {
-				{
-					Text = "Flags Manager",
-					OnClick = function()
-						FlagsManagerWindow.Open(MainFrame)
-					end
-				},
-				{
-					Text = "Validate Tree",
-					OnClick = function()
-						if not CurrentTree then
-							ModalView.CreateNotification(MainFrame, "Error", "No tree to validate")
-							return
-						end
+    local TreeViewFrame = TreeView.Create(MainFrame)
+    local EditorViewFrame = NodeEditorView.Create(MainFrame)
+    local GraphViewFrame = GraphView.Initialize(MainFrame, Plugin)
 
-						local Validation = require(script.Core.Validation)
-						local Result = Validation.ValidateTree(CurrentTree)
+    local Divider = ResizableDivider.Create(MainFrame, function(NewWidth)
+        TreeViewFrame.Size = UDim2.new(0, NewWidth, 1, -30)
+        EditorViewFrame.Size = UDim2.new(1, -NewWidth, 1, -30)
+        EditorViewFrame.Position = UDim2.fromOffset(NewWidth, 30)
+    end)
 
-						if Result.IsValid then
-							ModalView.CreateNotification(MainFrame, "Success", "Tree is valid!")
-						else
-							local ErrorMessage = "Validation errors:\n" .. table.concat(Result.Errors, "\n")
-							warn(ErrorMessage)
-							ModalView.CreateNotification(MainFrame, "Error", "Tree has validation errors (see output)")
-						end
-					end
-				}
-			}
-		}
-	}
+    ViewManager.Initialize(TreeViewFrame, EditorViewFrame, GraphViewFrame, MainFrame, Divider)
 
-	MenuBar.CreateMenuBar(MainFrame, Menus)
+    PluginCommands.NewTree(function(NewTree)
+        CurrentTree = NewTree
+        RefreshAll()
+    end)
 
-	local TreeViewFrame = TreeView.Create(MainFrame)
-	local EditorViewFrame = NodeEditorView.Create(MainFrame)
-	local GraphViewFrame = GraphView.Initialize(MainFrame, Plugin)
-
-	local Divider = ResizableDivider.Create(MainFrame, function(NewWidth)
-		TreeViewFrame.Size = UDim2.new(0, NewWidth, 1, -30)
-		EditorViewFrame.Size = UDim2.new(1, -NewWidth, 1, -30)
-		EditorViewFrame.Position = UDim2.new(0, NewWidth, 0, 30)
-		--Divider.Position = UDim2.new(0, NewWidth, 0, 30)
-	end)
-
-	ViewManager.Initialize(TreeViewFrame, EditorViewFrame, GraphViewFrame, MainFrame, Divider)
-
-	PluginCommands.NewTree(function(NewTree)
-		CurrentTree = NewTree
-		RefreshAll()
-	end)
-
-	Widget:BindToClose(function()
-		Widget.Enabled = false
-	end)
+    Widget:BindToClose(function()
+        Widget.Enabled = false
+    end)
 end
 
 Initialize()

@@ -23,7 +23,7 @@ function SimpleChoiceGenerator.Generate(Choice: DialogChoice, Depth: number): st
 			for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
 				Code = Code .. SimpleChoiceGenerator.GenerateNested(SubChoice, Depth + 2)
 			end
-			Code = Code .. Indent .. "\t}\\n"
+			Code = Code .. Indent .. "\t}\n"
 		end
 
 		Code = Code .. Indent .. "\t},\n"
@@ -50,7 +50,7 @@ function SimpleChoiceGenerator.GenerateNested(Choice: DialogChoice, Depth: numbe
 			for _, SubChoice in ipairs(Choice.ResponseNode.Choices) do
 				Code = Code .. SimpleChoiceGenerator.GenerateNested(SubChoice, Depth + 2)
 			end
-			Code = Code .. Indent .. "\t}\\n"
+			Code = Code .. Indent .. "\t}\n"
 		end
 
 		Code = Code .. Indent .. "\t},\n"

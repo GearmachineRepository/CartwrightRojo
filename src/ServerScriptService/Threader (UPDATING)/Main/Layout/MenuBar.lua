@@ -26,8 +26,6 @@ function MenuBar.CreateMenuBar(Parent: Frame, Menus: {Menu}): Frame
 	MenuBarFrame.BorderSizePixel = 0
 	MenuBarFrame.Parent = Parent
 
-	ZIndexManager.SetLayer(MenuBarFrame, "UI")
-
 	local Layout = Instance.new("UIListLayout")
 	Layout.FillDirection = Enum.FillDirection.Horizontal
 	Layout.Padding = UDim.new(0, 0)
@@ -52,23 +50,22 @@ function MenuBar.CreateMenuBar(Parent: Frame, Menus: {Menu}): Frame
 				return
 			end
 
-            -- Close all other dropdowns
-			for _, Child in ipairs(MenuBarFrame:GetChildren()) do
-				if Child:IsA("Frame") and Child.Name == "Dropdown" then
+			for _, Child in ipairs(Parent:GetChildren()) do
+				if Child:IsA("Frame") and Child.Name:match("^MenuDropdown_") then
 					Child.Visible = false
 				end
 			end
 
 			if not MenuDropdown then
 				MenuDropdown = Instance.new("Frame")
-				MenuDropdown.Name = "Dropdown"
+				MenuDropdown.Name = "MenuDropdown_" .. Menu.Name
 				MenuDropdown.Size = UDim2.fromOffset(200, #Menu.Items * 32)
-				MenuDropdown.Position = UDim2.new(0, MenuButton.AbsolutePosition.X - MenuBarFrame.AbsolutePosition.X, 1, 0)
+				MenuDropdown.Position = UDim2.fromOffset(MenuButton.AbsolutePosition.X, MenuButton.AbsolutePosition.Y + MenuButton.AbsoluteSize.Y)
 				MenuDropdown.BackgroundColor3 = Colors.BackgroundLight
 				MenuDropdown.BorderColor3 = Colors.Border
 				MenuDropdown.BorderSizePixel = 1
 				MenuDropdown.Visible = false
-				MenuDropdown.Parent = MenuBarFrame
+				MenuDropdown.Parent = Parent
 
 				ZIndexManager.SetLayer(MenuDropdown, "Modal")
 
@@ -138,6 +135,8 @@ function MenuBar.CreateMenuBar(Parent: Frame, Menus: {Menu}): Frame
 			MenuButton.BackgroundColor3 = Colors.BackgroundDark
 		end))
 	end
+
+	ZIndexManager.SetLayer(MenuBarFrame, "UI")
 
 	return MenuBarFrame
 end

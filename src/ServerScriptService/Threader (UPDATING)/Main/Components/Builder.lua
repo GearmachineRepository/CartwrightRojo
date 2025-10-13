@@ -1,10 +1,10 @@
 --!strict
-local Label = require(script.Parent.Primitives.Label)
+--local Label = require(script.Parent.Primitives.Label)
 local Button = require(script.Parent.Primitives.Button)
 local TextBox = require(script.Parent.Primitives.TextBox)
 local Dropdown = require(script.Parent.Primitives.Dropdown)
 local NumberInput = require(script.Parent.Primitives.NumberInput)
-local Container = require(script.Parent.Primitives.Container)
+--local Container = require(script.Parent.Primitives.Container)
 local CollapsibleSection = require(script.Parent.Compound.CollapsibleSection)
 local LabeledInput = require(script.Parent.Compound.LabeledInput)
 local ButtonRow = require(script.Parent.Compound.ButtonRow)
@@ -217,7 +217,7 @@ function Builder.Dropdown(Config: DropdownConfig): Frame
 	Parent.BackgroundTransparency = 1
 
 	local Container = Instance.new("Frame")
-	Container.Size = UDim2.new(1, 0, 0, 0)
+	Container.Size = UDim2.fromScale(1, 0)
 	Container.BackgroundTransparency = 1
 	Container.AutomaticSize = Enum.AutomaticSize.Y
 	Container.Parent = Parent
@@ -250,7 +250,7 @@ function Builder.NumberInput(Config: NumberInputConfig): Frame
 	Parent.BackgroundTransparency = 1
 
 	local Container = Instance.new("Frame")
-	Container.Size = UDim2.new(1, 0, 0, 0)
+	Container.Size = UDim2.fromScale(1, 0)
 	Container.BackgroundTransparency = 1
 	Container.AutomaticSize = Enum.AutomaticSize.Y
 	Container.Parent = Parent
