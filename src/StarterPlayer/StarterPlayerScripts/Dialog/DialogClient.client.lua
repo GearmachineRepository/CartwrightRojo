@@ -100,18 +100,19 @@ ShowDialogRemote.OnClientEvent:Connect(function(NpcModel: Model, Text: string, C
 		return
 	end
 
-	CleanupDialog()
-
 	local _, DialogForcedEnd = DialogText.NpcText(NpcModel, Text, true)
 
 	if DialogForcedEnd then
+		CleanupDialog()
 		CancelDialog()
 		return
 	end
 
+	task.wait(0.6)
+	CleanupDialog()
+
 	if Choices and #Choices > 0 then
 		local Buttons = DialogText.ShowChoices(LocalPlayer, Choices)
-		--CurrentButtons = Buttons
 
 		for _, Button in pairs(Buttons) do
 			local Frame = Button:FindFirstChild("Frame")
@@ -119,7 +120,15 @@ ShowDialogRemote.OnClientEvent:Connect(function(NpcModel: Model, Text: string, C
 				local Connection = Frame.ImageButton.MouseButton1Click:Connect(function()
 					local ChoiceText = Frame.Frame.Text_Element:GetAttribute("Text")
 					if ChoiceText then
-						DialogText.RemovePlayerSideFrame(LocalPlayer)
+						local Gui = LocalPlayer.PlayerGui:FindFirstChild("ResponseUI")
+						if Gui then
+							for _, Child in ipairs(Gui:GetChildren()) do
+								if Child.Name ~= "UIListLayout" then
+									Child:Destroy()
+								end
+							end
+						end
+
 						DialogText.PlayerResponse(LocalPlayer.Character, ChoiceText, true)
 						task.wait(0.5)
 						DialogChoiceRemote:FireServer(ChoiceText)
@@ -133,7 +142,6 @@ ShowDialogRemote.OnClientEvent:Connect(function(NpcModel: Model, Text: string, C
 		CancelDialog()
 	end
 end)
-
 
 task.spawn(function()
 	while true do
