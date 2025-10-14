@@ -76,6 +76,13 @@ function NodeRenderer.Create(Node: DialogNode, Position: Vector2, Parent: Frame)
 		IndicatorCorner.Parent = ChoiceIndicator
 	end
 
+	local ClickDetector = Instance.new("TextButton")
+	ClickDetector.Size = UDim2.fromScale(1, 1)
+	ClickDetector.BackgroundTransparency = 1
+	ClickDetector.Text = ""
+	ClickDetector.ZIndex = 10
+	ClickDetector.Parent = NodeFrame
+
 	return NodeFrame
 end
 

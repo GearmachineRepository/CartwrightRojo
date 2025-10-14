@@ -1,192 +1,135 @@
 --!strict
-local Constants = require(script.Parent.Parent.Constants)
-local TweenService = game:GetService("TweenService")
-
-export type ViewType = "Editor" | "Graph"
+local UIStateManager = require(script.Parent.Parent.Managers.UIStateManager)
+local ZIndexManager = require(script.Parent.Parent.Managers.ZIndexManager)
+local Colors = require(script.Parent.Parent.Theme.Colors)
+local Fonts = require(script.Parent.Parent.Theme.Fonts)
 
 local ViewManager = {}
 
-local CurrentView: ViewType = "Editor"
-local EditorPanelCollapsed: boolean = false
-local TreeScrollFrame: ScrollingFrame? = nil
-local EditorFrame: Frame? = nil
-local GraphContainer: Frame? = nil
-local CollapseButton: TextButton? = nil
+local TreeViewFrame: Frame? = nil
+local EditorViewFrame: Frame? = nil
+local GraphViewFrame: Frame? = nil
+local MainFrame: Frame? = nil
 local DividerFrame: Frame? = nil
-local MainContainer: Frame? = nil
-local CollapseButtonContainer: Frame? = nil
+local CollapseButton: TextButton? = nil
 
-local TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-function ViewManager.Initialize(TreeFrame: ScrollingFrame, EditorPanelFrame: Frame, GraphFrame: Frame, MainFrame: Frame, Divider: Frame?)
-	TreeScrollFrame = TreeFrame
-	EditorFrame = EditorPanelFrame
-	GraphContainer = GraphFrame
-	MainContainer = MainFrame
+function ViewManager.Initialize(TreeView: Frame, EditorView: Frame, GraphView: Frame, Main: Frame, Divider: Frame)
+	TreeViewFrame = TreeView
+	EditorViewFrame = EditorView
+	GraphViewFrame = GraphView
+	MainFrame = Main
 	DividerFrame = Divider
 
-	GraphContainer.Visible = false
-	TreeScrollFrame.Visible = true
-	EditorFrame.Visible = true
+	UIStateManager.Subscribe("ViewChanged", function(NewView: string)
+		ViewManager.UpdateViewVisibility(NewView)
+	end)
 
-	if DividerFrame then
-		DividerFrame.Visible = true
-	end
+	ViewManager.UpdateViewVisibility(UIStateManager.GetCurrentView())
 end
 
-function ViewManager.SwitchToView(ViewType: ViewType)
-	if not TreeScrollFrame or not EditorFrame or not GraphContainer then
-		warn("[ViewManager] Not initialized")
+function ViewManager.SwitchToView(ViewName: string)
+	UIStateManager.SetCurrentView(ViewName)
+end
+
+function ViewManager.UpdateViewVisibility(CurrentView: string)
+	if not TreeViewFrame or not EditorViewFrame or not GraphViewFrame or not DividerFrame then
+		warn("[ViewManager] Frames not initialized properly")
 		return
 	end
 
-	CurrentView = ViewType
+	if CurrentView == "Editor" then
+		TreeViewFrame.Visible = true
+		EditorViewFrame.Visible = true
+		GraphViewFrame.Visible = false
+		DividerFrame.Visible = true
 
-	if ViewType == "Editor" then
-		GraphContainer.Visible = false
-		TreeScrollFrame.Visible = true
-		EditorFrame.Visible = true
+		TreeViewFrame.Size = UDim2.new(0, 250, 1, -30)
+		EditorViewFrame.Size = UDim2.new(1, -250, 1, -30)
+		EditorViewFrame.Position = UDim2.new(0, 250, 0, 30)
 
-		local DividerPos = 0.55
-		if DividerFrame then
-			DividerPos = DividerFrame.Position.X.Scale
-			DividerFrame.Visible = true
-		end
+		ZIndexManager.SetLayer(TreeViewFrame, "UI")
+		ZIndexManager.SetLayer(EditorViewFrame, "UI")
 
-		EditorFrame.Position = UDim2.new(DividerPos, 5, 0, Constants.SIZES.TopBarHeight + 5)
-		EditorFrame.Size = UDim2.new(1 - DividerPos, -10, 1, -Constants.SIZES.TopBarHeight - 10)
+	elseif CurrentView == "Graph" then
+		TreeViewFrame.Visible = false
+		EditorViewFrame.Visible = true
+		GraphViewFrame.Visible = true
+		DividerFrame.Visible = false
 
-		if CollapseButtonContainer then
-			CollapseButtonContainer.Visible = false
-		end
+		GraphViewFrame.Size = UDim2.new(0.6, 0, 1, -30)
+		GraphViewFrame.Position = UDim2.new(0, 0, 0, 30)
 
-		EditorPanelCollapsed = false
+		EditorViewFrame.Size = UDim2.new(0.4, 0, 1, -30)
+		EditorViewFrame.Position = UDim2.new(0.6, 0, 0, 30)
 
-	elseif ViewType == "Graph" then
-		TreeScrollFrame.Visible = false
-		GraphContainer.Visible = true
-		EditorFrame.Visible = true
-
-		local EditorWidth = 450
-        EditorFrame.Position = UDim2.new(1, -EditorWidth + 5, 0, Constants.SIZES.TopBarHeight + 5)
-		EditorFrame.Size = UDim2.new(0, EditorWidth - 10, 1, -Constants.SIZES.TopBarHeight - 10)
-
-        if GraphContainer then
-            GraphContainer.ZIndex = 1
-        end
-        if EditorFrame then
-            EditorFrame.ZIndex = 100
-        end
-
-		if DividerFrame then
-			DividerFrame.Visible = false
-		end
-
-		if CollapseButtonContainer then
-			CollapseButtonContainer.Visible = true
-			CollapseButtonContainer.Position = UDim2.new(1, -EditorWidth - 24, 0.5, 0)
-		end
+		ZIndexManager.SetLayer(GraphViewFrame, "Base")
+		ZIndexManager.SetLayer(EditorViewFrame, "UI")
 	end
 end
 
-function ViewManager.GetCurrentView(): ViewType
-	return CurrentView
+function ViewManager.GetCurrentView(): string
+	return UIStateManager.GetCurrentView()
 end
 
-function ViewManager.CreateCollapseButton(_: Frame): TextButton
-	if not MainContainer then
-		warn("[ViewManager] MainContainer not initialized")
-		return nil :: any
+function ViewManager.CreateCollapseButton(EditorPanel: Frame)
+	if CollapseButton then
+		CollapseButton:Destroy()
 	end
 
-	CollapseButtonContainer = Instance.new("Frame")
-	CollapseButtonContainer.Name = "CollapseButtonContainer"
-	CollapseButtonContainer.Size = UDim2.fromOffset(24, 60)
-	CollapseButtonContainer.Position = UDim2.new(1, -300, 0.5, 0)
-	CollapseButtonContainer.AnchorPoint = Vector2.new(0, 0.5)
-	CollapseButtonContainer.BackgroundTransparency = 1
-	CollapseButtonContainer.ZIndex = 300
-	CollapseButtonContainer.Visible = false
-	CollapseButtonContainer.Parent = MainContainer
+	CollapseButton = Instance.new("TextButton")
+	CollapseButton.Size = UDim2.new(0, 30, 0, 30)
+	CollapseButton.Position = UDim2.new(0, -35, 0, 5)
+	CollapseButton.BackgroundColor3 = Colors.Primary
+	CollapseButton.BorderSizePixel = 0
+	CollapseButton.Text = "◀"
+	CollapseButton.TextColor3 = Colors.Text
+	CollapseButton.Font = Fonts.Bold
+	CollapseButton.TextSize = 16
+	CollapseButton.Parent = EditorPanel
 
-	local Button = Instance.new("TextButton")
-	Button.Size = UDim2.fromScale(1, 1)
-	Button.Position = UDim2.fromScale(0, 0)
-	Button.Text = "◀"
-	Button.TextColor3 = Constants.COLORS.TextPrimary
-	Button.BackgroundColor3 = Constants.COLORS.Panel
-	Button.BorderSizePixel = 1
-	Button.BorderColor3 = Constants.COLORS.Border
-	Button.Font = Constants.FONTS.Bold
-	Button.TextSize = 16
-	Button.AutoButtonColor = false
-	Button.ZIndex = 301
-	Button.Parent = CollapseButtonContainer
+	ZIndexManager.SetLayer(CollapseButton, "Overlay")
 
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0, 6)
-	Corner.Parent = Button
+	Corner.Parent = CollapseButton
 
-	Button.MouseEnter:Connect(function()
-		TweenService:Create(Button, TWEEN_INFO, {
-			BackgroundColor3 = Constants.COLORS.PanelHover
-		}):Play()
+	local IsCollapsed = false
+
+	CollapseButton.MouseButton1Click:Connect(function()
+		IsCollapsed = not IsCollapsed
+
+		if IsCollapsed then
+			EditorPanel.Visible = false
+			CollapseButton.Text = "▶"
+			CollapseButton.Position = UDim2.new(1, -35, 0, 5)
+
+			if TreeViewFrame and UIStateManager.GetCurrentView() == "Editor" then
+				TreeViewFrame.Size = UDim2.new(1, 0, 1, -30)
+			end
+
+			if GraphViewFrame and UIStateManager.GetCurrentView() == "Graph" then
+				GraphViewFrame.Size = UDim2.new(1, 0, 1, -30)
+			end
+		else
+			EditorPanel.Visible = true
+			CollapseButton.Text = "◀"
+			CollapseButton.Position = UDim2.new(0, -35, 0, 5)
+
+			if TreeViewFrame and UIStateManager.GetCurrentView() == "Editor" then
+				TreeViewFrame.Size = UDim2.new(0, 250, 1, -30)
+			end
+
+			if GraphViewFrame and UIStateManager.GetCurrentView() == "Graph" then
+				GraphViewFrame.Size = UDim2.new(0.6, 0, 1, -30)
+			end
+		end
 	end)
-
-	Button.MouseLeave:Connect(function()
-		TweenService:Create(Button, TWEEN_INFO, {
-			BackgroundColor3 = Constants.COLORS.Panel
-		}):Play()
-	end)
-
-	Button.MouseButton1Click:Connect(function()
-		ViewManager.ToggleEditorPanel()
-	end)
-
-	CollapseButton = Button
-	return Button
-end
-
-function ViewManager.ToggleEditorPanel()
-	if not EditorFrame or not CollapseButton or not CollapseButtonContainer or not MainContainer then
-		return
-	end
-
-	EditorPanelCollapsed = not EditorPanelCollapsed
-
-	if EditorPanelCollapsed then
-		CollapseButton.Text = "▶"
-
-		TweenService:Create(EditorFrame, TWEEN_INFO, {
-			Position = UDim2.new(1, 10, 0, Constants.SIZES.TopBarHeight + 5)
-		}):Play()
-
-		TweenService:Create(CollapseButtonContainer, TWEEN_INFO, {
-			Position = UDim2.new(1, -28, 0.5, 0)
-		}):Play()
-	else
-		CollapseButton.Text = "◀"
-
-		TweenService:Create(EditorFrame, TWEEN_INFO, {
-			Position = UDim2.new(1, -EditorFrame.AbsoluteSize.X, 0, Constants.SIZES.TopBarHeight + 5)
-		}):Play()
-
-		TweenService:Create(CollapseButtonContainer, TWEEN_INFO, {
-			Position = UDim2.new(1, -EditorFrame.AbsoluteSize.X - 28, 0.5, 0)
-		}):Play()
-	end
-end
-
-function ViewManager.IsEditorPanelCollapsed(): boolean
-	return EditorPanelCollapsed
 end
 
 function ViewManager.UpdateCollapseButtonPosition()
-	if not CollapseButtonContainer or not EditorFrame or EditorPanelCollapsed or CurrentView ~= "Graph" then
+	if CollapseButton and not CollapseButton.Parent then
 		return
 	end
-
-	CollapseButtonContainer.Position = UDim2.new(1, -EditorFrame.AbsoluteSize.X - 28, 0.5, 0)
 end
 
 return ViewManager

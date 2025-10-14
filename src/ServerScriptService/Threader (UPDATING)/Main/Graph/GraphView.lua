@@ -98,7 +98,14 @@ function GraphView.Initialize(Parent: Frame, Plugin: Plugin): Frame
 end
 
 function GraphView.Refresh(Tree: DialogNode?, OnNodeSelected: (DialogNode) -> (), OnChoiceSelected: (DialogChoice) -> ())
-	if not Workspace or not LinesRoot then return end
+	if not Workspace or not LinesRoot or not GraphContainer then
+		warn("[GraphView] GraphView not properly initialized")
+		return
+	end
+
+	if not GraphContainer.Visible then
+		return
+	end
 
 	for _, Frame in pairs(NodeFrames) do
 		Frame:Destroy()
@@ -107,7 +114,10 @@ function GraphView.Refresh(Tree: DialogNode?, OnNodeSelected: (DialogNode) -> ()
 
 	LinesRoot:ClearAllChildren()
 
-	if not Tree then return end
+	if not Tree then
+		warn("[GraphView] No tree to render")
+		return
+	end
 
 	GraphView.CalculatePositions(Tree)
 	GraphView.RenderNodes(Tree, OnNodeSelected)
@@ -169,6 +179,14 @@ function GraphView.RenderNodes(Tree: DialogNode, OnNodeSelected: (DialogNode) ->
 			NodeFrame.BackgroundColor3 = Colors.Primary
 		end
 
+		local ClickDetector = NodeFrame:FindFirstChildOfClass("TextButton")
+		if ClickDetector then
+			Connections:Add(ClickDetector.MouseButton1Click:Connect(function()
+				UIStateManager.SelectNode(Node)
+				OnNodeSelected(Node)
+			end))
+		end
+
 		Connections:Add(NodeFrame.InputBegan:Connect(function(Input)
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 				GraphView.OnNodeDragStart(NodeFrame)
@@ -179,11 +197,6 @@ function GraphView.RenderNodes(Tree: DialogNode, OnNodeSelected: (DialogNode) ->
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 				GraphView.OnNodeDragEnd()
 			end
-		end))
-
-		Connections:Add(NodeFrame.MouseButton1Click:Connect(function()
-			UIStateManager.SelectNode(Node)
-			OnNodeSelected(Node)
 		end))
 
 		if Node.Choices then

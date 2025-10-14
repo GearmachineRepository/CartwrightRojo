@@ -71,33 +71,21 @@ function NodeEditorView.Refresh(ScrollFrame: ScrollingFrame, OnRefresh: () -> ()
 	local SelectedNode = UIStateManager.GetSelectedNode()
 	local SelectedChoice = UIStateManager.GetSelectedChoice()
 
-	if not SelectedNode and not SelectedChoice then
+	if SelectedNode then
+		local ChoiceEditor = require(script.Parent.Parent.Editors.ChoiceEditor)
+		ChoiceEditor.Render(ScrollFrame, SelectedNode, OnRefresh)
+	elseif SelectedChoice then
+		local ChoiceEditor = require(script.Parent.Parent.Editors.ChoiceEditor)
+		ChoiceEditor.RenderChoice(ScrollFrame, SelectedChoice, OnRefresh)
+	else
 		local NoSelectionLabel = Instance.new("TextLabel")
-		NoSelectionLabel.Size = UDim2.new(1, 0, 0, 60)
+		NoSelectionLabel.Size = UDim2.new(1, 0, 0, 100)
 		NoSelectionLabel.BackgroundTransparency = 1
 		NoSelectionLabel.Text = "Select a node or choice to edit"
 		NoSelectionLabel.TextColor3 = Colors.TextSecondary
 		NoSelectionLabel.Font = Fonts.Regular
 		NoSelectionLabel.TextSize = 16
 		NoSelectionLabel.Parent = ScrollFrame
-		return
-	end
-
-	if SelectedNode then
-		local ChoiceEditor = require(script.Parent.Parent.Editors.ChoiceEditor)
-		ChoiceEditor.Render(ScrollFrame, SelectedNode, OnRefresh)
-	elseif SelectedChoice then
-		local SkillCheckEditor = require(script.Parent.Parent.Editors.SkillCheckEditor)
-		local ConditionalEditor = require(script.Parent.Parent.Editors.ConditionalEditor)
-
-		if SelectedChoice.SkillCheck then
-			SkillCheckEditor.Render(ScrollFrame, SelectedChoice, OnRefresh)
-		elseif SelectedChoice.Conditions then
-			ConditionalEditor.Render(ScrollFrame, SelectedChoice, OnRefresh)
-		else
-			local ChoiceEditor = require(script.Parent.Parent.Editors.ChoiceEditor)
-			ChoiceEditor.RenderChoice(ScrollFrame, SelectedChoice, OnRefresh)
-		end
 	end
 end
 
